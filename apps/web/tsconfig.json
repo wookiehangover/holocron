@@ -7,6 +7,8 @@
   ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "rootDirs": [".", "./.react-router/types"],
     "outDir": "dist",
