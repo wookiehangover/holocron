@@ -1,0 +1,24 @@
+{
+  "name": "@holocron/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentdb/sdk": "^1.1.26",
+    "@holocron/core": "workspace:*",
+    "hono": "^4.11.9"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.160"
+  }
+}

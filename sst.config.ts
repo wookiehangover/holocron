@@ -9,11 +9,14 @@ export default $config({
     };
   },
   async run() {
-    // Infrastructure is defined in infra/ and imported here
-    // await import("./infra/storage");
-    // await import("./infra/api");
-    // await import("./infra/processing");
-    // await import("./infra/database");
+    await import("./infra/storage");
+    await import("./infra/database");
+    const { api } = await import("./infra/api");
+    await import("./infra/processing");
+
+    return {
+      apiUrl: api.url,
+    };
   },
 });
 
