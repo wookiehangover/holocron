@@ -1,27 +1,52 @@
-# Dependencies
+# ── Dependencies ──────────────────────────────────────────────
 node_modules/
 .pnpm-store/
 
-# Build outputs
+# ── Build outputs ────────────────────────────────────────────
 dist/
 build/
 out/
 
-# IDE
+# ── Turborepo ────────────────────────────────────────────────
+.turbo/
+
+# ── SST v3 ───────────────────────────────────────────────────
+.sst/
+
+# ── AWS / CDK ────────────────────────────────────────────────
+.aws/
+cdk.out/
+
+# ── TypeScript ───────────────────────────────────────────────
+*.tsbuildinfo
+
+# ── Swift / Xcode / SPM ─────────────────────────────────────
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+*.app
+
+# ── Vite / cache ─────────────────────────────────────────────
+.cache/
+
+# ── IDE ──────────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# OS
+# ── OS ───────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Environment
+# ── Environment ──────────────────────────────────────────────
 .env
 .env.local
 .env.*.local
 
-# Logs
+# ── Logs ─────────────────────────────────────────────────────
 *.log
 npm-debug.log*
