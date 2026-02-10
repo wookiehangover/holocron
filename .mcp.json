@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "workspace-mcp": {
+      "type": "stdio",
+      "command": "/Users/sambreed/.augment/electron-node/node",
+      "args": [
+        "/Users/sambreed/.augment/mcp-server/mcp-stdio-server.cjs",
+        "hello-add",
+        "/Users/sambreed/Developer/holocron",
+        "5179"
+      ],
+      "env": {
+        "ELECTRON_RUN_AS_NODE": "1",
+        "PATH": "/Users/sambreed/.bun/bin:/Users/sambreed/.pyenv/shims:/Users/sambreed/.nvm/versions/node/v24.12.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Library/Apple/usr/bin:/Applications/Postgres.app/Contents/Versions/latest/bin:/Users/sambreed/.bun/bin:/Users/sambreed/.nvm/versions/node/v24.12.0/bin:/Users/sambreed/.deno/bin:/Users/sambreed/.local/bin:/Users/sambreed/.atuin/bin:/Users/sambreed/Library/pnpm:/Users/sambreed/.cargo/bin:/Users/sambreed/.orbstack/bin:/Users/sambreed/Developer/personal/scripts:/Users/sambreed/.orbstack/bin:/Users/sambreed/Developer/personal/scripts",
+        "HTTP_MCP_HOST": "127.0.0.1",
+        "HTTP_MCP_PORT": "5179",
+        "WORKSPACE_ID": "hello-add",
+        "WORKSPACE_PATH": "/Users/sambreed/Developer/holocron",
+        "AGENT_ID": "agent-cebe0242-ddd8-4de0-8c6d-b622caed3ae4",
+        "AGENT_NAME": "Coordinator",
+        "AGENT_SESSION_ID": "",
+        "IS_REMOTE": "false",
+        "ENVIRONMENT_CONFIG": "",
+        "ELECTRON_STORE_CWD": "/Users/sambreed/Library/Application Support/intent/"
+      }
+    }
+  }
+}
