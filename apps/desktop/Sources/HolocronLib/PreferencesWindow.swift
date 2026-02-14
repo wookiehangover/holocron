@@ -5,6 +5,9 @@ import os
 public final class PreferencesWindow: NSWindowController {
     private static let logger = Logger(subsystem: "com.sambreed.Holocron", category: "preferences")
 
+    /// Posted after preferences are saved so other components can react.
+    public static let didSaveNotification = Notification.Name("HolocronPreferencesDidSave")
+
     private var vaultPathField: NSTextField!
     private var apiKeyField: NSSecureTextField!
 
@@ -47,7 +50,7 @@ public final class PreferencesWindow: NSWindowController {
             x: margin + labelWidth + 8, y: 140,
             width: 340, height: fieldHeight
         )
-        vaultPathField.placeholderString = FileWatcher.defaultVaultPath
+        vaultPathField.placeholderString = FileWatcher.fallbackVaultPath
         contentView.addSubview(vaultPathField)
 
         // --- API Key ---
@@ -80,7 +83,7 @@ public final class PreferencesWindow: NSWindowController {
 
     private func loadCurrentValues() {
         // Load vault path from UserDefaults, falling back to the default
-        let savedPath = UserDefaults.standard.string(forKey: "vaultPath") ?? FileWatcher.defaultVaultPath
+        let savedPath = FileWatcher.defaultVaultPath
         vaultPathField.stringValue = savedPath
 
         // Load API key from Keychain
@@ -92,7 +95,7 @@ public final class PreferencesWindow: NSWindowController {
     @objc private func savePreferences() {
         let vaultPath = vaultPathField.stringValue.trimmingCharacters(in: .whitespaces)
         if !vaultPath.isEmpty {
-            UserDefaults.standard.set(vaultPath, forKey: "vaultPath")
+            UserDefaults.standard.set(vaultPath, forKey: FileWatcher.vaultPathKey)
             Self.logger.info("Vault path updated to: \(vaultPath, privacy: .public)")
         }
 
@@ -101,6 +104,8 @@ public final class PreferencesWindow: NSWindowController {
             APIClient.saveApiKey(apiKey)
             Self.logger.info("API key saved to Keychain")
         }
+
+        NotificationCenter.default.post(name: Self.didSaveNotification, object: nil)
 
         self.window?.close()
         NSApp.setActivationPolicy(.accessory)

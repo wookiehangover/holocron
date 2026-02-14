@@ -7,11 +7,19 @@ import os
 public final class FileWatcher {
     private static let logger = Logger(subsystem: "com.sambreed.Holocron", category: "watcher")
 
-    /// Default vault path.
-    public static let defaultVaultPath: String = {
+    /// UserDefaults key for the configured vault path.
+    public static let vaultPathKey = "vaultPath"
+
+    /// Hardcoded fallback when no custom path is configured.
+    public static let fallbackVaultPath: String = {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         return "\(home)/Holocron"
     }()
+
+    /// Resolved vault path — reads from UserDefaults, falls back to ~/Holocron.
+    public static var defaultVaultPath: String {
+        UserDefaults.standard.string(forKey: vaultPathKey) ?? fallbackVaultPath
+    }
 
     private let watchPath: String
     private var fsEventStream: FSEventStreamRef?

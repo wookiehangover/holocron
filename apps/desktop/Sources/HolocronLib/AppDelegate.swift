@@ -40,13 +40,28 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         buildMenu()
         statusItem.menu = menu
 
-        // Initialize API client (loads key from Keychain automatically)
-        let apiClient = APIClient()
+        startServices()
 
-        // Initialize sync engine with API client
+        // Re-initialize services when preferences change
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(preferencesDidChange),
+            name: PreferencesWindow.didSaveNotification,
+            object: nil
+        )
+    }
+
+    public func applicationWillTerminate(_ notification: Notification) {
+        stopServices()
+        logger.notice("Holocron terminated")
+    }
+
+    // MARK: - Service Lifecycle
+
+    private func startServices() {
+        let apiClient = APIClient()
         syncEngine = SyncEngine(apiClient: apiClient)
 
-        // Start watching the vault for changes
         let vaultPath = FileWatcher.defaultVaultPath
         fileWatcher = FileWatcher(
             watchPath: vaultPath,
@@ -56,14 +71,20 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         )
         fileWatcher?.start()
-
         logger.info("Watching vault at: \(vaultPath, privacy: .public)")
     }
 
-    public func applicationWillTerminate(_ notification: Notification) {
+    private func stopServices() {
         fileWatcher?.stop()
+        fileWatcher = nil
         syncEngine?.stop()
-        logger.notice("Holocron terminated")
+        syncEngine = nil
+    }
+
+    @objc private func preferencesDidChange() {
+        logger.info("Preferences changed, restarting services")
+        stopServices()
+        startServices()
     }
 
     // MARK: - Menu Construction
