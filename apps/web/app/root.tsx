@@ -5,8 +5,26 @@ import {
   Scripts,
   ScrollRestoration,
   isRouteErrorResponse,
+  useLoaderData,
 } from "react-router";
 import type { Route } from "./+types/root";
+
+// ---------------------------------------------------------------------------
+// Root loader — inject env vars for client-side use
+// ---------------------------------------------------------------------------
+
+export function loader() {
+  return {
+    ENV: {
+      API_URL: process.env.API_URL ?? "",
+      API_KEY: process.env.API_KEY ?? "",
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Layout — wraps every page
+// ---------------------------------------------------------------------------
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,6 +34,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; color: #1a1a1a; background: #fafafa; line-height: 1.5; }
+`,
+          }}
+        />
       </head>
       <body>
         {children}
@@ -26,9 +52,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// App — renders the matched route + injects window.ENV
+// ---------------------------------------------------------------------------
+
 export default function App() {
-  return <Outlet />;
+  const { ENV } = useLoaderData<typeof loader>();
+  return (
+    <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.ENV=${JSON.stringify(ENV)}`,
+        }}
+      />
+      <Outlet />
+    </>
+  );
 }
+
+// ---------------------------------------------------------------------------
+// Error boundary
+// ---------------------------------------------------------------------------
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = "Oops!";
