@@ -108,19 +108,50 @@ public final class PreferencesWindow: NSWindowController {
         NotificationCenter.default.post(name: Self.didSaveNotification, object: nil)
 
         self.window?.close()
-        NSApp.setActivationPolicy(.accessory)
+        restoreMenuBar()
     }
 
     @objc private func cancelPreferences() {
         self.window?.close()
-        NSApp.setActivationPolicy(.accessory)
+        restoreMenuBar()
     }
+
+    private var previousMainMenu: NSMenu?
 
     public func showWindow() {
         // Temporarily become a regular app so the window can receive focus
         NSApp.setActivationPolicy(.regular)
+
+        // Install a basic main menu with Edit so ⌘V/⌘C/⌘X/⌘A work in text fields
+        previousMainMenu = NSApp.mainMenu
+        NSApp.mainMenu = Self.buildEditMenu()
+
         self.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func restoreMenuBar() {
+        NSApp.mainMenu = previousMainMenu
+        previousMainMenu = nil
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    /// Builds a minimal main menu containing an Edit menu with standard text actions.
+    private static func buildEditMenu() -> NSMenu {
+        let mainMenu = NSMenu()
+
+        let editMenuItem = NSMenuItem()
+        editMenuItem.submenu = {
+            let menu = NSMenu(title: "Edit")
+            menu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+            menu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+            menu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+            menu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+            return menu
+        }()
+        mainMenu.addItem(editMenuItem)
+
+        return mainMenu
     }
 }
 
