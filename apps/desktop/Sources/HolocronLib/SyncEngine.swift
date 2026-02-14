@@ -122,6 +122,7 @@ public final class SyncEngine {
                 case (.some(_), .some(let local), .none):
                     logger.info("Remote deleted, removing local: \(path, privacy: .public)")
                     try fileManager.removeItem(at: local.url)
+                    removeEmptyParentDirectories(from: local.url.deletingLastPathComponent(), upTo: vaultURL)
                     manifest.removeValue(forKey: path)
 
                 // In manifest + NOT on disk + on remote → local was deleted
@@ -184,14 +185,14 @@ public final class SyncEngine {
 
     // MARK: - Local File Enumeration
 
-    private struct LocalFile {
+    struct LocalFile {
         let url: URL
         let relativePath: String
         let size: Int64
         let checksum: String
     }
 
-    private func enumerateLocalFiles(in vaultURL: URL) -> [LocalFile] {
+    func enumerateLocalFiles(in vaultURL: URL) -> [LocalFile] {
         var results: [LocalFile] = []
         guard let enumerator = fileManager.enumerator(
             at: vaultURL,
@@ -377,6 +378,24 @@ public final class SyncEngine {
             return utType.preferredMIMEType ?? "application/octet-stream"
         }
         return "application/octet-stream"
+    }
+
+    // MARK: - Directory Cleanup
+
+    /// Remove empty parent directories from `directory` up to (but not including) `root`.
+    private func removeEmptyParentDirectories(from directory: URL, upTo root: URL) {
+        var current = directory.standardizedFileURL
+        let rootStandardized = root.standardizedFileURL
+
+        while current != rootStandardized {
+            do {
+                try fileManager.removeItem(at: current)
+            } catch {
+                // Directory not empty or any other error — stop walking.
+                break
+            }
+            current = current.deletingLastPathComponent().standardizedFileURL
+        }
     }
 
     // MARK: - Errors

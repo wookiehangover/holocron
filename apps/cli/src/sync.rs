@@ -353,3 +353,185 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
     println!("sync complete");
     Ok(())
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    /// Helper: create a file inside `base` at the given relative path,
+    /// creating intermediate directories as needed.
+    fn touch(base: &Path, rel: &str) {
+        let full = base.join(rel);
+        if let Some(parent) = full.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(&full, format!("content of {rel}")).unwrap();
+    }
+
+    // -----------------------------------------------------------------------
+    // enumerate_local_files / walk_dir
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn enumerates_files_in_nested_subdirectories() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        touch(root, "top.txt");
+        touch(root, "sub/mid.txt");
+        touch(root, "sub/deep/bottom.txt");
+        touch(root, "a/b/c/d.txt");
+
+        let files = enumerate_local_files(root);
+        let mut paths: Vec<String> = files.into_iter().map(|f| f.relative_path).collect();
+        paths.sort();
+
+        assert_eq!(
+            paths,
+            vec![
+                "a/b/c/d.txt",
+                "sub/deep/bottom.txt",
+                "sub/mid.txt",
+                "top.txt",
+            ]
+        );
+    }
+
+    #[test]
+    fn skips_hidden_directories_inside_subfolders() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        touch(root, "visible/file.txt");
+        touch(root, "visible/.hidden_dir/secret.txt");
+        touch(root, ".top_hidden/nope.txt");
+        touch(root, "a/.git/config");
+
+        let files = enumerate_local_files(root);
+        let paths: Vec<String> = files.into_iter().map(|f| f.relative_path).collect();
+
+        assert_eq!(paths, vec!["visible/file.txt"]);
+    }
+
+    #[test]
+    fn skips_hidden_files_inside_subfolders() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        touch(root, "sub/.hidden_file");
+        touch(root, "sub/visible.txt");
+        touch(root, ".DS_Store");
+
+        let files = enumerate_local_files(root);
+        let paths: Vec<String> = files.into_iter().map(|f| f.relative_path).collect();
+
+        assert_eq!(paths, vec!["sub/visible.txt"]);
+    }
+
+    #[test]
+    fn produces_correct_relative_paths() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        touch(root, "notes/journal/2024/jan.md");
+        touch(root, "notes/journal/2024/feb.md");
+        touch(root, "readme.txt");
+
+        let files = enumerate_local_files(root);
+        let mut paths: Vec<String> = files.into_iter().map(|f| f.relative_path).collect();
+        paths.sort();
+
+        assert_eq!(
+            paths,
+            vec![
+                "notes/journal/2024/feb.md",
+                "notes/journal/2024/jan.md",
+                "readme.txt",
+            ]
+        );
+
+        // Verify no paths start with '/' (they should be relative)
+        for p in &paths {
+            assert!(!p.starts_with('/'), "path should be relative: {p}");
+        }
+    }
+
+    #[test]
+    fn filters_conflict_files_in_subfolders() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        touch(root, "sub/file.txt");
+        touch(root, "sub/file.txt.conflict-20240101120000");
+        touch(root, "deep/a/b.md");
+        touch(root, "deep/a/b.md.conflict-20240615093000");
+        touch(root, "top.conflict-20240101000000");
+
+        let files = enumerate_local_files(root);
+        let mut paths: Vec<String> = files.into_iter().map(|f| f.relative_path).collect();
+        paths.sort();
+
+        assert_eq!(paths, vec!["deep/a/b.md", "sub/file.txt"]);
+    }
+
+    #[test]
+    fn empty_directory_returns_no_files() {
+        let tmp = TempDir::new().unwrap();
+        let files = enumerate_local_files(tmp.path());
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn empty_subdirectories_are_ignored() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        // Create empty subdirectories
+        fs::create_dir_all(root.join("empty_sub")).unwrap();
+        fs::create_dir_all(root.join("a/b/c")).unwrap();
+        touch(root, "real.txt");
+
+        let files = enumerate_local_files(root);
+        let paths: Vec<String> = files.into_iter().map(|f| f.relative_path).collect();
+
+        assert_eq!(paths, vec!["real.txt"]);
+    }
+
+    #[test]
+    fn absolute_paths_are_correct_for_subfolder_files() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        touch(root, "sub/deep/file.txt");
+
+        let files = enumerate_local_files(root);
+        assert_eq!(files.len(), 1);
+
+        let file = &files[0];
+        assert_eq!(file.relative_path, "sub/deep/file.txt");
+        assert_eq!(file.absolute_path, root.join("sub/deep/file.txt"));
+        assert!(file.absolute_path.exists());
+    }
+
+    // -----------------------------------------------------------------------
+    // compute_checksum
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn checksum_is_consistent_for_subfolder_files() {
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path();
+
+        touch(root, "sub/file.txt");
+        let path = root.join("sub/file.txt");
+
+        let c1 = compute_checksum(&path).unwrap();
+        let c2 = compute_checksum(&path).unwrap();
+        assert_eq!(c1, c2);
+        // SHA-256 hex is 64 chars
+        assert_eq!(c1.len(), 64);
+    }
+}
