@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { connectDb, ensureSchema, insertFile, getFileById, listFiles, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum } from "./db.js";
+import { connectDb, ensureSchema, insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -63,6 +63,11 @@ app.get("/health", (c) => {
 app.get("/files", async (c) => {
   const files = await listFiles();
   return c.json({ files });
+});
+
+app.get("/files/version", async (c) => {
+  const version = await getVaultVersion();
+  return c.json(version);
 });
 
 app.post("/files/upload", async (c) => {

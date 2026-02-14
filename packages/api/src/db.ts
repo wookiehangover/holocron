@@ -181,6 +181,24 @@ export async function listFiles(): Promise<HolocronFile[]> {
   return rows.map(rowToFile);
 }
 
+/** Return the latest vault version info (latest change timestamp + file count). */
+export async function getVaultVersion(): Promise<{
+  latestChange: string | null;
+  fileCount: number;
+}> {
+  const conn = getDb();
+  const result = await conn.execute({
+    sql: "SELECT MAX(updated_at) as latest_change, COUNT(*) as file_count FROM files",
+  });
+  const row = result.results[0]?.rows?.[0] as
+    | Record<string, unknown>
+    | undefined;
+  return {
+    latestChange: (row?.latest_change as string) ?? null,
+    fileCount: (row?.file_count as number) ?? 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Share-link helpers
 // ---------------------------------------------------------------------------
