@@ -59,12 +59,6 @@ export async function getFile(
   return res.json();
 }
 
-/**
- * Upload a file via the three-step presigned URL flow:
- * 1. POST /files/upload → get presigned S3 URL + fileId
- * 2. PUT file to the presigned URL
- * 3. POST /files/upload/confirm → finalize
- */
 /** Create a share link for a file. Returns the share link id and URL. */
 export async function createShareLink(
   fileId: string,

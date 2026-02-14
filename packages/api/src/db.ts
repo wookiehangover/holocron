@@ -78,6 +78,7 @@ function rowToFile(row: Record<string, unknown>): HolocronFile {
     id: row.id as string,
     name: row.name as string,
     path: row.path as string,
+    s3Key: row.s3_key as string,
     size: row.size as number,
     mimeType: row.mime_type as string,
     checksum: row.checksum as string,
@@ -105,12 +106,13 @@ function rowToShareLink(row: Record<string, unknown>): ShareLink {
 export async function insertFile(file: HolocronFile): Promise<void> {
   const conn = getDb();
   await conn.execute({
-    sql: `INSERT INTO files (id, name, path, size, mime_type, checksum, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO files (id, name, path, s3_key, size, mime_type, checksum, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     params: [
       file.id,
       file.name,
       file.path,
+      file.s3Key ?? file.path,
       file.size,
       file.mimeType,
       file.checksum,

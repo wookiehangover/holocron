@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS files (
     id         TEXT    NOT NULL PRIMARY KEY,
     name       TEXT    NOT NULL,
     path       TEXT    NOT NULL UNIQUE,
+    s3_key     TEXT    NOT NULL,
     size       INTEGER NOT NULL,
     mime_type  TEXT    NOT NULL,
     checksum   TEXT    NOT NULL,

@@ -76,7 +76,8 @@ app.post("/files/upload", async (c) => {
   const file: HolocronFile = {
     id: fileId,
     name: body.name,
-    path: s3Key,
+    path: body.path,
+    s3Key,
     size: body.size,
     mimeType: body.mimeType,
     checksum: "",
@@ -106,7 +107,7 @@ app.post("/files/upload/confirm", async (c) => {
   await sfn.send(
     new StartExecutionCommand({
       stateMachineArn,
-      input: JSON.stringify({ s3Key: file.path }),
+      input: JSON.stringify({ s3Key: file.s3Key ?? file.path }),
     }),
   );
 
@@ -119,7 +120,7 @@ app.get("/files/:id", async (c) => {
   if (!file) {
     return c.json({ error: "File not found" }, 404);
   }
-  const downloadUrl = await getPresignedGetUrl(getBucketName(), file.path);
+  const downloadUrl = await getPresignedGetUrl(getBucketName(), file.s3Key ?? file.path);
   return c.json({ file, downloadUrl });
 });
 
@@ -173,7 +174,7 @@ app.get("/share/:token", async (c) => {
     return c.json({ error: "File not found" }, 404);
   }
 
-  const downloadUrl = await getPresignedGetUrl(getBucketName(), file.path);
+  const downloadUrl = await getPresignedGetUrl(getBucketName(), file.s3Key ?? file.path);
 
   return c.json({
     file: { name: file.name, size: file.size, mimeType: file.mimeType },

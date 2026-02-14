@@ -5,6 +5,7 @@ export interface HolocronFile {
   id: string;
   name: string;
   path: string;
+  s3Key?: string;
   size: number;
   mimeType: string;
   checksum: string;
