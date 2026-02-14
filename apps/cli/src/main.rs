@@ -2,6 +2,7 @@ mod api;
 mod config;
 
 use clap::{Parser, Subcommand};
+use api::ApiClient;
 use config::Config;
 
 #[derive(Parser)]
@@ -24,6 +25,9 @@ enum Command {
     Share {
         /// File ID to share
         id: String,
+        /// Optional expiration time in seconds
+        #[arg(long)]
+        expires_in: Option<u64>,
     },
     /// Get a presigned download URL for a file
     Url {
@@ -99,17 +103,65 @@ async fn main() {
                 println!("{value}");
             }
         },
-        Command::Ls => {
-            eprintln!("ls: not yet implemented");
+        Command::Health => {
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+            match api.health().await {
+                Ok(()) => println!("API is healthy"),
+                Err(e) => {
+                    eprintln!("Health check failed: {e}");
+                    std::process::exit(1);
+                }
+            }
         }
-        Command::Share { id } => {
-            eprintln!("share {id}: not yet implemented");
+        Command::Ls => {
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+            match api.list_files().await {
+                Ok(files) => {
+                    if files.is_empty() {
+                        println!("No files found.");
+                    } else {
+                        println!(
+                            "{:<36}  {:<30}  {:>10}  {}",
+                            "ID", "NAME", "SIZE", "PATH"
+                        );
+                        println!("{}", "-".repeat(90));
+                        for f in &files {
+                            println!(
+                                "{:<36}  {:<30}  {:>10}  {}",
+                                f.id, f.name, f.size, f.path
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to list files: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Command::Share { id, expires_in } => {
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+            match api.create_share_link(&id, expires_in).await {
+                Ok(resp) => println!("{}", resp.url),
+                Err(e) => {
+                    eprintln!("Failed to create share link: {e}");
+                    std::process::exit(1);
+                }
+            }
         }
         Command::Url { id } => {
-            eprintln!("url {id}: not yet implemented");
-        }
-        Command::Health => {
-            eprintln!("health: not yet implemented");
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+            match api.get_file(&id).await {
+                Ok(detail) => println!("{}", detail.download_url),
+                Err(e) => {
+                    eprintln!("Failed to get download URL: {e}");
+                    std::process::exit(1);
+                }
+            }
         }
         Command::Sync => {
             eprintln!("sync: not yet implemented");
