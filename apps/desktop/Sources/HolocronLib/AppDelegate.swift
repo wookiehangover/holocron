@@ -18,9 +18,9 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // SF Symbol names for menubar icon states
     private enum Icon {
-        static let synced = "tray.fill"
-        static let syncing = "tray.and.arrow.up.fill"
-        static let error = "tray.full.fill"
+        static let synced = "moon.dust"
+        static let syncing = "moon.dust.fill"
+        static let error = "cloud.moon.rain"
     }
 
     // MARK: - Lifecycle
@@ -228,4 +228,3 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         preferencesWindow?.showWindow()
     }
 }
-
