@@ -17,9 +17,9 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // SF Symbol names for menubar icon states
     private enum Icon {
-        static let synced = "externaldrive.fill.badge.checkmark"
-        static let syncing = "arrow.triangle.2.circlepath"
-        static let error = "externaldrive.fill.badge.xmark"
+        static let synced = "tray.fill"
+        static let syncing = "tray.and.arrow.up.fill"
+        static let error = "tray.full.fill"
     }
 
     // MARK: - Lifecycle
@@ -39,8 +39,11 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         buildMenu()
         statusItem.menu = menu
 
-        // Initialize sync engine
-        syncEngine = SyncEngine()
+        // Initialize API client (loads key from Keychain automatically)
+        let apiClient = APIClient()
+
+        // Initialize sync engine with API client
+        syncEngine = SyncEngine(apiClient: apiClient)
 
         // Start watching the vault for changes
         let vaultPath = FileWatcher.defaultVaultPath
@@ -48,7 +51,7 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             watchPath: vaultPath,
             onChange: { [weak self] in
                 self?.logger.info("Vault changed, scheduling sync")
-                self?.syncEngine?.syncNow()
+                Task { await self?.syncEngine?.syncNow() }
             }
         )
         fileWatcher?.start()
@@ -169,11 +172,11 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setIcon(Icon.syncing)
         syncNowMenuItem.isEnabled = false
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.syncEngine?.syncNow()
-            DispatchQueue.main.async {
-                self?.syncNowMenuItem.isEnabled = true
-                self?.refreshStatus()
+        Task {
+            await syncEngine?.syncNow()
+            await MainActor.run {
+                syncNowMenuItem.isEnabled = true
+                refreshStatus()
             }
         }
     }
