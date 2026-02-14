@@ -3,7 +3,7 @@ import { handle } from "hono/aws-lambda";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { connectDb, ensureSchema, insertFile, getFileById, listFiles } from "./db.js";
+import { connectDb, ensureSchema, insertFile, getFileById, listFiles, insertShareLink, getShareLinkByUrl } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl } from "./s3.js";
 
 const app = new Hono();
@@ -128,18 +128,57 @@ app.get("/files/:id", async (c) => {
 // ---------------------------------------------------------------------------
 
 app.post("/share", async (c) => {
-  // TODO: create share link in AgentDB
-  const link: Partial<ShareLink> = {
-    id: crypto.randomUUID(),
-    url: "https://holocron.example.com/s/placeholder",
+  const body = await c.req.json<{ fileId: string; expiresIn?: number }>();
+
+  const file = await getFileById(body.fileId);
+  if (!file) {
+    return c.json({ error: "File not found" }, 404);
+  }
+
+  const token = crypto.randomUUID();
+  const url = `/share/${token}`;
+  const expiresAt = body.expiresIn
+    ? new Date(Date.now() + body.expiresIn * 1000)
+    : null;
+  const now = new Date();
+
+  const link: ShareLink = {
+    id: token,
+    fileId: body.fileId,
+    url,
+    expiresAt,
+    createdAt: now,
   };
-  return c.json(link, 201);
+
+  await insertShareLink(link);
+
+  return c.json({ id: link.id, url: link.url, expiresAt: link.expiresAt }, 201);
 });
 
-app.get("/share/:token", (c) => {
+app.get("/share/:token", async (c) => {
   const token = c.req.param("token");
-  // TODO: resolve share link from AgentDB
-  return c.json({ token, message: "not implemented" }, 501);
+  const url = `/share/${token}`;
+
+  const link = await getShareLinkByUrl(url);
+  if (!link) {
+    return c.json({ error: "Share link not found" }, 404);
+  }
+
+  if (link.expiresAt && link.expiresAt.getTime() < Date.now()) {
+    return c.json({ error: "Share link expired" }, 410);
+  }
+
+  const file = await getFileById(link.fileId);
+  if (!file) {
+    return c.json({ error: "File not found" }, 404);
+  }
+
+  const downloadUrl = await getPresignedGetUrl(getBucketName(), file.path);
+
+  return c.json({
+    file: { name: file.name, size: file.size, mimeType: file.mimeType },
+    downloadUrl,
+  });
 });
 
 // ---------------------------------------------------------------------------
