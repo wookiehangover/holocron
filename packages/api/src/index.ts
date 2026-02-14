@@ -3,8 +3,8 @@ import { handle } from "hono/aws-lambda";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { connectDb, ensureSchema, insertFile, getFileById } from "./db.js";
-import { getBucketName, getPresignedPutUrl } from "./s3.js";
+import { connectDb, ensureSchema, insertFile, getFileById, listFiles } from "./db.js";
+import { getBucketName, getPresignedPutUrl, getPresignedGetUrl } from "./s3.js";
 
 const app = new Hono();
 
@@ -53,9 +53,8 @@ app.get("/health", (c) => {
 // Files
 // ---------------------------------------------------------------------------
 
-app.get("/files", (c) => {
-  // TODO: query AgentDB for file list
-  const files: HolocronFile[] = [];
+app.get("/files", async (c) => {
+  const files = await listFiles();
   return c.json({ files });
 });
 
@@ -114,10 +113,14 @@ app.post("/files/upload/confirm", async (c) => {
   return c.json({ status: "processing" });
 });
 
-app.get("/files/:id", (c) => {
+app.get("/files/:id", async (c) => {
   const id = c.req.param("id");
-  // TODO: fetch file metadata from AgentDB
-  return c.json({ id, message: "not implemented" }, 501);
+  const file = await getFileById(id);
+  if (!file) {
+    return c.json({ error: "File not found" }, 404);
+  }
+  const downloadUrl = await getPresignedGetUrl(getBucketName(), file.path);
+  return c.json({ file, downloadUrl });
 });
 
 // ---------------------------------------------------------------------------
