@@ -1,5 +1,7 @@
 mod api;
 mod config;
+mod daemon;
+mod sync;
 
 use clap::{Parser, Subcommand};
 use api::ApiClient;
@@ -164,10 +166,18 @@ async fn main() {
             }
         }
         Command::Sync => {
-            eprintln!("sync: not yet implemented");
+            let config = Config::load();
+            if let Err(e) = sync::run_sync(&config).await {
+                eprintln!("Sync failed: {e}");
+                std::process::exit(1);
+            }
         }
         Command::Daemon => {
-            eprintln!("daemon: not yet implemented");
+            let config = Config::load();
+            if let Err(e) = daemon::run_daemon(&config).await {
+                eprintln!("Daemon failed: {e}");
+                std::process::exit(1);
+            }
         }
     }
 }
