@@ -35,9 +35,6 @@ new aws.iam.RolePolicy("ApiSfnStartExecutionPolicy", {
   ),
 });
 
-export const api = new sst.aws.ApiGatewayV2("HolocronGateway", {
-  routes: {
-    $default: honoFn,
-  },
-});
+export const api = new sst.aws.ApiGatewayV2("HolocronGateway");
+api.route("$default", honoFn.arn);
 
