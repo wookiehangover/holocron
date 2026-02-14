@@ -4,8 +4,8 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { connectDb, ensureSchema, insertFile, getFileById, listFiles, insertShareLink, getShareLinkByUrl } from "./db.js";
-import { getBucketName, getPresignedPutUrl, getPresignedGetUrl } from "./s3.js";
+import { connectDb, ensureSchema, insertFile, getFileById, listFiles, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl } from "./db.js";
+import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
 
@@ -129,6 +129,27 @@ app.get("/files/:id", async (c) => {
   }
   const downloadUrl = await getPresignedGetUrl(getBucketName(), file.s3Key ?? file.path);
   return c.json({ file, downloadUrl });
+});
+
+app.delete("/files/:id", async (c) => {
+  const id = c.req.param("id");
+  const file = await getFileById(id);
+  if (!file) {
+    return c.json({ error: "File not found" }, 404);
+  }
+
+  // Delete S3 object first — abort if this fails
+  try {
+    await deleteObject(getBucketName(), file.s3Key ?? file.path);
+  } catch {
+    return c.json({ error: "Failed to delete file from storage" }, 500);
+  }
+
+  // Remove share links, then the file record
+  await deleteShareLinksByFileId(id);
+  await deleteFile(id);
+
+  return c.body(null, 204);
 });
 
 // ---------------------------------------------------------------------------

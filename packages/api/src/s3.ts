@@ -5,7 +5,7 @@
  * functions for generating presigned PUT (upload) and GET (download) URLs.
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // ---------------------------------------------------------------------------
@@ -84,5 +84,24 @@ export async function getPresignedGetUrl(
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AWS SDK v3 cross-package type mismatch
   return getSignedUrl(client as any, command, { expiresIn });
+}
+
+// ---------------------------------------------------------------------------
+// Delete helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Delete an object from S3.
+ *
+ * @param bucket - S3 bucket name
+ * @param key    - Object key
+ */
+export async function deleteObject(bucket: string, key: string): Promise<void> {
+  const client = getClient();
+  const command = new DeleteObjectCommand({
+    Bucket: bucket,
+    Key: key,
+  });
+  await client.send(command);
 }
 

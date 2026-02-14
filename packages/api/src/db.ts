@@ -196,3 +196,25 @@ export async function getShareLinkByUrl(
   return row ? rowToShareLink(row) : null;
 }
 
+/** Delete all share links associated with a file. */
+export async function deleteShareLinksByFileId(fileId: string): Promise<void> {
+  const conn = getDb();
+  await conn.execute({
+    sql: "DELETE FROM share_links WHERE file_id = ?",
+    params: [fileId],
+  });
+}
+
+// ---------------------------------------------------------------------------
+// File deletion
+// ---------------------------------------------------------------------------
+
+/** Delete a file record by its primary key. */
+export async function deleteFile(id: string): Promise<void> {
+  const conn = getDb();
+  await conn.execute({
+    sql: "DELETE FROM files WHERE id = ?",
+    params: [id],
+  });
+}
+
