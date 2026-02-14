@@ -13,6 +13,7 @@ import { SCHEMA_DDL } from "./db/schema.js";
 const AGENTDB_API_URL =
   process.env.AGENTDB_API_URL ?? "https://api.agentdb.dev";
 const AGENTDB_API_KEY = process.env.AGENTDB_API_KEY ?? "";
+const AGENTDB_TOKEN = process.env.AGENTDB_TOKEN ?? "";
 const AGENTDB_DB_NAME = process.env.AGENTDB_DB_NAME ?? "holocron";
 
 /**
@@ -40,7 +41,7 @@ function getDb(): DatabaseConnection {
  * Call this once during Lambda cold start to establish a connection.
  */
 export async function connectDb(token?: string): Promise<DatabaseConnection> {
-  const authToken = token ?? AGENTDB_API_KEY;
+  const authToken = token ?? AGENTDB_TOKEN;
   _db = agentdb.connect(authToken, AGENTDB_DB_NAME, "sqlite");
   return _db;
 }

@@ -14,3 +14,9 @@ export const AGENTDB_DB_NAME = "holocron";
  */
 export const agentDbApiKey = new sst.Secret("AgentDbApiKey");
 
+/**
+ * SST secret for the AgentDB connection token.
+ * Set via: `sst secret set AgentDbToken <value>`
+ */
+export const agentDbToken = new sst.Secret("AgentDbToken");
+
