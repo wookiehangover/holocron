@@ -36,6 +36,11 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
         "kind": "actor"
       },
       {
+        "id": "cli",
+        "label": "Rust CLI\n(cross-platform)",
+        "kind": "actor"
+      },
+      {
         "id": "apigw",
         "label": "API Gateway v2",
         "kind": "gateway"
@@ -105,6 +110,19 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
         "dashed": true
       },
       {
+        "id": "e9",
+        "from": "cli",
+        "to": "apigw",
+        "label": "HTTPS"
+      },
+      {
+        "id": "e10",
+        "from": "cli",
+        "to": "s3",
+        "label": "direct upload/download\n(presigned URL)",
+        "dashed": true
+      },
+      {
         "id": "e7",
         "from": "sfn",
         "to": "processfn",
@@ -129,7 +147,7 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
   "states": [
     {
       "id": "overview",
-      "narrative": "Full system: two clients talk to the API, which coordinates S3 storage and AgentDB metadata. A Step Functions pipeline processes uploads asynchronously.",
+      "narrative": "Full system: three clients (desktop app, web app, Rust CLI) talk to the API, which coordinates S3 storage and AgentDB metadata. A Step Functions pipeline processes uploads asynchronously.",
       "highlightedNodes": [],
       "highlightedEdges": []
     },
@@ -174,7 +192,8 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
 holocron/
 ├── apps/
 │   ├── web/             → React Router v7 + Vite (SSR-capable)
-│   └── desktop/         → Swift/SwiftUI macOS menubar app
+│   ├── desktop/         → Swift/SwiftUI macOS menubar app
+│   └── cli/             → Rust CLI (sync, file management, daemon mode)
 ├── packages/
 │   ├── core/            → @holocron/core — shared TypeScript types & utils
 │   ├── api/             → @holocron/api — Hono REST API (deployed to Lambda)
@@ -447,26 +466,32 @@ Non-production stages are fully torn down on removal. Production retains resourc
 
 **Runtime**: Hono framework on AWS Lambda behind API Gateway v2**Entry**: `packages/api/src/index.ts` → exported as `handler` via `hono/aws-lambda`
 
-### Current endpoints
+### Endpoints
 
 | Method | Path | Status | Purpose |
 | --- | --- | --- | --- |
-| GET | /health | ✅ Implemented | Health check |
-| GET | /files | 🔲 Stub | List all files in vault |
-| POST | /files/upload | 🔲 Stub | Request presigned upload URL |
-| GET | /files/:id | 🔲 Stub | Get file metadata by ID |
-| POST | /share | 🔲 Stub | Create a share link |
-| GET | /share/:token | 🔲 Stub | Resolve a share link |
+| GET | /health | ✅ Implemented | Health check (excluded from auth) |
+| GET | /files | ✅ Implemented | List all files in vault |
+| POST | /files/upload | ✅ Implemented | Request presigned upload URL |
+| POST | /files/upload/confirm | ✅ Implemented | Confirm upload; optionally stores client-supplied `checksum` |
+| GET | /files/:id | ✅ Implemented | Get file metadata + presigned download URL |
+| DELETE | /files/:id | ✅ Implemented | Delete file (S3 object + share links + DB record) |
+| POST | /share | ✅ Implemented | Create a share link |
+| GET | /share/:token | ✅ Implemented | Resolve a share link (excluded from auth) |
+
+### Authentication
+
+API key authentication is implemented via the `apiKeyAuth` middleware (`packages/api/src/middleware/auth.ts`). All requests must include an `X-Api-Key` header matching the `AGENTDB_API_KEY` environment variable. Excluded paths: `/health`, `/share/:token` (public resolution), and CORS preflight (`OPTIONS`).
 
 ### Database access
 
-`packages/api/src/db.ts` provides a singleton `DatabaseService` (from `@agentdb/sdk`) and a `connectDb()` helper. AgentDB is a serverless SQLite-over-HTTP service — no connection pooling or VPC required.
+`packages/api/src/db.ts` provides a singleton `DatabaseService` (from `@agentdb/sdk`) and a `connectDb()` helper. AgentDB is a serverless SQLite-over-HTTP service — no connection pooling or VPC required. Schema is bootstrapped on every cold start via `ensureSchema()` (idempotent `CREATE TABLE IF NOT EXISTS`).
 
 ### Key design decisions
 
 - **Presigned URLs for upload/download** — clients upload directly to S3, never stream through Lambda. This keeps Lambda lightweight and avoids payload size limits.
 - **Single catch-all route** — API Gateway's `$default` route sends everything to one Lambda. Hono handles routing internally. Simpler than per-route Lambda functions.
-- **No auth yet** — authentication is not implemented. This is single-user, but an API key or JWT will be needed before deployment. (See [Open questions](#10-open-questions).)
+- **API key auth** — a single shared key (`X-Api-Key` header) protects all mutating endpoints. Sufficient for single-user self-hosted deployment.
 
 ## 7. File processing pipeline
 
@@ -595,9 +620,11 @@ Sources/
 │   └── main.swift    → NSApplication setup, .accessory activation policy
 └── HolocronLib/      → Library target (all logic, testable)
     ├── AppDelegate    → Menubar item, status icon, menu construction
+    ├── Config         → Shared config (~/.config/holocron/config.json)
     ├── FileWatcher    → FSEvents-based directory watcher with debouncing
-    ├── SyncEngine     → Sync orchestration (placeholder)
-    └── APIClient      → HTTP client for Holocron API (placeholder)
+    ├── SyncEngine     → Bidirectional sync with manifest-based change detection
+    ├── APIClient      → HTTP client for Holocron API
+    └── PreferencesWindow → Settings UI
 ```
 
 ### Key components
@@ -605,22 +632,27 @@ Sources/
 **FileWatcher**
 
 - Uses macOS `FSEvents` API for efficient filesystem monitoring
-- Watches `~/Holocron` (configurable)
+- Watches `~/Holocron` (configurable via `Config`)
 - Debounces rapid changes (2-second window by default)
 - Filters out hidden directories (`.git/`, `.obsidian/`, etc.) but allows hidden leaf files (`.gitignore`)
 
 **SyncEngine**
 
 - State machine: `idle` → `syncing` → `idle` / `error`
-- Currently a placeholder — `syncNow()` sleeps 100ms and returns
-- Will be wired to the API via `APIClient` for actual S3 sync
+- Performs real bidirectional sync via three-way manifest comparison (manifest × local × remote)
+- **SHA-256 checksums** via CryptoKit for change detection and conflict identification
+- **Sync state manifest** persisted at `~/.config/holocron/sync-state.json` — maps each vault-relative path to its last-known checksum and remote file ID
+- **Delete handling**: if a file was in the manifest but is now missing locally, the remote copy is deleted via `DELETE /files/:id`; if missing remotely, the local copy is removed
+- **Conflict resolution**: when both sides change, the local file is renamed to `<name>.conflict-<timestamp>.<ext>` and the remote version is downloaded to the original path
+- `.conflict-*` files are excluded from sync enumeration
+- **Re-entrancy guard**: concurrent `syncNow()` calls are coalesced — only one sync runs at a time, with at most one queued follow-up
 
 **APIClient**
 
-- HTTP client wrapping `URLSession`
-- Exposes `requestUploadURL()`, `requestDownloadURL()`, `listRemoteFiles()`
-- All methods currently throw `.notImplemented`
-- Defaults to `http://localhost:3000` base URL (will switch to deployed API Gateway URL)
+- HTTP client wrapping `URLSession` with `X-Api-Key` authentication
+- Reads base URL and API key from `Config` (shared `~/.config/holocron/config.json`)
+- Fully implemented methods: `requestUploadURL`, `confirmUpload`, `requestDownloadURL`, `listRemoteFiles`, `deleteFile`, `createShareLink`
+- ISO 8601 date decoding with fractional-seconds support
 
 ### Build & distribution
 
@@ -642,3 +674,85 @@ The web app is in the pnpm workspace but does **not** deploy via SST yet — it'
 - Deploy to CloudFront + S3 as a static SPA
 - Deploy as SSR via Lambda@Edge or a separate Lambda
 - Keep it as a local dev tool only
+
+
+## 10. Rust CLI
+
+**Language**: Rust (edition 2021) · **Async runtime**: Tokio · **CLI framework**: Clap (derive)
+**Location**: `apps/cli/` · **Binary name**: `holocron`
+
+The Rust CLI provides cross-platform (macOS, Linux, Windows) command-line access to the Holocron vault. It shares configuration and sync state with the macOS desktop app.
+
+### Module structure
+
+```
+apps/cli/src/
+├── main.rs      → Clap CLI definition, command dispatch
+├── config.rs    → Config load/save (~/.config/holocron/config.json, camelCase keys)
+├── api.rs       → HTTP client (reqwest) for all API endpoints
+├── sync.rs      → Bidirectional sync engine (manifest-based, SHA-256)
+└── daemon.rs    → Background watcher (notify crate) with debounced sync
+```
+
+### Commands
+
+| Command | Description |
+| --- | --- |
+| `holocron config show` | Print current configuration as JSON |
+| `holocron config set <key> <value>` | Set a config value (`api-url`, `vault-path`, `api-key`) |
+| `holocron config get <key>` | Get a single config value |
+| `holocron health` | Check API connectivity |
+| `holocron ls` | List remote files (tabular output) |
+| `holocron share <id> [--expires-in N]` | Create a share URL |
+| `holocron url <id>` | Get a presigned download URL |
+| `holocron sync` | One-shot bidirectional sync |
+| `holocron daemon` | Watch vault directory and sync on changes |
+
+### Shared state
+
+- **Config**: `~/.config/holocron/config.json` — JSON with camelCase keys (`apiURL`, `apiKey`, `vaultPath`), compatible with the Swift desktop app's `Config.swift`
+- **Sync manifest**: `~/.config/holocron/sync-state.json` — maps vault-relative paths to `{ checksum, fileId }` entries. Both the Rust CLI and Swift app read/write this file.
+
+### Sync algorithm
+
+The sync engine (`sync.rs`) uses the same three-way comparison as the Swift `SyncEngine`:
+
+1. Load the manifest (last-known state)
+2. List remote files via `GET /files`
+3. Enumerate local files (skipping hidden dirs and `.conflict-*` files)
+4. For each path in the union of manifest, local, and remote:
+   - **In manifest + local + remote**: compare SHA-256 checksums to detect changes on each side; upload, download, or resolve conflict as needed
+   - **In manifest + local only**: remote was deleted → remove local file
+   - **In manifest + remote only**: local was deleted → `DELETE /files/:id`
+   - **New local file**: upload and record in manifest
+   - **New remote file**: download and record in manifest
+5. Save updated manifest
+
+### Daemon mode
+
+`holocron daemon` runs an initial sync, then watches the vault directory using the `notify` crate (`RecommendedWatcher`, recursive mode). File change events are debounced over a 2-second window before triggering a sync. Ctrl-C shuts down cleanly.
+
+### Key dependencies
+
+| Crate | Purpose |
+| --- | --- |
+| clap | CLI argument parsing (derive macros) |
+| reqwest | HTTP client (rustls TLS backend) |
+| tokio | Async runtime |
+| serde / serde_json | JSON serialization |
+| sha2 + hex | SHA-256 checksums |
+| notify | Cross-platform filesystem watcher |
+| chrono | Timestamp formatting for conflict files |
+| dirs | Platform-appropriate home directory resolution |
+| mime_guess | MIME type detection from file extension |
+| thiserror | Error type derivation |
+
+### Build
+
+```sh
+cd apps/cli
+cargo build --release
+# Binary: apps/cli/target/release/holocron
+```
+
+The CLI is a standalone Cargo project — it is not part of the pnpm/Turborepo pipeline.
