@@ -12,6 +12,12 @@ public final class APIClient {
     private static let keychainService = "com.sambreed.Holocron"
     private static let keychainAccount = "api-key"
 
+    /// UserDefaults key for the API base URL.
+    public static let apiURLKey = "apiURL"
+
+    /// Default API URL when nothing is configured.
+    public static let defaultAPIURL = URL(string: "http://localhost:3000")!
+
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
@@ -20,15 +26,24 @@ public final class APIClient {
 
     private let encoder = JSONEncoder()
 
+    /// Resolved API URL — reads from UserDefaults, falls back to localhost.
+    public static var resolvedAPIURL: URL {
+        if let saved = UserDefaults.standard.string(forKey: apiURLKey),
+           let url = URL(string: saved) {
+            return url
+        }
+        return defaultAPIURL
+    }
+
     public init(
-        baseURL: URL = URL(string: "http://localhost:3000")!,
+        baseURL: URL? = nil,
         session: URLSession = .shared,
         apiKey: String? = nil
     ) {
-        self.baseURL = baseURL
+        self.baseURL = baseURL ?? Self.resolvedAPIURL
         self.session = session
         self.apiKey = apiKey ?? Self.loadApiKey() ?? ""
-        logger.info("APIClient initialized with base URL: \(baseURL.absoluteString, privacy: .public)")
+        logger.info("APIClient initialized with base URL: \(self.baseURL.absoluteString, privacy: .public)")
     }
 
     // MARK: - Keychain

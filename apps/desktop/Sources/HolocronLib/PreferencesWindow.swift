@@ -8,12 +8,13 @@ public final class PreferencesWindow: NSWindowController {
     /// Posted after preferences are saved so other components can react.
     public static let didSaveNotification = Notification.Name("HolocronPreferencesDidSave")
 
+    private var apiURLField: NSTextField!
     private var vaultPathField: NSTextField!
     private var apiKeyField: NSSecureTextField!
 
     public convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 240),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -39,31 +40,42 @@ public final class PreferencesWindow: NSWindowController {
         let fieldHeight: CGFloat = 24
         let rowSpacing: CGFloat = 16
 
+        let row1Y: CGFloat = 180
+        let row2Y: CGFloat = row1Y - fieldHeight - rowSpacing
+        let row3Y: CGFloat = row2Y - fieldHeight - rowSpacing
+        let fieldX: CGFloat = margin + labelWidth + 8
+        let fieldWidth: CGFloat = 340
+
+        // --- API URL ---
+        let urlLabel = NSTextField(labelWithString: "API URL:")
+        urlLabel.frame = NSRect(x: margin, y: row1Y, width: labelWidth, height: fieldHeight)
+        urlLabel.alignment = .right
+        contentView.addSubview(urlLabel)
+
+        apiURLField = NSTextField()
+        apiURLField.frame = NSRect(x: fieldX, y: row1Y, width: fieldWidth, height: fieldHeight)
+        apiURLField.placeholderString = APIClient.defaultAPIURL.absoluteString
+        contentView.addSubview(apiURLField)
+
         // --- Vault Path ---
         let vaultLabel = NSTextField(labelWithString: "Vault Path:")
-        vaultLabel.frame = NSRect(x: margin, y: 140, width: labelWidth, height: fieldHeight)
+        vaultLabel.frame = NSRect(x: margin, y: row2Y, width: labelWidth, height: fieldHeight)
         vaultLabel.alignment = .right
         contentView.addSubview(vaultLabel)
 
         vaultPathField = NSTextField()
-        vaultPathField.frame = NSRect(
-            x: margin + labelWidth + 8, y: 140,
-            width: 340, height: fieldHeight
-        )
+        vaultPathField.frame = NSRect(x: fieldX, y: row2Y, width: fieldWidth, height: fieldHeight)
         vaultPathField.placeholderString = FileWatcher.fallbackVaultPath
         contentView.addSubview(vaultPathField)
 
         // --- API Key ---
         let apiLabel = NSTextField(labelWithString: "API Key:")
-        apiLabel.frame = NSRect(x: margin, y: 140 - fieldHeight - rowSpacing, width: labelWidth, height: fieldHeight)
+        apiLabel.frame = NSRect(x: margin, y: row3Y, width: labelWidth, height: fieldHeight)
         apiLabel.alignment = .right
         contentView.addSubview(apiLabel)
 
         apiKeyField = NSSecureTextField()
-        apiKeyField.frame = NSRect(
-            x: margin + labelWidth + 8, y: 140 - fieldHeight - rowSpacing,
-            width: 340, height: fieldHeight
-        )
+        apiKeyField.frame = NSRect(x: fieldX, y: row3Y, width: fieldWidth, height: fieldHeight)
         apiKeyField.placeholderString = "Enter API key"
         contentView.addSubview(apiKeyField)
 
@@ -82,9 +94,11 @@ public final class PreferencesWindow: NSWindowController {
     }
 
     private func loadCurrentValues() {
+        // Load API URL from UserDefaults
+        apiURLField.stringValue = APIClient.resolvedAPIURL.absoluteString
+
         // Load vault path from UserDefaults, falling back to the default
-        let savedPath = FileWatcher.defaultVaultPath
-        vaultPathField.stringValue = savedPath
+        vaultPathField.stringValue = FileWatcher.defaultVaultPath
 
         // Load API key from Keychain
         if let existingKey = APIClient.loadApiKey(), !existingKey.isEmpty {
@@ -93,6 +107,12 @@ public final class PreferencesWindow: NSWindowController {
     }
 
     @objc private func savePreferences() {
+        let apiURL = apiURLField.stringValue.trimmingCharacters(in: .whitespaces)
+        if !apiURL.isEmpty {
+            UserDefaults.standard.set(apiURL, forKey: APIClient.apiURLKey)
+            Self.logger.info("API URL updated to: \(apiURL, privacy: .public)")
+        }
+
         let vaultPath = vaultPathField.stringValue.trimmingCharacters(in: .whitespaces)
         if !vaultPath.isEmpty {
             UserDefaults.standard.set(vaultPath, forKey: FileWatcher.vaultPathKey)
