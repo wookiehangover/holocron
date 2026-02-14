@@ -7,7 +7,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "typecheck": "turbo typecheck"
+    "typecheck": "turbo typecheck",
+    "deploy": "sst deploy --stage dev"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",
