@@ -221,7 +221,16 @@ export default function Home() {
                 style={{ borderBottom: "1px solid #f3f4f6" }}
               >
                 <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem" }}>
-                  {file.name}
+                  {file.path !== file.name ? (
+                    <>
+                      <span style={{ color: "#9ca3af" }}>
+                        {file.path.slice(0, file.path.length - file.name.length)}
+                      </span>
+                      {file.name}
+                    </>
+                  ) : (
+                    file.name
+                  )}
                 </td>
                 <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "#6b7280" }}>
                   {formatBytes(file.size)}
