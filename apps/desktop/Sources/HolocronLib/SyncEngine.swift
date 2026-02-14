@@ -88,82 +88,96 @@ public final class SyncEngine {
             allPaths.formUnion(localByRelativePath.keys)
             allPaths.formUnion(remoteByPath.keys)
 
+            var syncErrors: [String] = []
+
             for path in allPaths {
                 let inManifest = manifest[path]
                 let onDisk = localByRelativePath[path]
                 let onRemote = remoteByPath[path]
 
-                switch (inManifest, onDisk, onRemote) {
+                do {
+                    switch (inManifest, onDisk, onRemote) {
 
-                // In manifest + on disk + on remote → compare checksums
-                case let (.some(entry), .some(local), .some(remote)):
-                    let localChanged = local.checksum != entry.checksum
-                    let remoteChanged = remote.checksum != entry.checksum
+                    // In manifest + on disk + on remote → compare checksums
+                    case let (.some(entry), .some(local), .some(remote)):
+                        let localChanged = local.checksum != entry.checksum
+                        let remoteChanged = remote.checksum != entry.checksum
 
-                    if localChanged && remoteChanged {
-                        // Both sides changed — conflict
-                        if local.checksum != remote.checksum {
-                            try await resolveConflict(localFile: local, remoteFile: remote, vaultURL: vaultURL)
+                        if localChanged && remoteChanged {
+                            // Both sides changed — conflict
+                            if local.checksum != remote.checksum {
+                                try await resolveConflict(localFile: local, remoteFile: remote, vaultURL: vaultURL)
+                                manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
+                            }
+                            // If checksums match, both sides made the same change — no action needed
+                        } else if localChanged {
+                            // Local changed, remote didn't — upload
+                            let response = try await uploadFile(local, vaultURL: vaultURL)
+                            manifest[path] = SyncManifestEntry(checksum: local.checksum, fileId: response.fileId)
+                        } else if remoteChanged {
+                            // Remote changed, local didn't — download
+                            try await downloadFile(remote, vaultURL: vaultURL)
                             manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
                         }
-                        // If checksums match, both sides made the same change — no action needed
-                    } else if localChanged {
-                        // Local changed, remote didn't — upload
+                        // else: no changes — nothing to do
+
+                    // In manifest + on disk + NOT on remote → remote was deleted
+                    case (.some(_), .some(let local), .none):
+                        logger.info("Remote deleted, removing local: \(path, privacy: .public)")
+                        try fileManager.removeItem(at: local.url)
+                        removeEmptyParentDirectories(from: local.url.deletingLastPathComponent(), upTo: vaultURL)
+                        manifest.removeValue(forKey: path)
+
+                    // In manifest + NOT on disk + on remote → local was deleted
+                    case (.some(let entry), .none, .some(_)):
+                        logger.info("Local deleted, removing remote: \(path, privacy: .public)")
+                        try await apiClient.deleteFile(id: entry.fileId)
+                        manifest.removeValue(forKey: path)
+
+                    // In manifest + NOT on disk + NOT on remote → both deleted
+                    case (.some(_), .none, .none):
+                        manifest.removeValue(forKey: path)
+
+                    // NOT in manifest + on disk + on remote → new on both sides
+                    case (.none, .some(let local), .some(let remote)):
+                        if local.checksum != remote.checksum {
+                            // Different content — conflict
+                            try await resolveConflict(localFile: local, remoteFile: remote, vaultURL: vaultURL)
+                        }
+                        manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
+
+                    // NOT in manifest + on disk + NOT on remote → new local file
+                    case (.none, .some(let local), .none):
                         let response = try await uploadFile(local, vaultURL: vaultURL)
                         manifest[path] = SyncManifestEntry(checksum: local.checksum, fileId: response.fileId)
-                    } else if remoteChanged {
-                        // Remote changed, local didn't — download
+
+                    // NOT in manifest + NOT on disk + on remote → new remote file
+                    case (.none, .none, .some(let remote)):
                         try await downloadFile(remote, vaultURL: vaultURL)
                         manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
+
+                    // NOT in manifest + NOT on disk + NOT on remote → impossible, skip
+                    case (.none, .none, .none):
+                        break
                     }
-                    // else: no changes — nothing to do
-
-                // In manifest + on disk + NOT on remote → remote was deleted
-                case (.some(_), .some(let local), .none):
-                    logger.info("Remote deleted, removing local: \(path, privacy: .public)")
-                    try fileManager.removeItem(at: local.url)
-                    removeEmptyParentDirectories(from: local.url.deletingLastPathComponent(), upTo: vaultURL)
-                    manifest.removeValue(forKey: path)
-
-                // In manifest + NOT on disk + on remote → local was deleted
-                case (.some(let entry), .none, .some(_)):
-                    logger.info("Local deleted, removing remote: \(path, privacy: .public)")
-                    try await apiClient.deleteFile(id: entry.fileId)
-                    manifest.removeValue(forKey: path)
-
-                // In manifest + NOT on disk + NOT on remote → both deleted
-                case (.some(_), .none, .none):
-                    manifest.removeValue(forKey: path)
-
-                // NOT in manifest + on disk + on remote → new on both sides
-                case (.none, .some(let local), .some(let remote)):
-                    if local.checksum != remote.checksum {
-                        // Different content — conflict
-                        try await resolveConflict(localFile: local, remoteFile: remote, vaultURL: vaultURL)
-                    }
-                    manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
-
-                // NOT in manifest + on disk + NOT on remote → new local file
-                case (.none, .some(let local), .none):
-                    let response = try await uploadFile(local, vaultURL: vaultURL)
-                    manifest[path] = SyncManifestEntry(checksum: local.checksum, fileId: response.fileId)
-
-                // NOT in manifest + NOT on disk + on remote → new remote file
-                case (.none, .none, .some(let remote)):
-                    try await downloadFile(remote, vaultURL: vaultURL)
-                    manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
-
-                // NOT in manifest + NOT on disk + NOT on remote → impossible, skip
-                case (.none, .none, .none):
-                    break
+                } catch {
+                    let message = String(describing: error)
+                    logger.error("SyncEngine: failed to sync \(path, privacy: .public) — \(message, privacy: .public)")
+                    syncErrors.append("\(path): \(message)")
                 }
             }
 
-            // Save updated manifest
+            // Always save manifest — preserve progress from files that succeeded
             saveManifest(manifest)
 
-            state = .idle
-            logger.info("SyncEngine: sync complete")
+            if syncErrors.isEmpty {
+                state = .idle
+                logger.info("SyncEngine: sync complete")
+            } else {
+                let summary = syncErrors.joined(separator: "; ")
+                state = .error("\(syncErrors.count) file(s) failed")
+                logger.error("SyncEngine: sync finished with \(syncErrors.count, privacy: .public) error(s): \(summary, privacy: .public)")
+            }
         } catch {
             let message = String(describing: error)
             state = .error(message)
