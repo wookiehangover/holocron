@@ -1,12 +1,14 @@
 /**
- * AgentDB connection helper.
+ * AgentDB connection helper and typed query helpers.
  *
  * Provides a configured DatabaseService instance for use across
  * the API. Connection details are injected via environment variables
  * at runtime (SST resource linking).
  */
 
-import { DatabaseService } from "@agentdb/sdk";
+import { DatabaseConnection, DatabaseService } from "@agentdb/sdk";
+import type { HolocronFile, ShareLink } from "@holocron/core/types";
+import { SCHEMA_DDL } from "./db/schema.js";
 
 const AGENTDB_API_URL =
   process.env.AGENTDB_API_URL ?? "https://api.agentdb.dev";
@@ -18,13 +20,176 @@ const AGENTDB_DB_NAME = process.env.AGENTDB_DB_NAME ?? "holocron";
  */
 export const agentdb = new DatabaseService(AGENTDB_API_URL, AGENTDB_API_KEY);
 
+/** Cached database connection. Set by connectDb(). */
+let _db: DatabaseConnection | null = null;
+
+/**
+ * Return the current database connection.
+ * Throws if connectDb() has not been called.
+ */
+function getDb(): DatabaseConnection {
+  if (!_db) {
+    throw new Error("Database not connected. Call connectDb() first.");
+  }
+  return _db;
+}
+
 /**
  * Connect to the Holocron database.
  *
  * Call this once during Lambda cold start to establish a connection.
  */
-export async function connectDb(token?: string) {
+export async function connectDb(token?: string): Promise<DatabaseConnection> {
   const authToken = token ?? AGENTDB_API_KEY;
-  return agentdb.connect(authToken, AGENTDB_DB_NAME, "sqlite");
+  _db = agentdb.connect(authToken, AGENTDB_DB_NAME, "sqlite");
+  return _db;
+}
+
+// ---------------------------------------------------------------------------
+// Schema bootstrap
+// ---------------------------------------------------------------------------
+
+/**
+ * Run the DDL statements to create tables and indexes if they don't exist.
+ * Safe to call on every cold start (uses IF NOT EXISTS).
+ */
+export async function ensureSchema(): Promise<void> {
+  const conn = getDb();
+  const statements = SCHEMA_DDL.split(";")
+    .map((s) =>
+      s
+        .split("\n")
+        .filter((line) => !line.trimStart().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter((s) => s.length > 0);
+
+  await conn.execute(statements.map((sql) => ({ sql })));
+}
+
+// ---------------------------------------------------------------------------
+// Row ↔ type mapping helpers
+// ---------------------------------------------------------------------------
+
+/** Map a raw DB row to a HolocronFile. */
+function rowToFile(row: Record<string, unknown>): HolocronFile {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    path: row.path as string,
+    size: row.size as number,
+    mimeType: row.mime_type as string,
+    checksum: row.checksum as string,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+  };
+}
+
+/** Map a raw DB row to a ShareLink. */
+function rowToShareLink(row: Record<string, unknown>): ShareLink {
+  return {
+    id: row.id as string,
+    fileId: row.file_id as string,
+    url: row.url as string,
+    expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
+    createdAt: new Date(row.created_at as string),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// File helpers
+// ---------------------------------------------------------------------------
+
+/** Insert a new file record. */
+export async function insertFile(file: HolocronFile): Promise<void> {
+  const conn = getDb();
+  await conn.execute({
+    sql: `INSERT INTO files (id, name, path, size, mime_type, checksum, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    params: [
+      file.id,
+      file.name,
+      file.path,
+      file.size,
+      file.mimeType,
+      file.checksum,
+      file.createdAt.toISOString(),
+      file.updatedAt.toISOString(),
+    ],
+  });
+}
+
+/** Fetch a single file by its primary key. */
+export async function getFileById(id: string): Promise<HolocronFile | null> {
+  const conn = getDb();
+  const result = await conn.execute({
+    sql: "SELECT * FROM files WHERE id = ?",
+    params: [id],
+  });
+  const row = result.results[0]?.rows?.[0] as
+    | Record<string, unknown>
+    | undefined;
+  return row ? rowToFile(row) : null;
+}
+
+/** Fetch a single file by its unique path. */
+export async function getFileByPath(
+  path: string,
+): Promise<HolocronFile | null> {
+  const conn = getDb();
+  const result = await conn.execute({
+    sql: "SELECT * FROM files WHERE path = ?",
+    params: [path],
+  });
+  const row = result.results[0]?.rows?.[0] as
+    | Record<string, unknown>
+    | undefined;
+  return row ? rowToFile(row) : null;
+}
+
+/** List all files, most recent first. */
+export async function listFiles(): Promise<HolocronFile[]> {
+  const conn = getDb();
+  const result = await conn.execute({
+    sql: "SELECT * FROM files ORDER BY created_at DESC",
+  });
+  const rows = (result.results[0]?.rows ?? []) as Record<string, unknown>[];
+  return rows.map(rowToFile);
+}
+
+// ---------------------------------------------------------------------------
+// Share-link helpers
+// ---------------------------------------------------------------------------
+
+/** Insert a new share link record. */
+export async function insertShareLink(link: ShareLink): Promise<void> {
+  const conn = getDb();
+  await conn.execute({
+    sql: `INSERT INTO share_links (id, file_id, url, expires_at, created_at)
+          VALUES (?, ?, ?, ?, ?)`,
+    params: [
+      link.id,
+      link.fileId,
+      link.url,
+      link.expiresAt ? link.expiresAt.toISOString() : null,
+      link.createdAt.toISOString(),
+    ],
+  });
+}
+
+/** Fetch a share link by its unique URL. */
+export async function getShareLinkByUrl(
+  url: string,
+): Promise<ShareLink | null> {
+  const conn = getDb();
+  const result = await conn.execute({
+    sql: "SELECT * FROM share_links WHERE url = ?",
+    params: [url],
+  });
+  const row = result.results[0]?.rows?.[0] as
+    | Record<string, unknown>
+    | undefined;
+  return row ? rowToShareLink(row) : null;
 }
 
