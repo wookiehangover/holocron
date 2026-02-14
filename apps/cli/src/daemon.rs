@@ -12,6 +12,14 @@ pub async fn run_daemon(config: &Config) -> Result<(), Box<dyn std::error::Error
     println!("Running initial sync...");
     sync::run_sync(config).await?;
 
+    // Spawn a dedicated signal handler so Ctrl-C works even while
+    // sync is running (when the select! branches aren't being polled).
+    tokio::spawn(async {
+        tokio::signal::ctrl_c().await.ok();
+        println!("\nShutting down...");
+        std::process::exit(0);
+    });
+
     let vault_path = PathBuf::from(config.resolved_vault_path());
     println!("Watching {}...", vault_path.display());
 
@@ -48,32 +56,29 @@ pub async fn run_daemon(config: &Config) -> Result<(), Box<dyn std::error::Error
 
     // Main event loop with debounce
     loop {
-        tokio::select! {
-            // Wait for a file change event or shutdown signal
-            Some(()) = rx.recv() => {
-                // Debounce: drain any additional events over 2 seconds
-                let debounce = Duration::from_secs(2);
-                let deadline = tokio::time::Instant::now() + debounce;
-                loop {
-                    tokio::select! {
-                        _ = rx.recv() => {
-                            // Consume additional events during debounce window
-                        }
-                        _ = tokio::time::sleep_until(deadline) => {
-                            break;
-                        }
-                    }
-                }
+        // Wait for a file change event
+        match rx.recv().await {
+            Some(()) => {}
+            None => break, // channel closed
+        }
 
-                println!("Change detected, syncing...");
-                if let Err(e) = sync::run_sync(&sync_config).await {
-                    eprintln!("Sync error: {e}");
+        // Debounce: drain any additional events over 2 seconds
+        let debounce = Duration::from_secs(2);
+        let deadline = tokio::time::Instant::now() + debounce;
+        loop {
+            tokio::select! {
+                _ = rx.recv() => {
+                    // Consume additional events during debounce window
+                }
+                _ = tokio::time::sleep_until(deadline) => {
+                    break;
                 }
             }
-            _ = tokio::signal::ctrl_c() => {
-                println!("Shutting down...");
-                break;
-            }
+        }
+
+        println!("Change detected, syncing...");
+        if let Err(e) = sync::run_sync(&sync_config).await {
+            eprintln!("Sync error: {e}");
         }
     }
 

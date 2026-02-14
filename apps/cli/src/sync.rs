@@ -219,7 +219,9 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
                 } else {
                     local_checksum != entry.checksum
                 };
-                let remote_changed = if entry.checksum.is_empty() {
+                let remote_changed = if entry.checksum.is_empty()
+                    || remote.checksum.is_empty()
+                {
                     false
                 } else {
                     remote.checksum != entry.checksum
