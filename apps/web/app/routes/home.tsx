@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
 import type { HolocronFile } from "@holocron/core/types";
-import { listFiles, getFile, uploadFile } from "../lib/api";
+import { listFiles, getFile, uploadFile, createShareLink } from "../lib/api";
 
 // ---------------------------------------------------------------------------
 // Loader — fetch file list server-side
@@ -62,6 +62,7 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copiedFileId, setCopiedFileId] = useState<string | null>(null);
 
   const handleUpload = useCallback(
     async (fileList: FileList | null) => {
@@ -98,6 +99,20 @@ export default function Home() {
       window.open(downloadUrl, "_blank");
     } catch (e) {
       alert(`Download failed: ${(e as Error).message}`);
+    }
+  }, []);
+
+  const handleShare = useCallback(async (fileId: string) => {
+    try {
+      const { url } = await createShareLink(fileId);
+      // url is like /share/{token} — extract token and build frontend URL
+      const token = url.split("/").pop();
+      const shareUrl = `${window.location.origin}/share/${token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedFileId(fileId);
+      setTimeout(() => setCopiedFileId(null), 2000);
+    } catch (e) {
+      alert(`Share failed: ${(e as Error).message}`);
     }
   }, []);
 
@@ -196,7 +211,7 @@ export default function Home() {
               <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem", color: "#6b7280" }}>
                 Date
               </th>
-              <th style={{ padding: "0.75rem 1rem", width: 80 }} />
+              <th style={{ padding: "0.75rem 1rem", width: 170 }} />
             </tr>
           </thead>
           <tbody>
@@ -217,7 +232,7 @@ export default function Home() {
                 <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "#6b7280" }}>
                   {formatDate(file.createdAt)}
                 </td>
-                <td style={{ padding: "0.75rem 1rem" }}>
+                <td style={{ padding: "0.75rem 1rem", whiteSpace: "nowrap" }}>
                   <button
                     onClick={() => handleDownload(file.id)}
                     style={{
@@ -227,9 +242,24 @@ export default function Home() {
                       border: "1px solid #d1d5db",
                       borderRadius: 4,
                       cursor: "pointer",
+                      marginRight: "0.5rem",
                     }}
                   >
                     Download
+                  </button>
+                  <button
+                    onClick={() => handleShare(file.id)}
+                    style={{
+                      padding: "0.25rem 0.75rem",
+                      fontSize: "0.8125rem",
+                      background: copiedFileId === file.id ? "#dcfce7" : "#f3f4f6",
+                      border: `1px solid ${copiedFileId === file.id ? "#86efac" : "#d1d5db"}`,
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      color: copiedFileId === file.id ? "#16a34a" : undefined,
+                    }}
+                  >
+                    {copiedFileId === file.id ? "Copied!" : "Share"}
                   </button>
                 </td>
               </tr>

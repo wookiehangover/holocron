@@ -65,6 +65,40 @@ export async function getFile(
  * 2. PUT file to the presigned URL
  * 3. POST /files/upload/confirm → finalize
  */
+/** Create a share link for a file. Returns the share link id and URL. */
+export async function createShareLink(
+  fileId: string,
+): Promise<{ id: string; url: string; expiresAt: string | null }> {
+  const res = await fetch(`${baseUrl()}/share`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ fileId }),
+  });
+  if (!res.ok) throw new Error(`createShareLink failed: ${res.status}`);
+  return res.json();
+}
+
+/** Resolve a share token to file info and a presigned download URL. Public — no auth. */
+export async function resolveShareLink(
+  token: string,
+): Promise<{ file: { name: string; size: number; mimeType: string }; downloadUrl: string }> {
+  const res = await fetch(`${baseUrl()}/share/${token}`, {
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) {
+    const err = new Error(`resolveShareLink failed: ${res.status}`);
+    (err as any).status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+/**
+ * Upload a file via the three-step presigned URL flow:
+ * 1. POST /files/upload → get presigned S3 URL + fileId
+ * 2. PUT file to the presigned URL
+ * 3. POST /files/upload/confirm → finalize
+ */
 export async function uploadFile(file: File): Promise<{ fileId: string }> {
   // Step 1 — request presigned upload URL
   const initRes = await fetch(`${baseUrl()}/files/upload`, {
