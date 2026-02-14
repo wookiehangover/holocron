@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
+import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
@@ -22,6 +23,12 @@ app.use("*", async (_c, next) => {
   }
   await next();
 });
+
+// ---------------------------------------------------------------------------
+// CORS – allow cross-origin requests from the web app
+// ---------------------------------------------------------------------------
+
+app.use("*", cors());
 
 // ---------------------------------------------------------------------------
 // Auth – applied globally; /health is excluded inside the middleware

@@ -9,8 +9,12 @@ import { createMiddleware } from "hono/factory";
  * The `/health` endpoint is excluded from authentication.
  */
 export const apiKeyAuth = createMiddleware(async (c, next) => {
-  // Skip auth for the health check endpoint and public share-link resolution
-  if (c.req.path === "/health" || c.req.path.startsWith("/share/")) {
+  // Skip auth for CORS preflight, health check, and public share-link resolution
+  if (
+    c.req.method === "OPTIONS" ||
+    c.req.path === "/health" ||
+    c.req.path.startsWith("/share/")
+  ) {
     await next();
     return;
   }
