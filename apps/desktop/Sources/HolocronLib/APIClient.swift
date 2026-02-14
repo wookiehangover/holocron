@@ -10,7 +10,20 @@ public final class APIClient {
 
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
-        d.dateDecodingStrategy = .iso8601
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let basic = ISO8601DateFormatter()
+        basic.formatOptions = [.withInternetDateTime]
+        d.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let string = try container.decode(String.self)
+            if let date = fractional.date(from: string) { return date }
+            if let date = basic.date(from: string) { return date }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid ISO 8601 date: \(string)"
+            )
+        }
         return d
     }()
 
