@@ -190,6 +190,9 @@ public final class SyncEngine {
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode)
         else {
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: data, encoding: .utf8) ?? "(non-utf8)"
+            logger.error("Download HTTP \(status) for \(remoteFile.path, privacy: .public): \(body, privacy: .public)")
             throw SyncError.downloadFailed(remoteFile.path)
         }
 
