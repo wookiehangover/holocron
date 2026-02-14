@@ -13,6 +13,7 @@ const honoFn = new sst.aws.Function("HolocronApi", {
   environment: {
     AGENTDB_API_URL,
     AGENTDB_DB_NAME,
+    AGENTDB_API_KEY: agentDbApiKey.value,
     BUCKET_NAME: bucket.name,
     PROCESSING_STATE_MACHINE_ARN: processingStateMachine.arn,
   },
