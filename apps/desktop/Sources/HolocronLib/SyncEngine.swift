@@ -46,6 +46,15 @@ public final class SyncEngine {
         pollingTask?.cancel()
         pollingTask = Task { [weak self] in
             guard let self else { return }
+
+            // Seed the baseline version immediately so changes between
+            // start() and the first poll tick are not missed.
+            do {
+                self.lastKnownVersion = try await self.apiClient.getVaultVersion()
+            } catch {
+                self.logger.warning("Failed to seed vault version on start: \(String(describing: error), privacy: .public)")
+            }
+
             while !Task.isCancelled {
                 do {
                     try await Task.sleep(for: self.pollInterval)
