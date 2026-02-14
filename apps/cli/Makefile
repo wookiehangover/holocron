@@ -7,11 +7,11 @@ build:
 	cargo build --release
 
 install: build
-	@cp target/release/$(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+	sudo install -m 755 target/release/$(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
 	@echo "Installed to $(INSTALL_DIR)/$(BINARY_NAME)"
 
 uninstall:
-	@rm -f $(INSTALL_DIR)/$(BINARY_NAME)
+	sudo rm -f $(INSTALL_DIR)/$(BINARY_NAME)
 	@echo "Removed $(INSTALL_DIR)/$(BINARY_NAME)"
 
 clean:
