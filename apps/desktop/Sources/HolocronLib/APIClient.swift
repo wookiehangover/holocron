@@ -1,5 +1,4 @@
 import Foundation
-import Security
 import os
 
 /// HTTP client for communicating with the Holocron backend API.
@@ -9,15 +8,6 @@ public final class APIClient {
     private let session: URLSession
     private let apiKey: String
 
-    private static let keychainService = "com.sambreed.Holocron"
-    private static let keychainAccount = "api-key"
-
-    /// UserDefaults key for the API base URL.
-    public static let apiURLKey = "apiURL"
-
-    /// Default API URL when nothing is configured.
-    public static let defaultAPIURL = URL(string: "http://localhost:3000")!
-
     private let decoder: JSONDecoder = {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
@@ -26,69 +16,16 @@ public final class APIClient {
 
     private let encoder = JSONEncoder()
 
-    /// Resolved API URL — reads from UserDefaults, falls back to localhost.
-    public static var resolvedAPIURL: URL {
-        if let saved = UserDefaults.standard.string(forKey: apiURLKey),
-           let url = URL(string: saved) {
-            return url
-        }
-        return defaultAPIURL
-    }
-
     public init(
         baseURL: URL? = nil,
         session: URLSession = .shared,
         apiKey: String? = nil
     ) {
-        self.baseURL = baseURL ?? Self.resolvedAPIURL
+        let config = Config.load()
+        self.baseURL = baseURL ?? URL(string: config.resolvedAPIURL)!
         self.session = session
-        self.apiKey = apiKey ?? Self.loadApiKey() ?? ""
+        self.apiKey = apiKey ?? config.resolvedAPIKey
         logger.info("APIClient initialized with base URL: \(self.baseURL.absoluteString, privacy: .public)")
-    }
-
-    // MARK: - Keychain
-
-    /// Load the API key from the macOS Keychain.
-    public static func loadApiKey() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-
-        guard status == errSecSuccess, let data = result as? Data else {
-            return nil
-        }
-        return String(data: data, encoding: .utf8)
-    }
-
-    /// Save an API key to the macOS Keychain.
-    @discardableResult
-    public static func saveApiKey(_ key: String) -> Bool {
-        guard let data = key.data(using: .utf8) else { return false }
-
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: keychainAccount,
-        ]
-
-        let attributes: [String: Any] = [kSecValueData as String: data]
-        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-
-        if updateStatus == errSecItemNotFound {
-            var addQuery = query
-            addQuery[kSecValueData as String] = data
-            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-            return addStatus == errSecSuccess
-        }
-
-        return updateStatus == errSecSuccess
     }
 
     // MARK: - Private Helpers

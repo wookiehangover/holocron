@@ -54,7 +54,7 @@ public final class PreferencesWindow: NSWindowController {
 
         apiURLField = NSTextField()
         apiURLField.frame = NSRect(x: fieldX, y: row1Y, width: fieldWidth, height: fieldHeight)
-        apiURLField.placeholderString = APIClient.defaultAPIURL.absoluteString
+        apiURLField.placeholderString = Config.defaultAPIURL
         contentView.addSubview(apiURLField)
 
         // --- Vault Path ---
@@ -65,7 +65,7 @@ public final class PreferencesWindow: NSWindowController {
 
         vaultPathField = NSTextField()
         vaultPathField.frame = NSRect(x: fieldX, y: row2Y, width: fieldWidth, height: fieldHeight)
-        vaultPathField.placeholderString = FileWatcher.fallbackVaultPath
+        vaultPathField.placeholderString = Config.defaultVaultPath
         contentView.addSubview(vaultPathField)
 
         // --- API Key ---
@@ -94,36 +94,35 @@ public final class PreferencesWindow: NSWindowController {
     }
 
     private func loadCurrentValues() {
-        // Load API URL from UserDefaults
-        apiURLField.stringValue = APIClient.resolvedAPIURL.absoluteString
+        let config = Config.load()
+        apiURLField.stringValue = config.resolvedAPIURL
+        vaultPathField.stringValue = config.resolvedVaultPath
 
-        // Load vault path from UserDefaults, falling back to the default
-        vaultPathField.stringValue = FileWatcher.defaultVaultPath
-
-        // Load API key from Keychain
-        if let existingKey = APIClient.loadApiKey(), !existingKey.isEmpty {
-            apiKeyField.placeholderString = "••••••••  (saved in Keychain)"
+        if !config.resolvedAPIKey.isEmpty {
+            apiKeyField.placeholderString = "••••••••  (saved)"
         }
     }
 
     @objc private func savePreferences() {
+        var config = Config.load()
+
         let apiURL = apiURLField.stringValue.trimmingCharacters(in: .whitespaces)
         if !apiURL.isEmpty {
-            UserDefaults.standard.set(apiURL, forKey: APIClient.apiURLKey)
-            Self.logger.info("API URL updated to: \(apiURL, privacy: .public)")
+            config.apiURL = apiURL
         }
 
         let vaultPath = vaultPathField.stringValue.trimmingCharacters(in: .whitespaces)
         if !vaultPath.isEmpty {
-            UserDefaults.standard.set(vaultPath, forKey: FileWatcher.vaultPathKey)
-            Self.logger.info("Vault path updated to: \(vaultPath, privacy: .public)")
+            config.vaultPath = vaultPath
         }
 
         let apiKey = apiKeyField.stringValue.trimmingCharacters(in: .whitespaces)
         if !apiKey.isEmpty {
-            APIClient.saveApiKey(apiKey)
-            Self.logger.info("API key saved to Keychain")
+            config.apiKey = apiKey
         }
+
+        config.save()
+        Self.logger.info("Preferences saved to config file")
 
         NotificationCenter.default.post(name: Self.didSaveNotification, object: nil)
 
