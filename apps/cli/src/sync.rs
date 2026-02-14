@@ -72,6 +72,26 @@ fn compute_checksum(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     Ok(hex::encode(result))
 }
 
+/// Remove empty parent directories from `start` up to (but not including) `vault_root`.
+/// Stops at the first non-empty directory or on any error.
+fn remove_empty_parents(start: &Path, vault_root: &Path) {
+    let mut dir = start.to_path_buf();
+    loop {
+        // Never remove the vault root itself.
+        if dir == vault_root {
+            break;
+        }
+        // std::fs::remove_dir only succeeds on empty directories.
+        if std::fs::remove_dir(&dir).is_err() {
+            break;
+        }
+        match dir.parent() {
+            Some(p) => dir = p.to_path_buf(),
+            None => break,
+        }
+    }
+}
+
 fn enumerate_local_files(vault_path: &Path) -> Vec<LocalFile> {
     let mut files = Vec::new();
     walk_dir(vault_path, vault_path, &mut files);
@@ -272,6 +292,9 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
             // In manifest + on disk + NOT on remote → remote deleted
             (Some(_entry), Some(local), None) => {
                 std::fs::remove_file(&local.absolute_path)?;
+                if let Some(parent) = local.absolute_path.parent() {
+                    remove_empty_parents(parent, &vault_path);
+                }
                 println!("deleted local (remote removed): {path}");
                 // Not in new manifest
             }

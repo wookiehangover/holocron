@@ -389,9 +389,12 @@ public final class SyncEngine {
 
         while current != rootStandardized {
             do {
+                let contents = try fileManager.contentsOfDirectory(
+                    at: current, includingPropertiesForKeys: nil)
+                guard contents.isEmpty else { break }
                 try fileManager.removeItem(at: current)
             } catch {
-                // Directory not empty or any other error — stop walking.
+                // Directory listing failed or remove failed — stop walking.
                 break
             }
             current = current.deletingLastPathComponent().standardizedFileURL
