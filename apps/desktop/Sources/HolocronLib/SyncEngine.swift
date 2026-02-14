@@ -109,8 +109,8 @@ public final class SyncEngine {
                         // If checksums match, both sides made the same change — no action needed
                     } else if localChanged {
                         // Local changed, remote didn't — upload
-                        try await uploadFile(local, vaultURL: vaultURL)
-                        manifest[path] = SyncManifestEntry(checksum: local.checksum, fileId: entry.fileId)
+                        let response = try await uploadFile(local, vaultURL: vaultURL)
+                        manifest[path] = SyncManifestEntry(checksum: local.checksum, fileId: response.fileId)
                     } else if remoteChanged {
                         // Remote changed, local didn't — download
                         try await downloadFile(remote, vaultURL: vaultURL)
