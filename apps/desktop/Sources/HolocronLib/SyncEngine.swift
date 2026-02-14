@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import UniformTypeIdentifiers
 import os
@@ -46,6 +47,9 @@ public final class SyncEngine {
                 try fileManager.createDirectory(at: vaultURL, withIntermediateDirectories: true)
             }
 
+            // Load previous sync state
+            var manifest = loadManifest()
+
             // 1. List remote files
             let remoteFiles = try await apiClient.listRemoteFiles()
             let remoteByPath = Dictionary(uniqueKeysWithValues: remoteFiles.map { ($0.path, $0) })
@@ -54,29 +58,84 @@ public final class SyncEngine {
             let localFiles = enumerateLocalFiles(in: vaultURL)
             let localByRelativePath = Dictionary(uniqueKeysWithValues: localFiles.map { ($0.relativePath, $0) })
 
-            // 3. Upload new local files (exist locally but not remotely)
-            for localFile in localFiles {
-                if remoteByPath[localFile.relativePath] == nil {
-                    try await uploadFile(localFile, vaultURL: vaultURL)
-                }
-            }
+            // Collect all known paths
+            var allPaths = Set<String>()
+            allPaths.formUnion(manifest.keys)
+            allPaths.formUnion(localByRelativePath.keys)
+            allPaths.formUnion(remoteByPath.keys)
 
-            // 4. Download new remote files (exist remotely but not locally)
-            for remoteFile in remoteFiles {
-                if localByRelativePath[remoteFile.path] == nil {
-                    try await downloadFile(remoteFile, vaultURL: vaultURL)
-                }
-            }
+            for path in allPaths {
+                let inManifest = manifest[path]
+                let onDisk = localByRelativePath[path]
+                let onRemote = remoteByPath[path]
 
-            // 5. Handle conflicts (exist in both with different checksums)
-            for remoteFile in remoteFiles {
-                if let localFile = localByRelativePath[remoteFile.path] {
-                    let localChecksum = localFile.checksum
-                    if localChecksum != remoteFile.checksum {
-                        try await resolveConflict(localFile: localFile, remoteFile: remoteFile, vaultURL: vaultURL)
+                switch (inManifest, onDisk, onRemote) {
+
+                // In manifest + on disk + on remote → compare checksums
+                case let (.some(entry), .some(local), .some(remote)):
+                    let localChanged = local.checksum != entry.checksum
+                    let remoteChanged = remote.checksum != entry.checksum
+
+                    if localChanged && remoteChanged {
+                        // Both sides changed — conflict
+                        if local.checksum != remote.checksum {
+                            try await resolveConflict(localFile: local, remoteFile: remote, vaultURL: vaultURL)
+                            manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
+                        }
+                        // If checksums match, both sides made the same change — no action needed
+                    } else if localChanged {
+                        // Local changed, remote didn't — upload
+                        try await uploadFile(local, vaultURL: vaultURL)
+                        manifest[path] = SyncManifestEntry(checksum: local.checksum, fileId: entry.fileId)
+                    } else if remoteChanged {
+                        // Remote changed, local didn't — download
+                        try await downloadFile(remote, vaultURL: vaultURL)
+                        manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
                     }
+                    // else: no changes — nothing to do
+
+                // In manifest + on disk + NOT on remote → remote was deleted
+                case (.some(_), .some(let local), .none):
+                    logger.info("Remote deleted, removing local: \(path, privacy: .public)")
+                    try fileManager.removeItem(at: local.url)
+                    manifest.removeValue(forKey: path)
+
+                // In manifest + NOT on disk + on remote → local was deleted
+                case (.some(let entry), .none, .some(_)):
+                    logger.info("Local deleted, removing remote: \(path, privacy: .public)")
+                    try await apiClient.deleteFile(id: entry.fileId)
+                    manifest.removeValue(forKey: path)
+
+                // In manifest + NOT on disk + NOT on remote → both deleted
+                case (.some(_), .none, .none):
+                    manifest.removeValue(forKey: path)
+
+                // NOT in manifest + on disk + on remote → new on both sides
+                case (.none, .some(let local), .some(let remote)):
+                    if local.checksum != remote.checksum {
+                        // Different content — conflict
+                        try await resolveConflict(localFile: local, remoteFile: remote, vaultURL: vaultURL)
+                    }
+                    manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
+
+                // NOT in manifest + on disk + NOT on remote → new local file
+                case (.none, .some(let local), .none):
+                    let response = try await uploadFile(local, vaultURL: vaultURL)
+                    manifest[path] = SyncManifestEntry(checksum: local.checksum, fileId: response.fileId)
+
+                // NOT in manifest + NOT on disk + on remote → new remote file
+                case (.none, .none, .some(let remote)):
+                    try await downloadFile(remote, vaultURL: vaultURL)
+                    manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
+
+                // NOT in manifest + NOT on disk + NOT on remote → impossible, skip
+                case (.none, .none, .none):
+                    break
                 }
             }
+
+            // Save updated manifest
+            saveManifest(manifest)
 
             state = .idle
             logger.info("SyncEngine: sync complete")
@@ -124,8 +183,17 @@ public final class SyncEngine {
             }
 
             let relativePath = relativeComponents.joined(separator: "/")
+
+            // Skip conflict files — they are local-only backups
+            let filename = fileURL.lastPathComponent
+            if filename.contains(".conflict-") {
+                continue
+            }
+
             let size = Int64(values.fileSize ?? 0)
-            let checksum = computeChecksum(for: fileURL)
+            guard let checksum = try? computeChecksum(for: fileURL) else {
+                continue
+            }
 
             results.append(LocalFile(
                 url: fileURL,
@@ -138,15 +206,43 @@ public final class SyncEngine {
         return results
     }
 
-    private func computeChecksum(for url: URL) -> String {
-        guard let data = try? Data(contentsOf: url) else { return "" }
-        // Simple size-based checksum as a proxy; a real implementation would use SHA-256
-        return "\(data.count)"
+    private func computeChecksum(for url: URL) throws -> String {
+        let data = try Data(contentsOf: url)
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    // MARK: - Sync Manifest
+
+    private struct SyncManifestEntry: Codable {
+        let checksum: String
+        let fileId: String
+    }
+
+    private static var manifestURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".config/holocron/sync-state.json")
+    }
+
+    private func loadManifest() -> [String: SyncManifestEntry] {
+        let url = Self.manifestURL
+        guard let data = try? Data(contentsOf: url) else { return [:] }
+        return (try? JSONDecoder().decode([String: SyncManifestEntry].self, from: data)) ?? [:]
+    }
+
+    private func saveManifest(_ manifest: [String: SyncManifestEntry]) {
+        let url = Self.manifestURL
+        let dir = url.deletingLastPathComponent()
+        try? fileManager.createDirectory(at: dir, withIntermediateDirectories: true)
+        if let data = try? JSONEncoder().encode(manifest) {
+            try? data.write(to: url)
+        }
     }
 
     // MARK: - Upload
 
-    private func uploadFile(_ localFile: LocalFile, vaultURL: URL) async throws {
+    @discardableResult
+    private func uploadFile(_ localFile: LocalFile, vaultURL: URL) async throws -> APIClient.UploadResponse {
         let name = localFile.url.lastPathComponent
         let mimeType = detectMimeType(for: localFile.url)
         let data = try Data(contentsOf: localFile.url)
@@ -177,6 +273,7 @@ public final class SyncEngine {
 
         try await apiClient.confirmUpload(fileId: uploadResponse.fileId)
         logger.info("Uploaded: \(localFile.relativePath, privacy: .public)")
+        return uploadResponse
     }
 
     // MARK: - Download

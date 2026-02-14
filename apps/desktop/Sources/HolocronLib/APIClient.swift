@@ -134,6 +134,13 @@ public final class APIClient {
         _ = try await perform(request)
     }
 
+    /// Delete a file from the remote vault.
+    public func deleteFile(id: String) async throws {
+        logger.info("deleteFile called for file: \(id, privacy: .public)")
+        let request = makeRequest(path: "files/\(id)", method: "DELETE")
+        _ = try await perform(request)
+    }
+
     /// Create a shareable link for a file.
     public func createShareLink(
         fileId: String,
