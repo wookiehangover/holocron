@@ -103,12 +103,20 @@ function rowToShareLink(row: Record<string, unknown>): ShareLink {
 // File helpers
 // ---------------------------------------------------------------------------
 
-/** Insert a new file record. */
+/** Insert or update a file record (upsert on unique path). */
 export async function insertFile(file: HolocronFile): Promise<void> {
   const conn = getDb();
   await conn.execute({
     sql: `INSERT INTO files (id, name, path, s3_key, size, mime_type, checksum, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(path) DO UPDATE SET
+            id = excluded.id,
+            name = excluded.name,
+            s3_key = excluded.s3_key,
+            size = excluded.size,
+            mime_type = excluded.mime_type,
+            checksum = excluded.checksum,
+            updated_at = excluded.updated_at`,
     params: [
       file.id,
       file.name,

@@ -210,8 +210,20 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
             // In manifest + on disk + on remote
             (Some(entry), Some(local), Some(remote)) => {
                 let local_checksum = compute_checksum(&local.absolute_path)?;
-                let local_changed = local_checksum != entry.checksum;
-                let remote_changed = remote.checksum != entry.checksum;
+
+                // If the manifest has no baseline checksum we cannot
+                // reliably determine what changed. Record the current
+                // local checksum so future syncs work correctly.
+                let local_changed = if entry.checksum.is_empty() {
+                    false
+                } else {
+                    local_checksum != entry.checksum
+                };
+                let remote_changed = if entry.checksum.is_empty() {
+                    false
+                } else {
+                    remote.checksum != entry.checksum
+                };
 
                 if local_changed && remote_changed {
                     // Conflict: rename local, download remote
@@ -223,11 +235,12 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
                     let conflict_path = vault_path.join(&conflict_name);
                     std::fs::rename(&local.absolute_path, &conflict_path)?;
                     download_file(&api, remote, &vault_path).await?;
+                    let dl_checksum = compute_checksum(&vault_path.join(path))?;
                     println!("conflict: {path} (local saved as {conflict_name})");
                     new_manifest.insert(
                         path.clone(),
                         ManifestEntry {
-                            checksum: remote.checksum.clone(),
+                            checksum: dl_checksum,
                             file_id: remote.id.clone(),
                         },
                     );
@@ -239,20 +252,22 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
                 } else if remote_changed {
                     // Download remote changes
                     download_file(&api, remote, &vault_path).await?;
+                    let dl_checksum = compute_checksum(&vault_path.join(path))?;
                     println!("downloaded: {path}");
                     new_manifest.insert(
                         path.clone(),
                         ManifestEntry {
-                            checksum: remote.checksum.clone(),
+                            checksum: dl_checksum,
                             file_id: remote.id.clone(),
                         },
                     );
                 } else {
-                    // No changes
+                    // No changes — store the computed local checksum so
+                    // the manifest always has a valid baseline.
                     new_manifest.insert(
                         path.clone(),
                         ManifestEntry {
-                            checksum: remote.checksum.clone(),
+                            checksum: local_checksum,
                             file_id: remote.id.clone(),
                         },
                     );
@@ -281,12 +296,16 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
             // NOT in manifest + on disk + on remote
             (None, Some(local), Some(remote)) => {
                 let local_checksum = compute_checksum(&local.absolute_path)?;
-                if local_checksum == remote.checksum {
-                    // Same content, just add to manifest
+                // When remote checksum is empty we can't compare;
+                // assume local is authoritative and record its checksum.
+                if local_checksum == remote.checksum
+                    || remote.checksum.is_empty()
+                {
+                    // Same content (or remote has no checksum), just add to manifest
                     new_manifest.insert(
                         path.clone(),
                         ManifestEntry {
-                            checksum: remote.checksum.clone(),
+                            checksum: local_checksum,
                             file_id: remote.id.clone(),
                         },
                     );
@@ -297,11 +316,12 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
                     let conflict_path = vault_path.join(&conflict_name);
                     std::fs::rename(&local.absolute_path, &conflict_path)?;
                     download_file(&api, remote, &vault_path).await?;
+                    let dl_checksum = compute_checksum(&vault_path.join(path))?;
                     println!("conflict (new): {path} (local saved as {conflict_name})");
                     new_manifest.insert(
                         path.clone(),
                         ManifestEntry {
-                            checksum: remote.checksum.clone(),
+                            checksum: dl_checksum,
                             file_id: remote.id.clone(),
                         },
                     );
@@ -318,11 +338,12 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
             // NOT in manifest + NOT on disk + on remote → new remote
             (None, None, Some(remote)) => {
                 download_file(&api, remote, &vault_path).await?;
+                let dl_checksum = compute_checksum(&vault_path.join(path))?;
                 println!("downloaded (new): {path}");
                 new_manifest.insert(
                     path.clone(),
                     ManifestEntry {
-                        checksum: remote.checksum.clone(),
+                        checksum: dl_checksum,
                         file_id: remote.id.clone(),
                     },
                 );
