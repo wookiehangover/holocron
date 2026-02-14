@@ -4,8 +4,12 @@ use std::time::Duration;
 use notify::{Config as NotifyConfig, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 
+use crate::api::{ApiClient, VaultVersion};
 use crate::config::Config;
 use crate::sync;
+
+/// Default interval between remote version polls.
+const POLL_INTERVAL: Duration = Duration::from_secs(30);
 
 pub async fn run_daemon(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     // Initial sync
@@ -54,31 +58,64 @@ pub async fn run_daemon(config: &Config) -> Result<(), Box<dyn std::error::Error
     // Clone config for the sync loop
     let sync_config = config.clone();
 
-    // Main event loop with debounce
-    loop {
-        // Wait for a file change event
-        match rx.recv().await {
-            Some(()) => {}
-            None => break, // channel closed
-        }
+    // Remote polling state
+    let api = ApiClient::from_config(&sync_config);
+    let mut poll_interval = tokio::time::interval(POLL_INTERVAL);
+    // The first tick fires immediately; consume it so we don't
+    // double-sync right after the initial sync above.
+    poll_interval.tick().await;
+    let mut last_known_version: Option<VaultVersion> = None;
 
-        // Debounce: drain any additional events over 2 seconds
-        let debounce = Duration::from_secs(2);
-        let deadline = tokio::time::Instant::now() + debounce;
-        loop {
-            tokio::select! {
-                _ = rx.recv() => {
-                    // Consume additional events during debounce window
+    // Main event loop: react to local FS changes OR remote version changes
+    loop {
+        tokio::select! {
+            // --- Local filesystem change ---
+            event = rx.recv() => {
+                match event {
+                    Some(()) => {}
+                    None => break, // channel closed
                 }
-                _ = tokio::time::sleep_until(deadline) => {
-                    break;
+
+                // Debounce: drain any additional events over 2 seconds
+                let debounce = Duration::from_secs(2);
+                let deadline = tokio::time::Instant::now() + debounce;
+                loop {
+                    tokio::select! {
+                        _ = rx.recv() => {
+                            // Consume additional events during debounce window
+                        }
+                        _ = tokio::time::sleep_until(deadline) => {
+                            break;
+                        }
+                    }
+                }
+
+                println!("Change detected, syncing...");
+                if let Err(e) = sync::run_sync(&sync_config).await {
+                    eprintln!("Sync error: {e}");
                 }
             }
-        }
 
-        println!("Change detected, syncing...");
-        if let Err(e) = sync::run_sync(&sync_config).await {
-            eprintln!("Sync error: {e}");
+            // --- Remote polling tick ---
+            _ = poll_interval.tick() => {
+                match api.get_vault_version().await {
+                    Ok(version) => {
+                        let changed = last_known_version
+                            .as_ref()
+                            .is_none_or(|prev| *prev != version);
+                        if changed {
+                            println!("Remote change detected, syncing...");
+                            if let Err(e) = sync::run_sync(&sync_config).await {
+                                eprintln!("Sync error: {e}");
+                            }
+                            last_known_version = Some(version);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: remote poll failed: {e}");
+                    }
+                }
+            }
         }
     }
 

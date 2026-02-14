@@ -70,6 +70,13 @@ pub struct ShareLinkResponse {
     pub expires_at: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultVersion {
+    pub latest_change: Option<String>,
+    pub file_count: u64,
+}
+
 // Private request bodies
 
 #[derive(Serialize)]
@@ -240,6 +247,13 @@ impl ApiClient {
             .await?;
         Self::check(resp).await?;
         Ok(())
+    }
+
+    /// GET /files/version — fetch the current vault version for change detection.
+    pub async fn get_vault_version(&self) -> Result<VaultVersion, ApiError> {
+        let resp = self.client.get(self.url("/files/version")).send().await?;
+        let resp = Self::check(resp).await?;
+        Ok(resp.json().await?)
     }
 }
 
