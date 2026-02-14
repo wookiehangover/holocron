@@ -1,8 +1,15 @@
 import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
+import { apiKeyAuth } from "./middleware/auth.js";
 
 const app = new Hono();
+
+// ---------------------------------------------------------------------------
+// Auth – applied globally; /health is excluded inside the middleware
+// ---------------------------------------------------------------------------
+
+app.use("*", apiKeyAuth);
 
 // ---------------------------------------------------------------------------
 // Health
