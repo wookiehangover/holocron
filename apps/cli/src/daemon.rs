@@ -16,6 +16,17 @@ pub async fn run_daemon(config: &Config) -> Result<(), Box<dyn std::error::Error
     println!("Running initial sync...");
     sync::run_sync(config).await?;
 
+    // Seed the last known version so the first poll tick doesn't
+    // trigger a redundant sync.
+    let api = ApiClient::from_config(config);
+    let mut last_known_version: Option<VaultVersion> = match api.get_vault_version().await {
+        Ok(v) => Some(v),
+        Err(e) => {
+            eprintln!("Warning: could not seed vault version: {e}");
+            None
+        }
+    };
+
     // Spawn a dedicated signal handler so Ctrl-C works even while
     // sync is running (when the select! branches aren't being polled).
     tokio::spawn(async {
@@ -59,12 +70,10 @@ pub async fn run_daemon(config: &Config) -> Result<(), Box<dyn std::error::Error
     let sync_config = config.clone();
 
     // Remote polling state
-    let api = ApiClient::from_config(&sync_config);
     let mut poll_interval = tokio::time::interval(POLL_INTERVAL);
     // The first tick fires immediately; consume it so we don't
     // double-sync right after the initial sync above.
     poll_interval.tick().await;
-    let mut last_known_version: Option<VaultVersion> = None;
 
     // Main event loop: react to local FS changes OR remote version changes
     loop {
