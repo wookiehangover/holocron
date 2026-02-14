@@ -126,10 +126,10 @@ public final class APIClient {
         return response.files
     }
 
-    /// Confirm a file upload has completed.
-    public func confirmUpload(fileId: String) async throws {
+    /// Confirm a file upload has completed, storing the content checksum.
+    public func confirmUpload(fileId: String, checksum: String) async throws {
         logger.info("confirmUpload called for file: \(fileId, privacy: .public)")
-        let body = try encoder.encode(ConfirmUploadRequest(fileId: fileId))
+        let body = try encoder.encode(ConfirmUploadRequest(fileId: fileId, checksum: checksum))
         let request = makeRequest(path: "files/upload/confirm", method: "POST", body: body)
         _ = try await perform(request)
     }
@@ -208,6 +208,7 @@ public final class APIClient {
 
     private struct ConfirmUploadRequest: Encodable {
         let fileId: String
+        let checksum: String
     }
 
     private struct ShareRequest: Encodable {

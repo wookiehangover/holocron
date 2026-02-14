@@ -167,8 +167,13 @@ public final class SyncEngine {
 
                     // In manifest + on disk + on remote → compare checksums
                     case let (.some(entry), .some(local), .some(remote)):
-                        let localChanged = local.checksum != entry.checksum
-                        let remoteChanged = remote.checksum != entry.checksum
+                        // Guard against empty checksums (legacy data or
+                        // records created before checksum was persisted).
+                        let localChanged = !entry.checksum.isEmpty
+                            && local.checksum != entry.checksum
+                        let remoteChanged = !entry.checksum.isEmpty
+                            && !remote.checksum.isEmpty
+                            && remote.checksum != entry.checksum
 
                         if localChanged && remoteChanged {
                             // Both sides changed — conflict
@@ -207,11 +212,13 @@ public final class SyncEngine {
 
                     // NOT in manifest + on disk + on remote → new on both sides
                     case (.none, .some(let local), .some(let remote)):
-                        if local.checksum != remote.checksum {
+                        if local.checksum != remote.checksum && !remote.checksum.isEmpty {
                             // Different content — conflict
                             try await resolveConflict(localFile: local, remoteFile: remote, vaultURL: vaultURL)
                         }
-                        manifest[path] = SyncManifestEntry(checksum: remote.checksum, fileId: remote.id)
+                        // Prefer local checksum when remote is empty (legacy data)
+                        let bestChecksum = remote.checksum.isEmpty ? local.checksum : remote.checksum
+                        manifest[path] = SyncManifestEntry(checksum: bestChecksum, fileId: remote.id)
 
                     // NOT in manifest + on disk + NOT on remote → new local file
                     case (.none, .some(let local), .none):
@@ -389,7 +396,7 @@ public final class SyncEngine {
             throw SyncError.uploadFailed(localFile.relativePath)
         }
 
-        try await apiClient.confirmUpload(fileId: uploadResponse.fileId)
+        try await apiClient.confirmUpload(fileId: uploadResponse.fileId, checksum: localFile.checksum)
         logger.info("Uploaded: \(localFile.relativePath, privacy: .public)")
         return uploadResponse
     }
