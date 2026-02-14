@@ -199,9 +199,29 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
     let remote_files = api.list_files().await?;
     let local_files = enumerate_local_files(&vault_path);
 
+    // Conflict files are local-only backups and should never exist on the
+    // server. If any are found (e.g. uploaded by an older client), delete
+    // them so they don't keep reappearing after the user removes them locally.
+    let (conflict_files, clean_remote_files): (Vec<_>, Vec<_>) =
+        remote_files.into_iter().partition(|f| {
+            Path::new(&f.path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map_or(false, |name| name.contains(".conflict-"))
+        });
+    for cf in &conflict_files {
+        println!("removing stale conflict file from server: {}", cf.path);
+        if let Err(e) = api.delete_file(&cf.id).await {
+            eprintln!(
+                "warning: failed to delete remote conflict file {}: {e}",
+                cf.path
+            );
+        }
+    }
+
     // Build lookup maps
     let remote_map: HashMap<String, &RemoteFile> =
-        remote_files.iter().map(|f| (f.path.clone(), f)).collect();
+        clean_remote_files.iter().map(|f| (f.path.clone(), f)).collect();
     let local_map: HashMap<String, &LocalFile> = local_files
         .iter()
         .map(|f| (f.relative_path.clone(), f))

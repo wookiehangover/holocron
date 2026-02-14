@@ -76,7 +76,25 @@ public final class SyncEngine {
 
             // 1. List remote files
             let remoteFiles = try await apiClient.listRemoteFiles()
-            let remoteByPath = Dictionary(uniqueKeysWithValues: remoteFiles.map { ($0.path, $0) })
+
+            // Conflict files are local-only backups and should never exist on the
+            // server. If any are found (e.g. uploaded by an older client), delete
+            // them so they don't keep reappearing after the user removes them locally.
+            var cleanRemoteFiles: [APIClient.RemoteFile] = []
+            for remote in remoteFiles {
+                let filename = (remote.path as NSString).lastPathComponent
+                if filename.contains(".conflict-") {
+                    logger.info("Removing stale conflict file from server: \(remote.path, privacy: .public)")
+                    do {
+                        try await apiClient.deleteFile(id: remote.id)
+                    } catch {
+                        logger.error("Failed to delete remote conflict file \(remote.path, privacy: .public): \(String(describing: error), privacy: .public)")
+                    }
+                } else {
+                    cleanRemoteFiles.append(remote)
+                }
+            }
+            let remoteByPath = Dictionary(uniqueKeysWithValues: cleanRemoteFiles.map { ($0.path, $0) })
 
             // 2. Scan local files
             let localFiles = enumerateLocalFiles(in: vaultURL)
