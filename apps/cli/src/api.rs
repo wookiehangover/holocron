@@ -85,6 +85,7 @@ struct UploadRequest<'a> {
 #[serde(rename_all = "camelCase")]
 struct ConfirmUploadRequest<'a> {
     file_id: &'a str,
+    checksum: &'a str,
 }
 
 #[derive(Serialize)]
@@ -187,8 +188,8 @@ impl ApiClient {
     }
 
     /// POST /files/upload/confirm — confirm an upload has completed.
-    pub async fn confirm_upload(&self, file_id: &str) -> Result<(), ApiError> {
-        let body = ConfirmUploadRequest { file_id };
+    pub async fn confirm_upload(&self, file_id: &str, checksum: &str) -> Result<(), ApiError> {
+        let body = ConfirmUploadRequest { file_id, checksum };
         let resp = self
             .client
             .post(self.url("/files/upload/confirm"))

@@ -140,9 +140,9 @@ async fn upload_file(
         .send()
         .await?;
 
-    api.confirm_upload(&upload.file_id).await?;
-
     let checksum = compute_checksum(&abs)?;
+    api.confirm_upload(&upload.file_id, &checksum).await?;
+
     Ok(ManifestEntry {
         checksum,
         file_id: upload.file_id,
@@ -211,21 +211,14 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
             (Some(entry), Some(local), Some(remote)) => {
                 let local_checksum = compute_checksum(&local.absolute_path)?;
 
-                // If the manifest has no baseline checksum we cannot
-                // reliably determine what changed. Record the current
-                // local checksum so future syncs work correctly.
-                let local_changed = if entry.checksum.is_empty() {
-                    false
-                } else {
-                    local_checksum != entry.checksum
-                };
-                let remote_changed = if entry.checksum.is_empty()
-                    || remote.checksum.is_empty()
-                {
-                    false
-                } else {
-                    remote.checksum != entry.checksum
-                };
+                // Gracefully handle missing checksums: if the manifest
+                // or remote has no checksum yet (legacy data), skip
+                // change detection for that side.
+                let local_changed = !entry.checksum.is_empty()
+                    && local_checksum != entry.checksum;
+                let remote_changed = !entry.checksum.is_empty()
+                    && !remote.checksum.is_empty()
+                    && remote.checksum != entry.checksum;
 
                 if local_changed && remote_changed {
                     // Conflict: rename local, download remote
@@ -298,12 +291,11 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
             // NOT in manifest + on disk + on remote
             (None, Some(local), Some(remote)) => {
                 let local_checksum = compute_checksum(&local.absolute_path)?;
-                // When remote checksum is empty we can't compare;
-                // assume local is authoritative and record its checksum.
+                // If checksums match (or remote has none yet), treat
+                // as same content and record the local checksum.
                 if local_checksum == remote.checksum
                     || remote.checksum.is_empty()
                 {
-                    // Same content (or remote has no checksum), just add to manifest
                     new_manifest.insert(
                         path.clone(),
                         ManifestEntry {

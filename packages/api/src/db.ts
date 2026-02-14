@@ -131,6 +131,18 @@ export async function insertFile(file: HolocronFile): Promise<void> {
   });
 }
 
+/** Update the checksum (and updated_at) for an existing file. */
+export async function updateFileChecksum(
+  id: string,
+  checksum: string,
+): Promise<void> {
+  const conn = getDb();
+  await conn.execute({
+    sql: `UPDATE files SET checksum = ?, updated_at = ? WHERE id = ?`,
+    params: [checksum, new Date().toISOString(), id],
+  });
+}
+
 /** Fetch a single file by its primary key. */
 export async function getFileById(id: string): Promise<HolocronFile | null> {
   const conn = getDb();

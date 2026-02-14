@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { connectDb, ensureSchema, insertFile, getFileById, listFiles, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl } from "./db.js";
+import { connectDb, ensureSchema, insertFile, getFileById, listFiles, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -98,11 +98,16 @@ app.post("/files/upload", async (c) => {
 });
 
 app.post("/files/upload/confirm", async (c) => {
-  const { fileId } = await c.req.json<{ fileId: string }>();
+  const { fileId, checksum } = await c.req.json<{ fileId: string; checksum?: string }>();
 
   const file = await getFileById(fileId);
   if (!file) {
     return c.json({ error: "File not found" }, 404);
+  }
+
+  // Persist the client-supplied checksum if provided.
+  if (checksum) {
+    await updateFileChecksum(fileId, checksum);
   }
 
   const stateMachineArn = process.env.PROCESSING_STATE_MACHINE_ARN;
