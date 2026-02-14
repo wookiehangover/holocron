@@ -17,6 +17,13 @@ public final class SyncEngine {
 
     public private(set) var state: SyncState = .idle
 
+    /// Guards against concurrent `syncNow()` invocations.
+    private struct SyncGuardState {
+        var isSyncing = false
+        var pendingSync = false
+    }
+    private let syncGuard = OSAllocatedUnfairLock(initialState: SyncGuardState())
+
     public init(apiClient: APIClient) {
         self.apiClient = apiClient
         logger.info("SyncEngine initialized")
@@ -35,7 +42,24 @@ public final class SyncEngine {
     }
 
     /// Trigger an immediate sync.
+    ///
+    /// Only one sync runs at a time. If called while a sync is already in
+    /// progress, the request is coalesced — a single follow-up sync runs
+    /// once the current one finishes.
     public func syncNow() async {
+        let shouldStart = syncGuard.withLock { state -> Bool in
+            if state.isSyncing {
+                state.pendingSync = true
+                return false
+            }
+            state.isSyncing = true
+            return true
+        }
+        guard shouldStart else {
+            logger.info("SyncEngine: sync already in progress, queued")
+            return
+        }
+
         logger.info("SyncEngine: syncNow called")
         state = .syncing
 
@@ -143,6 +167,18 @@ public final class SyncEngine {
             let message = String(describing: error)
             state = .error(message)
             logger.error("SyncEngine: sync failed — \(message, privacy: .public)")
+        }
+
+        let shouldResync = syncGuard.withLock { state -> Bool in
+            state.isSyncing = false
+            let pending = state.pendingSync
+            state.pendingSync = false
+            return pending
+        }
+
+        if shouldResync {
+            logger.info("SyncEngine: running queued sync")
+            await syncNow()
         }
     }
 

@@ -53,10 +53,16 @@ public final class FileWatcher {
     /// Exposed as a static function for testability.
     public static func hasRelevantChange(in paths: [String]) -> Bool {
         paths.contains { path in
-            // Ignore changes inside hidden directories (e.g. .git/, .obsidian/)
-            // but allow hidden files at the leaf (e.g. .gitignore)
             let components = path.split(separator: "/")
             guard components.count > 1 else { return true }
+
+            // Ignore conflict files created by sync — they are local-only backups
+            if let filename = components.last, filename.contains(".conflict-") {
+                return false
+            }
+
+            // Ignore changes inside hidden directories (e.g. .git/, .obsidian/)
+            // but allow hidden files at the leaf (e.g. .gitignore)
             // Check only intermediate directory components, not the leaf filename
             let directories = components.dropLast()
             return !directories.contains { component in

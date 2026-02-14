@@ -66,5 +66,23 @@ struct FileWatcherFilterTests {
         let paths = ["/Users/sam/Holocron/.gitignore"]
         #expect(FileWatcher.hasRelevantChange(in: paths))
     }
+
+    @Test("Conflict files only are ignored")
+    func conflictFilesOnly() {
+        let paths = [
+            "/Users/sam/Holocron/photo.conflict-2026-02-14T05-42-46Z.jpg",
+            "/Users/sam/Holocron/notes/note.conflict-2026-02-14T06-00-00Z.md",
+        ]
+        #expect(!FileWatcher.hasRelevantChange(in: paths))
+    }
+
+    @Test("Mix of conflict and normal files is relevant")
+    func conflictWithNormal() {
+        let paths = [
+            "/Users/sam/Holocron/photo.conflict-2026-02-14T05-42-46Z.jpg",
+            "/Users/sam/Holocron/notes/daily.md",
+        ]
+        #expect(FileWatcher.hasRelevantChange(in: paths))
+    }
 }
 
