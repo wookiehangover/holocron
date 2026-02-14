@@ -14,6 +14,7 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Core services
     private var syncEngine: SyncEngine?
     private var fileWatcher: FileWatcher?
+    private var preferencesWindow: PreferencesWindow?
 
     // SF Symbol names for menubar icon states
     private enum Icon {
@@ -182,12 +183,28 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openVaultFolder() {
-        let vaultURL = URL(fileURLWithPath: FileWatcher.defaultVaultPath)
-        NSWorkspace.shared.open(vaultURL)
+        let path = FileWatcher.defaultVaultPath
+        let vaultURL = URL(fileURLWithPath: path)
+
+        // Create the vault directory if it doesn't exist yet
+        if !FileManager.default.fileExists(atPath: path) {
+            do {
+                try FileManager.default.createDirectory(at: vaultURL, withIntermediateDirectories: true)
+                logger.info("Created vault directory at \(path, privacy: .public)")
+            } catch {
+                logger.error("Failed to create vault directory: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+        }
+
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
     }
 
     @objc private func openPreferences() {
-        logger.info("Preferences requested (not yet implemented)")
+        if preferencesWindow == nil {
+            preferencesWindow = PreferencesWindow()
+        }
+        preferencesWindow?.showWindow()
     }
 }
 
