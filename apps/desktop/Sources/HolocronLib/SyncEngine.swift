@@ -24,6 +24,15 @@ public final class SyncEngine {
     }
     private let syncGuard = OSAllocatedUnfairLock(initialState: SyncGuardState())
 
+    /// Interval between remote version checks.
+    private let pollInterval: Duration = .seconds(30)
+
+    /// Background task that periodically polls for remote changes.
+    private var pollingTask: Task<Void, Never>?
+
+    /// Last known vault version, used to detect remote changes.
+    private var lastKnownVersion: APIClient.VaultVersion?
+
     public init(apiClient: APIClient) {
         self.apiClient = apiClient
         logger.info("SyncEngine initialized")
@@ -33,12 +42,43 @@ public final class SyncEngine {
     public func start() {
         logger.info("SyncEngine started")
         state = .idle
+
+        pollingTask?.cancel()
+        pollingTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: self.pollInterval)
+                } catch {
+                    // Task was cancelled during sleep
+                    break
+                }
+                guard !Task.isCancelled else { break }
+                await self.pollRemoteVersion()
+            }
+        }
     }
 
     /// Stop all sync activity.
     public func stop() {
         logger.info("SyncEngine stopped")
+        pollingTask?.cancel()
+        pollingTask = nil
         state = .idle
+    }
+
+    /// Check remote vault version and trigger sync if it changed.
+    private func pollRemoteVersion() async {
+        do {
+            let version = try await apiClient.getVaultVersion()
+            if let lastKnown = lastKnownVersion, version != lastKnown {
+                logger.info("Remote version changed, triggering sync")
+                await syncNow()
+            }
+            lastKnownVersion = version
+        } catch {
+            logger.error("Failed to poll vault version: \(String(describing: error), privacy: .public)")
+        }
     }
 
     /// Trigger an immediate sync.

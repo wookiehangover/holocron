@@ -141,6 +141,14 @@ public final class APIClient {
         _ = try await perform(request)
     }
 
+    /// Get the current vault version to detect remote changes.
+    public func getVaultVersion() async throws -> VaultVersion {
+        logger.info("getVaultVersion called")
+        let request = makeRequest(path: "files/version")
+        let (data, _) = try await perform(request)
+        return try decoder.decode(VaultVersion.self, from: data)
+    }
+
     /// Create a shareable link for a file.
     public func createShareLink(
         fileId: String,
@@ -208,6 +216,11 @@ public final class APIClient {
     }
 
     // MARK: - Response Types
+
+    public struct VaultVersion: Codable, Sendable, Equatable {
+        public let latestChange: String?
+        public let fileCount: Int
+    }
 
     public struct UploadResponse: Codable, Sendable {
         public let fileId: String
