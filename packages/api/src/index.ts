@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, searchChunks, getChunksByFileId } from "./db.js";
+import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, searchChunks, getChunksByFileId } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -247,8 +247,18 @@ app.delete("/files/:id", async (c) => {
     return c.json({ error: "Failed to delete file from storage" }, 500);
   }
 
-  // Remove share links, then the file record
+  // Delete extracted fulltext from S3 (best-effort)
+  if (file.fullTextS3Key) {
+    try {
+      await deleteObject(getBucketName(), file.fullTextS3Key);
+    } catch {
+      // Non-fatal — fulltext may not exist yet
+    }
+  }
+
+  // Remove share links, chunks, then the file record
   await deleteShareLinksByFileId(id);
+  await deleteChunksByFileId(id);
   await deleteFile(id);
 
   return c.body(null, 204);
