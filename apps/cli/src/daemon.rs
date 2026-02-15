@@ -9,7 +9,7 @@ use crate::config::Config;
 use crate::sync;
 
 /// Default interval between remote version polls.
-const POLL_INTERVAL: Duration = Duration::from_secs(30);
+const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 pub async fn run_daemon(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     // Initial sync

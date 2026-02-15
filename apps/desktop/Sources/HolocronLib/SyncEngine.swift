@@ -25,7 +25,7 @@ public final class SyncEngine {
     private let syncGuard = OSAllocatedUnfairLock(initialState: SyncGuardState())
 
     /// Interval between remote version checks.
-    private let pollInterval: Duration = .seconds(30)
+    private let pollInterval: Duration = .seconds(5)
 
     /// Background task that periodically polls for remote changes.
     private var pollingTask: Task<Void, Never>?
