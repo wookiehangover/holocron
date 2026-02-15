@@ -81,7 +81,7 @@ export async function handler(
     try {
       const textForLlm = fullText.slice(0, MAX_TEXT_LENGTH);
       const { object } = await generateObject({
-        model: gateway("google/gemini-3.0-flash"),
+        model: gateway("google/gemini-3-flash"),
         schema: metadataSchema,
         prompt: `${METADATA_PROMPT}\n\nInput:\n${textForLlm}`,
       });

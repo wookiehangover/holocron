@@ -119,7 +119,7 @@ function extractTextContent(buffer: Buffer): string {
 /** Extract text/content from an image using Gemini 3.0 Flash via Vercel AI SDK. */
 async function extractImage(buffer: Buffer, mimeType: string): Promise<string> {
   const { text } = await generateText({
-    model: gateway("google/gemini-3.0-flash"),
+    model: gateway("google/gemini-3-flash"),
     messages: [
       {
         role: "user",
