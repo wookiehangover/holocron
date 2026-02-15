@@ -13,11 +13,10 @@
     "@holocron/api": "workspace:*",
     "@holocron/core": "workspace:*",
     "ai": "^6.0.86",
-    "pdf-parse": "^2.4.5",
+    "unpdf": "^1.4.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.160",
-    "@types/pdf-parse": "^1.1.5"
+    "@types/aws-lambda": "^8.10.160"
   }
 }
