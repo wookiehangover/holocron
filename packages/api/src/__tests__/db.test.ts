@@ -145,11 +145,13 @@ function sendInput(callIndex = 0): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 describe("insertFile", () => {
-  it("sends a PutCommand with correct table, keys, and attributes", async () => {
-    mockSend.mockResolvedValueOnce({});
+  it("sends a PutCommand followed by a vault version bump", async () => {
+    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({});
     await insertFile(sampleFile);
 
-    expect(mockSend).toHaveBeenCalledOnce();
+    expect(mockSend).toHaveBeenCalledTimes(2);
+
+    // First call: PutCommand for the file
     const cmd = mockSend.mock.calls[0][0];
     expect(cmd).toBeInstanceOf(PutCommand);
     const input = sendInput();
@@ -163,6 +165,16 @@ describe("insertFile", () => {
       name: "hello.txt",
       checksum: "abc123",
     });
+
+    // Second call: UpdateCommand to bump vault version (fileCount +1)
+    const bumpCmd = mockSend.mock.calls[1][0];
+    expect(bumpCmd).toBeInstanceOf(UpdateCommand);
+    const bumpInput = sendInput(1) as Record<string, any>;
+    expect(bumpInput.Key).toEqual({
+      pk: "VAULT#VERSION",
+      sk: "VAULT#VERSION",
+    });
+    expect(bumpInput.ExpressionAttributeValues[":delta"]).toBe(1);
   });
 });
 
@@ -248,51 +260,129 @@ describe("listFiles", () => {
 });
 
 describe("getVaultVersion", () => {
-  it("returns latest change timestamp and file count", async () => {
-    const item1 = { ...sampleFileItem, updatedAt: "2025-01-15T10:00:00.000Z" };
-    const item2 = { ...sampleFileItem, id: "file-002", updatedAt: "2025-01-16T12:00:00.000Z" };
-    mockSend.mockResolvedValueOnce({ Items: [item1, item2] });
+  it("returns data from counter item when it exists (fast path)", async () => {
+    mockSend.mockResolvedValueOnce({
+      Item: {
+        pk: "VAULT#VERSION",
+        sk: "VAULT#VERSION",
+        version: 5,
+        fileCount: 3,
+        lastModified: "2025-01-16T12:00:00.000Z",
+      },
+    });
 
     const result = await getVaultVersion();
-    expect(result.fileCount).toBe(2);
-    expect(result.latestChange).toBe("2025-01-16T12:00:00.000Z");
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const cmd = mockSend.mock.calls[0][0];
+    expect(cmd).toBeInstanceOf(GetCommand);
+    const input = sendInput();
+    expect(input.Key).toEqual({ pk: "VAULT#VERSION", sk: "VAULT#VERSION" });
+    expect(result).toEqual({
+      latestChange: "2025-01-16T12:00:00.000Z",
+      fileCount: 3,
+    });
   });
 
-  it("returns null latestChange and 0 count when no files", async () => {
-    mockSend.mockResolvedValueOnce({ Items: [] });
+  it("falls back to legacy scan and seeds counter when counter item missing", async () => {
+    const item1 = { ...sampleFileItem, updatedAt: "2025-01-15T10:00:00.000Z" };
+    const item2 = { ...sampleFileItem, id: "file-002", updatedAt: "2025-01-16T12:00:00.000Z" };
+
+    // First call: GetCommand returns no item (counter doesn't exist)
+    mockSend.mockResolvedValueOnce({});
+    // Second call: legacy scan via QueryCommand
+    mockSend.mockResolvedValueOnce({ Items: [item1, item2] });
+    // Third call: PutCommand to seed the counter
+    mockSend.mockResolvedValueOnce({});
+
     const result = await getVaultVersion();
+
+    expect(mockSend).toHaveBeenCalledTimes(3);
+    // First: GetCommand for counter
+    expect(mockSend.mock.calls[0][0]).toBeInstanceOf(GetCommand);
+    // Second: QueryCommand for legacy scan
+    expect(mockSend.mock.calls[1][0]).toBeInstanceOf(QueryCommand);
+    // Third: PutCommand to seed counter
+    expect(mockSend.mock.calls[2][0]).toBeInstanceOf(PutCommand);
+
+    const seedInput = sendInput(2) as Record<string, any>;
+    expect(seedInput.Item).toMatchObject({
+      pk: "VAULT#VERSION",
+      sk: "VAULT#VERSION",
+      version: 1,
+      fileCount: 2,
+      lastModified: "2025-01-16T12:00:00.000Z",
+    });
+
+    expect(result).toEqual({
+      latestChange: "2025-01-16T12:00:00.000Z",
+      fileCount: 2,
+    });
+  });
+
+  it("returns null latestChange and 0 count when no counter and no files", async () => {
+    // GetCommand returns no item
+    mockSend.mockResolvedValueOnce({});
+    // Legacy scan returns no items
+    mockSend.mockResolvedValueOnce({ Items: [] });
+
+    const result = await getVaultVersion();
+    expect(mockSend).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ latestChange: null, fileCount: 0 });
   });
 });
 
 describe("updateFileChecksum", () => {
-  it("sends UpdateCommand with correct key and expression", async () => {
-    mockSend.mockResolvedValueOnce({});
+  it("sends UpdateCommand followed by a vault version bump (delta 0)", async () => {
+    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({});
     await updateFileChecksum("file-001", "newchecksum");
 
-    expect(mockSend).toHaveBeenCalledOnce();
+    expect(mockSend).toHaveBeenCalledTimes(2);
+
+    // First call: UpdateCommand for the file
     expect(mockSend.mock.calls[0][0]).toBeInstanceOf(UpdateCommand);
     const input = sendInput() as Record<string, any>;
     expect(input.Key).toEqual({ pk: "FILE#file-001", sk: "FILE#file-001" });
     expect(input.UpdateExpression).toBe("SET checksum = :c, updatedAt = :u");
     expect(input.ExpressionAttributeValues[":c"]).toBe("newchecksum");
-    // updatedAt should be a valid ISO string
     expect(input.ExpressionAttributeValues[":u"]).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
     );
+
+    // Second call: UpdateCommand to bump vault version (fileCount delta 0)
+    const bumpCmd = mockSend.mock.calls[1][0];
+    expect(bumpCmd).toBeInstanceOf(UpdateCommand);
+    const bumpInput = sendInput(1) as Record<string, any>;
+    expect(bumpInput.Key).toEqual({
+      pk: "VAULT#VERSION",
+      sk: "VAULT#VERSION",
+    });
+    expect(bumpInput.ExpressionAttributeValues[":delta"]).toBe(0);
   });
 });
 
 describe("deleteFile", () => {
-  it("sends DeleteCommand with correct key", async () => {
-    mockSend.mockResolvedValueOnce({});
+  it("sends DeleteCommand followed by a vault version bump (delta -1)", async () => {
+    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({});
     await deleteFile("file-001");
 
-    expect(mockSend).toHaveBeenCalledOnce();
+    expect(mockSend).toHaveBeenCalledTimes(2);
+
+    // First call: DeleteCommand for the file
     expect(mockSend.mock.calls[0][0]).toBeInstanceOf(DeleteCommand);
     const input = sendInput();
     expect(input.TableName).toBe("Holocron");
     expect(input.Key).toEqual({ pk: "FILE#file-001", sk: "FILE#file-001" });
+
+    // Second call: UpdateCommand to bump vault version (fileCount -1)
+    const bumpCmd = mockSend.mock.calls[1][0];
+    expect(bumpCmd).toBeInstanceOf(UpdateCommand);
+    const bumpInput = sendInput(1) as Record<string, any>;
+    expect(bumpInput.Key).toEqual({
+      pk: "VAULT#VERSION",
+      sk: "VAULT#VERSION",
+    });
+    expect(bumpInput.ExpressionAttributeValues[":delta"]).toBe(-1);
   });
 });
 

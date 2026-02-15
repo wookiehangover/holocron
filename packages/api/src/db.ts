@@ -59,6 +59,36 @@ function itemToShareLink(item: Record<string, unknown>): ShareLink {
 }
 
 // ---------------------------------------------------------------------------
+// Vault version counter helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Atomically bump the vault version counter.
+ *
+ * Uses DynamoDB `ADD` to increment `version` by 1 and adjust `fileCount` by
+ * the given delta (+1 on insert, -1 on delete, 0 on update). `lastModified`
+ * is always set to the current timestamp.
+ */
+async function bumpVaultVersion(fileCountDelta: number): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        pk: PREFIX.VAULT_VERSION,
+        sk: PREFIX.VAULT_VERSION,
+      },
+      UpdateExpression:
+        "ADD version :one, fileCount :delta SET lastModified = :now",
+      ExpressionAttributeValues: {
+        ":one": 1,
+        ":delta": fileCountDelta,
+        ":now": new Date().toISOString(),
+      },
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // File helpers
 // ---------------------------------------------------------------------------
 
@@ -86,6 +116,7 @@ export async function insertFile(file: HolocronFile): Promise<void> {
       },
     }),
   );
+  await bumpVaultVersion(1);
 }
 
 /** Update the checksum (and updated_at) for an existing file. */
@@ -104,6 +135,7 @@ export async function updateFileChecksum(
       },
     }),
   );
+  await bumpVaultVersion(0);
 }
 
 /** Fetch a single file by its primary key. */
@@ -162,7 +194,28 @@ export async function getVaultVersion(): Promise<{
   latestChange: string | null;
   fileCount: number;
 }> {
-  // Query GSI1 for all files — ScanIndexForward=false so first item is newest
+  // Fast path: read the dedicated counter item.
+  const counterResult = await docClient.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        pk: PREFIX.VAULT_VERSION,
+        sk: PREFIX.VAULT_VERSION,
+      },
+    }),
+  );
+
+  if (counterResult.Item) {
+    return {
+      latestChange: (counterResult.Item.lastModified as string) ?? null,
+      fileCount: (counterResult.Item.fileCount as number) ?? 0,
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // Fallback: counter item doesn't exist yet (fresh deploy / migration).
+  // Run the legacy scan, then seed the counter so subsequent calls are fast.
+  // ------------------------------------------------------------------
   const items: Record<string, unknown>[] = [];
   let lastKey: Record<string, unknown> | undefined;
 
@@ -193,6 +246,20 @@ export async function getVaultVersion(): Promise<{
       latestChange = updatedAt;
     }
   }
+
+  // Seed the counter item so future reads are a single GetItem.
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        pk: PREFIX.VAULT_VERSION,
+        sk: PREFIX.VAULT_VERSION,
+        version: 1,
+        fileCount: items.length,
+        lastModified: latestChange,
+      },
+    }),
+  );
 
   return { latestChange, fileCount: items.length };
 }
@@ -293,5 +360,6 @@ export async function deleteFile(id: string): Promise<void> {
       Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
     }),
   );
+  await bumpVaultVersion(-1);
 }
 
