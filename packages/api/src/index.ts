@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum } from "./db.js";
+import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, searchChunks, getChunksByFileId } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -53,6 +53,53 @@ app.get("/files", async (c) => {
 app.get("/files/version", async (c) => {
   const version = await getVaultVersion();
   return c.json(version);
+});
+
+app.get("/files/search", async (c) => {
+  const query = c.req.query("q");
+  if (!query) {
+    return c.json({ error: "Missing required query parameter: q" }, 400);
+  }
+
+  const limit = Math.min(Math.max(parseInt(c.req.query("limit") ?? "20", 10) || 20, 1), 100);
+
+  const chunks = await searchChunks(query, limit);
+
+  // Group chunks by fileId
+  const grouped = new Map<string, { file: { id: string; name: string; path: string; mimeType: string; metadata?: unknown }; chunks: Array<{ text: string; page?: number; chunkIndex: number }> }>();
+
+  for (const chunk of chunks) {
+    const existing = grouped.get(chunk.fileId);
+    const chunkEntry = { text: chunk.text, page: chunk.page, chunkIndex: chunk.chunkIndex };
+
+    if (existing) {
+      existing.chunks.push(chunkEntry);
+    } else {
+      // Fetch the full file record for metadata
+      const file = await getFileById(chunk.fileId);
+      grouped.set(chunk.fileId, {
+        file: {
+          id: chunk.fileId,
+          name: file?.name ?? chunk.fileName,
+          path: file?.path ?? "",
+          mimeType: file?.mimeType ?? "",
+          metadata: file?.metadata,
+        },
+        chunks: [chunkEntry],
+      });
+    }
+  }
+
+  // Sort by number of matching chunks (descending)
+  const results = [...grouped.values()]
+    .sort((a, b) => b.chunks.length - a.chunks.length)
+    .map((entry) => ({
+      file: entry.file,
+      chunks: entry.chunks,
+      score: entry.chunks.length,
+    }));
+
+  return c.json({ results, query, total: results.length });
 });
 
 app.post("/files/upload", async (c) => {
@@ -109,7 +156,13 @@ app.post("/files/upload/confirm", async (c) => {
   await sfn.send(
     new StartExecutionCommand({
       stateMachineArn,
-      input: JSON.stringify({ s3Key: file.s3Key ?? file.path }),
+      input: JSON.stringify({
+        fileId: file.id,
+        s3Key: file.s3Key ?? file.path,
+        bucket: process.env.BUCKET_NAME,
+        mimeType: file.mimeType,
+        fileName: file.name,
+      }),
     }),
   );
 
@@ -124,6 +177,27 @@ app.get("/files/:id", async (c) => {
   }
   const downloadUrl = await getPresignedGetUrl(getBucketName(), file.s3Key ?? file.path);
   return c.json({ file, downloadUrl });
+});
+
+app.get("/files/:id/chunks", async (c) => {
+  const id = c.req.param("id");
+  const file = await getFileById(id);
+  if (!file) {
+    return c.json({ error: "File not found" }, 404);
+  }
+
+  const chunks = await getChunksByFileId(id);
+  return c.json({
+    chunks: chunks.map((ch) => ({
+      id: ch.id,
+      text: ch.text,
+      page: ch.page,
+      chunkIndex: ch.chunkIndex,
+      startOffset: ch.startOffset,
+      endOffset: ch.endOffset,
+    })),
+    total: chunks.length,
+  });
 });
 
 app.delete("/files/:id", async (c) => {

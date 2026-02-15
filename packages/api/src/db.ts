@@ -14,9 +14,16 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import type { HolocronFile, ShareLink } from "@holocron/core/types";
+import type {
+  HolocronFile,
+  ShareLink,
+  FileChunk,
+  FileMetadata,
+  IndexingStatus,
+} from "@holocron/core/types";
 import { TABLE_NAME, GSI1_NAME, GSI2_NAME, PREFIX } from "./db/schema.js";
 
 // ---------------------------------------------------------------------------
@@ -44,6 +51,23 @@ function itemToFile(item: Record<string, unknown>): HolocronFile {
     checksum: item.checksum as string,
     createdAt: new Date(item.createdAt as string),
     updatedAt: new Date(item.updatedAt as string),
+    indexingStatus: item.indexingStatus as IndexingStatus | undefined,
+    metadata: item.metadata as FileMetadata | undefined,
+    fullTextS3Key: item.fullTextS3Key as string | undefined,
+  };
+}
+
+/** Map a DynamoDB item to a FileChunk. */
+function itemToChunk(item: Record<string, unknown>): FileChunk {
+  return {
+    id: item.id as string,
+    fileId: item.fileId as string,
+    chunkIndex: item.chunkIndex as number,
+    text: item.text as string,
+    page: item.page as number | undefined,
+    startOffset: item.startOffset as number,
+    endOffset: item.endOffset as number,
+    createdAt: new Date(item.createdAt as string),
   };
 }
 
@@ -361,5 +385,198 @@ export async function deleteFile(id: string): Promise<void> {
     }),
   );
   await bumpVaultVersion(-1);
+}
+
+// ---------------------------------------------------------------------------
+// Chunk helpers
+// ---------------------------------------------------------------------------
+
+/** Batch-write chunks for a file. Chunks are written in batches of 25. */
+export async function insertChunks(
+  fileId: string,
+  chunks: FileChunk[],
+): Promise<void> {
+  const BATCH_SIZE = 25;
+  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+    const batch = chunks.slice(i, i + BATCH_SIZE);
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: batch.map((chunk) => ({
+            PutRequest: {
+              Item: {
+                pk: `${PREFIX.CHUNK}${chunk.id}`,
+                sk: `${PREFIX.CHUNK}${chunk.id}`,
+                gsi1pk: `${PREFIX.FILE_CHUNKS}${fileId}`,
+                gsi1sk: `${PREFIX.CHUNK}${chunk.chunkIndex}`,
+                id: chunk.id,
+                fileId: chunk.fileId,
+                chunkIndex: chunk.chunkIndex,
+                text: chunk.text,
+                textLower: chunk.text.toLowerCase(),
+                page: chunk.page,
+                startOffset: chunk.startOffset,
+                endOffset: chunk.endOffset,
+                createdAt: chunk.createdAt.toISOString(),
+              },
+            },
+          })),
+        },
+      }),
+    );
+  }
+}
+
+/** List all chunks for a file, ordered by chunkIndex (via GSI1). */
+export async function getChunksByFileId(fileId: string): Promise<FileChunk[]> {
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: GSI1_NAME,
+        KeyConditionExpression: "gsi1pk = :pk",
+        ExpressionAttributeValues: {
+          ":pk": `${PREFIX.FILE_CHUNKS}${fileId}`,
+        },
+        ScanIndexForward: true,
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    if (result.Items) items.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  return items.map(itemToChunk);
+}
+
+/** Delete all chunks for a file (query GSI1 then batch delete). */
+export async function deleteChunksByFileId(fileId: string): Promise<void> {
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: GSI1_NAME,
+        KeyConditionExpression: "gsi1pk = :pk",
+        ExpressionAttributeValues: {
+          ":pk": `${PREFIX.FILE_CHUNKS}${fileId}`,
+        },
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    if (result.Items) items.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  if (items.length === 0) return;
+
+  const BATCH_SIZE = 25;
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: batch.map((item) => ({
+            DeleteRequest: {
+              Key: { pk: item.pk as string, sk: item.sk as string },
+            },
+          })),
+        },
+      }),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// File indexing helpers
+// ---------------------------------------------------------------------------
+
+/** Update the indexing status (and optionally metadata / fullTextS3Key) for a file. */
+export async function updateFileIndexingStatus(
+  fileId: string,
+  status: IndexingStatus,
+  metadata?: FileMetadata,
+  fullTextS3Key?: string,
+): Promise<void> {
+  let updateExpr = "SET indexingStatus = :s, updatedAt = :u";
+  const exprValues: Record<string, unknown> = {
+    ":s": status,
+    ":u": new Date().toISOString(),
+  };
+
+  if (metadata !== undefined) {
+    updateExpr += ", metadata = :m";
+    exprValues[":m"] = metadata;
+  }
+  if (fullTextS3Key !== undefined) {
+    updateExpr += ", fullTextS3Key = :fk";
+    exprValues[":fk"] = fullTextS3Key;
+  }
+
+  await docClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        pk: `${PREFIX.FILE}${fileId}`,
+        sk: `${PREFIX.FILE}${fileId}`,
+      },
+      UpdateExpression: updateExpr,
+      ExpressionAttributeValues: exprValues,
+    }),
+  );
+  await bumpVaultVersion(0);
+}
+
+/**
+ * Scan chunks for text matches (case-insensitive contains).
+ *
+ * Uses a DynamoDB Scan with a filter expression. Acceptable for a single-user
+ * vault with moderate chunk counts; not suitable for large-scale search.
+ */
+export async function searchChunks(
+  query: string,
+  limit = 50,
+): Promise<Array<FileChunk & { fileName: string }>> {
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression:
+          "begins_with(pk, :prefix) AND contains(#tl, :q)",
+        ExpressionAttributeNames: { "#tl": "textLower" },
+        ExpressionAttributeValues: {
+          ":prefix": PREFIX.CHUNK,
+          ":q": query.toLowerCase(),
+        },
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    if (result.Items) items.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey && items.length < limit);
+
+  // Trim to limit
+  const trimmed = items.slice(0, limit);
+
+  // Resolve file names for each unique fileId
+  const fileIds = [...new Set(trimmed.map((i) => i.fileId as string))];
+  const fileMap = new Map<string, string>();
+  for (const fid of fileIds) {
+    const file = await getFileById(fid);
+    fileMap.set(fid, file?.name ?? "unknown");
+  }
+
+  return trimmed.map((item) => ({
+    ...itemToChunk(item),
+    fileName: fileMap.get(item.fileId as string) ?? "unknown",
+  }));
 }
 

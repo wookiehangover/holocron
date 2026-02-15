@@ -1,6 +1,6 @@
 # Holocron Architecture Document
 
-**Status**: Implementation complete · **Last updated**: 2026-02-14
+**Status**: Implementation complete · **Last updated**: 2026-02-15
 
 ## 1. Overview
 
@@ -66,8 +66,8 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
         "kind": "service"
       },
       {
-        "id": "processfn",
-        "label": "ProcessUpload\n(Lambda)",
+        "id": "indexing",
+        "label": "Indexing Pipeline\n(3 Lambdas)",
         "kind": "service"
       }
     ],
@@ -125,14 +125,20 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
       {
         "id": "e7",
         "from": "sfn",
-        "to": "processfn",
+        "to": "indexing",
         "label": "invoke"
       },
       {
         "id": "e8",
-        "from": "processfn",
+        "from": "indexing",
         "to": "s3",
-        "label": "read object metadata"
+        "label": "read files + store chunks"
+      },
+      {
+        "id": "e11",
+        "from": "indexing",
+        "to": "dynamodb",
+        "label": "status + metadata + chunks"
       }
     ]
   },
@@ -153,13 +159,14 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
     },
     {
       "id": "upload-flow",
-      "narrative": "Upload flow: client requests a presigned URL from the API → uploads directly to S3 → Step Functions processes the upload (metadata extraction, thumbnails, etc.).",
+      "narrative": "Upload flow: client requests a presigned URL from the API → uploads directly to S3 → Step Functions triggers the indexing pipeline (text extraction, chunking, LLM metadata extraction).",
       "highlightedNodes": [
         "desktop",
         "hono",
         "s3",
         "sfn",
-        "processfn"
+        "indexing",
+        "dynamodb"
       ],
       "highlightedEdges": [
         "e1",
@@ -167,7 +174,8 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
         "e4",
         "e6",
         "e7",
-        "e8"
+        "e8",
+        "e11"
       ]
     },
     {
@@ -443,9 +451,12 @@ All infrastructure is defined in `infra/` and wired together in `sst.config.ts`.
 | HolocronBucket | sst.aws.Bucket | infra/storage.ts | Private S3 bucket for file blobs |
 | Holocron | sst.aws.Dynamo | infra/database.ts | DynamoDB single-table for metadata (files, share links) |
 | HolocronApiKey | sst.Secret | infra/database.ts | Self-generated API key, provisioned via `scripts/setup.sh` |
-| HolocronApi | sst.aws.Function | infra/api.ts | Hono API Lambda (Node 20) |
+| HolocronApi | sst.aws.Function | infra/api.ts | Hono API Lambda (Node 24) |
 | HolocronGateway | sst.aws.ApiGatewayV2 | infra/api.ts | HTTP API fronting the Lambda |
-| ProcessUpload | sst.aws.Function | infra/processing.ts | File processing Lambda (Node 20) |
+| ExtractText | sst.aws.Function | infra/processing.ts | Text extraction Lambda (Node 24) — PDF, text, image OCR via Gemini |
+| ChunkText | sst.aws.Function | infra/processing.ts | Text chunking Lambda (Node 24) |
+| ExtractMetadata | sst.aws.Function | infra/processing.ts | LLM metadata extraction Lambda (Node 24) — summary, keywords, topics |
+| VercelAIGatewayApiKey | sst.Secret | infra/database.ts | Vercel AI Gateway API key for LLM calls |
 | HolocronProcessing | aws.sfn.StateMachine | infra/processing.ts | Step Functions orchestrator |
 
 ### Resource linking
@@ -453,7 +464,9 @@ All infrastructure is defined in `infra/` and wired together in `sst.config.ts`.
 SST's `link` mechanism injects environment variables and IAM permissions at deploy time:
 
 - `HolocronApi` is linked to `HolocronBucket` (S3 access), `Holocron` DynamoDB table (metadata read/write), and `HolocronApiKey` (auth)
-- `ProcessUpload` is linked to `HolocronBucket` (S3 read)
+- `ExtractText` is linked to `HolocronBucket` (S3 read), `Holocron` table (status updates), and `VercelAIGatewayApiKey` (Gemini API via AI Gateway)
+- `ChunkText` is linked to `HolocronBucket` (S3 read) and `Holocron` table (chunk storage)
+- `ExtractMetadata` is linked to `HolocronBucket` (S3 read), `Holocron` table (metadata updates), and `VercelAIGatewayApiKey` (Gemini API via AI Gateway)
 
 ### Stage management
 
@@ -475,7 +488,9 @@ Non-production stages are fully torn down on removal. Production retains resourc
 | GET | /files | ✅ Implemented | List all files in vault |
 | POST | /files/upload | ✅ Implemented | Request presigned upload URL |
 | POST | /files/upload/confirm | ✅ Implemented | Confirm upload; optionally stores client-supplied `checksum` |
-| GET | /files/:id | ✅ Implemented | Get file metadata + presigned download URL |
+| GET | /files/:id | ✅ Implemented | Get file metadata + presigned download URL (includes indexing status and LLM-generated metadata) |
+| GET | /files/:id/chunks | ✅ Implemented | Returns all indexed chunks for a file |
+| GET | /files/search?q=:query | ✅ Implemented | Case-insensitive text search across chunks |
 | DELETE | /files/:id | ✅ Implemented | Delete file (S3 object + share links + DB record) |
 | POST | /share | ✅ Implemented | Create a share link |
 | GET | /share/:token | ✅ Implemented | Resolve a share link (excluded from auth) |
@@ -501,48 +516,47 @@ API key authentication is implemented via the `apiKeyAuth` middleware (`packages
   "id": "2e57f990-0c22-4b0f-8e0a-93c1b3a80c17",
   "type": "diagram",
   "version": 1,
-  "createdAt": "2026-02-10T00:00:00Z",
+  "createdAt": "2026-02-15T00:00:00Z",
   "createdBy": "agent",
   "grammar": "flowchart",
   "model": {
     "nodes": [
       {
         "id": "trigger",
-        "label": "File uploaded to S3",
+        "label": "File uploaded",
         "kind": "event"
       },
       {
         "id": "sfn",
-        "label": "Step Functions\nstate machine",
+        "label": "Step Functions",
         "kind": "process"
       },
       {
-        "id": "process",
-        "label": "ProcessUpload\nLambda",
+        "id": "extract",
+        "label": "ExtractText\nLambda",
         "kind": "process"
       },
       {
-        "id": "head",
-        "label": "S3 HeadObject\n(read metadata)",
+        "id": "chunk",
+        "label": "ChunkText\nLambda",
         "kind": "process"
       },
       {
-        "id": "future1",
-        "label": "Thumbnail\ngeneration",
-        "kind": "process",
-        "semanticStyle": "muted"
-      },
-      {
-        "id": "future2",
-        "label": "Full-text\nindexing",
-        "kind": "process",
-        "semanticStyle": "muted"
+        "id": "metadata",
+        "label": "ExtractMetadata\nLambda",
+        "kind": "process"
       },
       {
         "id": "done",
-        "label": "Update DB record",
+        "label": "Indexed",
+        "kind": "event",
+        "semanticStyle": "success"
+      },
+      {
+        "id": "failure",
+        "label": "FailureHandler",
         "kind": "process",
-        "semanticStyle": "muted"
+        "semanticStyle": "danger"
       }
     ],
     "edges": [
@@ -555,34 +569,38 @@ API key authentication is implemented via the `apiKeyAuth` middleware (`packages
       {
         "id": "p2",
         "from": "sfn",
-        "to": "process",
+        "to": "extract",
         "label": "Task state"
       },
       {
         "id": "p3",
-        "from": "process",
-        "to": "head",
-        "label": "read size, mime type"
+        "from": "extract",
+        "to": "chunk",
+        "label": "parallel"
       },
       {
         "id": "p4",
-        "from": "process",
-        "to": "future1",
-        "label": "planned",
-        "dashed": true
+        "from": "extract",
+        "to": "metadata",
+        "label": "parallel"
       },
       {
         "id": "p5",
-        "from": "process",
-        "to": "future2",
-        "label": "planned",
-        "dashed": true
+        "from": "chunk",
+        "to": "done",
+        "label": ""
       },
       {
         "id": "p6",
-        "from": "process",
+        "from": "metadata",
         "to": "done",
-        "label": "planned",
+        "label": ""
+      },
+      {
+        "id": "p7",
+        "from": "sfn",
+        "to": "failure",
+        "label": "on error",
         "dashed": true
       }
     ]
@@ -597,17 +615,20 @@ API key authentication is implemented via the `apiKeyAuth` middleware (`packages
 }
 ```
 
-Currently the pipeline is a single-step placeholder. The `ProcessUpload` Lambda reads S3 object metadata (`HeadObject`) and logs it. Future steps (dashed in the diagram above) will include:
+The pipeline is a three-step Step Functions state machine: `ExtractText → Parallel(ChunkText, ExtractMetadata) → End`. Error catching at the top level sets the file's indexing status to `"failed"`.
 
-- **Thumbnail generation** for images/videos
-- **Full-text indexing** for searchable documents
-- **DB record update** to persist extracted metadata into DynamoDB
+- **ExtractText** — Routes by MIME type: PDF via `pdf-parse`, `text/*` direct read, `image/*` via Gemini OCR. Sets indexing status to `"processing"` and stores the extracted plain text in S3.
+- **ChunkText** — Paragraph-based chunking using the DumbChunker algorithm (50–250 word chunks). Stores chunks as DynamoDB items linked to the parent file.
+- **ExtractMetadata** — Uses Gemini 2.0 Flash via Vercel AI Gateway (`@ai-sdk/gateway`) to generate structured metadata (summary, keywords, topics, title) with Zod schema validation. Writes metadata back to the file's DynamoDB record.
+
+All LLM calls route through **Vercel AI Gateway** for easy model swapping — the `@ai-sdk/gateway` SDK resolves the `VercelAIGatewayApiKey` secret at runtime.
 
 The Step Functions approach was chosen over direct S3 event triggers because:
 
 1. Easier to add/remove/reorder processing steps
 2. Built-in retry and error handling per step
 3. Visual execution history in the AWS console
+4. Parallel execution of independent steps (chunking + metadata extraction)
 
 ## 8. Desktop app (macOS)
 

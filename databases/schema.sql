@@ -59,4 +59,32 @@
 --   Insert share:           PutItem pk=SHARE#<id>, sk=SHARE#<id>
 --   Delete share:           DeleteItem pk=SHARE#<id>, sk=SHARE#<id>
 --   Delete all file shares: Query GSI1 then BatchWrite DeleteRequests
+--
+-- =============================================================================
+-- Entity: FileChunk  (maps to FileChunk in @holocron/core)
+-- =============================================================================
+--
+--   pk:     CHUNK#<id>
+--   sk:     CHUNK#<id>
+--   gsi1pk: FILE_CHUNKS#<fileId>
+--   gsi1sk: CHUNK#<chunkIndex>       (enables listing chunks for a file in order)
+--
+--   Attributes: id, fileId, chunkIndex, text, page (optional), startOffset,
+--               endOffset, createdAt (ISO 8601)
+--
+-- Access patterns:
+--   Get chunk by ID:         GetItem   pk=CHUNK#<id>, sk=CHUNK#<id>
+--   List chunks for file:    Query     GSI1  gsi1pk=FILE_CHUNKS#<fileId> (ScanIndexForward=true)
+--   Insert chunks:           BatchWrite PutRequests
+--   Delete all file chunks:  Query GSI1 then BatchWrite DeleteRequests
+--   Search chunks by text:   Scan with FilterExpression begins_with(pk, "CHUNK#") AND contains(text, <query>)
+--
+-- =============================================================================
+-- Extended File attributes (indexing)
+-- =============================================================================
+--
+--   The File entity gains optional indexing-related attributes:
+--   - indexingStatus (S): "pending" | "extracting" | "chunking" | "indexing" | "indexed" | "failed"
+--   - metadata (M):      LLM-generated metadata map (summary, title, keywords, topics, language, etc.)
+--   - fullTextS3Key (S): S3 object key for the extracted full text
 

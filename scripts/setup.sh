@@ -66,6 +66,32 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Prompt for Vercel AI Gateway API key
+# ---------------------------------------------------------------------------
+
+info "Enter your Vercel AI Gateway API key (get one at https://vercel.com/dashboard → AI Gateway → API Keys)"
+read -r AI_GATEWAY_KEY
+
+AI_GATEWAY_STATUS="skipped"
+if [[ -z "$AI_GATEWAY_KEY" ]]; then
+  warn "Skipped — file indexing pipeline will not work without this key. You can set it later with: npx sst secret set VercelAIGatewayApiKey <key>"
+else
+  info "Storing Vercel AI Gateway key as SST secret 'VercelAIGatewayApiKey'…"
+
+  GW_CMD=(npx sst secret set VercelAIGatewayApiKey "$AI_GATEWAY_KEY")
+  if [[ -n "$STAGE" ]]; then
+    GW_CMD+=(--stage "$STAGE")
+  fi
+
+  if "${GW_CMD[@]}"; then
+    ok "SST secret 'VercelAIGatewayApiKey' set successfully."
+    AI_GATEWAY_STATUS="set"
+  else
+    warn "Failed to set VercelAIGatewayApiKey. You can retry later with: npx sst secret set VercelAIGatewayApiKey <key>"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Write / update local client configuration
 # ---------------------------------------------------------------------------
 
@@ -117,6 +143,8 @@ echo ""
 echo "  Stored in:"
 echo "    • SST secret 'HolocronApiKey' (server-side)"
 echo "    • ${CONFIG_FILE} (client-side)"
+echo ""
+echo "  AI Gateway key: ${AI_GATEWAY_STATUS}"
 echo ""
 echo "  Next steps:"
 echo "    1. Deploy the backend:  npx sst deploy${STAGE:+ --stage $STAGE}"

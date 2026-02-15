@@ -8,10 +8,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "^3.0.46",
     "@aws-sdk/client-s3": "^3.985.0",
-    "@holocron/core": "workspace:*"
+    "@holocron/api": "workspace:*",
+    "@holocron/core": "workspace:*",
+    "ai": "^6.0.86",
+    "pdf-parse": "^2.4.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.160"
+    "@types/aws-lambda": "^8.10.160",
+    "@types/pdf-parse": "^1.1.5"
   }
 }

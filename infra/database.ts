@@ -12,6 +12,12 @@
 export const holocronApiKey = new sst.Secret("HolocronApiKey");
 
 /**
+ * SST secret for the Vercel AI Gateway API key used by LLM-calling Lambdas.
+ * Set via: `sst secret set VercelAIGatewayApiKey <value>`
+ */
+export const vercelAiGatewayApiKey = new sst.Secret("VercelAIGatewayApiKey");
+
+/**
  * Single-table DynamoDB table for Holocron.
  *
  * Primary key: pk (S) + sk (S)
