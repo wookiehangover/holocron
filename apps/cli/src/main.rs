@@ -36,6 +36,11 @@ enum Command {
         /// File ID to get URL for
         id: String,
     },
+    /// Check indexing status of a file
+    Status {
+        /// File ID to check
+        id: String,
+    },
     /// Check API health
     Health,
     /// One-shot bidirectional sync
@@ -161,6 +166,32 @@ async fn main() {
                 Ok(detail) => println!("{}", detail.download_url),
                 Err(e) => {
                     eprintln!("Failed to get download URL: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Command::Status { id } => {
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+            match api.get_file(&id).await {
+                Ok(detail) => {
+                    let file = &detail.file;
+                    println!("File: {} ({})", file.name, file.path);
+                    println!("Status: {}", file.indexing_status.as_deref().unwrap_or("not indexed"));
+                    if let Some(meta) = &file.metadata {
+                        if !meta.summary.is_empty() {
+                            println!("Summary: {}", meta.summary);
+                        }
+                        if !meta.keywords.is_empty() {
+                            println!("Keywords: {}", meta.keywords.join(", "));
+                        }
+                        if !meta.topics.is_empty() {
+                            println!("Topics: {}", meta.topics.join(", "));
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to get file status: {e}");
                     std::process::exit(1);
                 }
             }

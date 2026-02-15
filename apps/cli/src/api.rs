@@ -32,6 +32,20 @@ pub enum ApiError {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FileMetadata {
+    pub summary: String,
+    pub title: String,
+    pub keywords: Vec<String>,
+    pub topics: Vec<String>,
+    pub language: String,
+    pub author: Option<String>,
+    pub page_count: Option<u64>,
+    pub word_count: Option<u64>,
+    pub char_count: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RemoteFile {
     pub id: String,
     pub name: String,
@@ -41,6 +55,8 @@ pub struct RemoteFile {
     pub checksum: String,
     pub created_at: String,
     pub updated_at: String,
+    pub indexing_status: Option<String>,
+    pub metadata: Option<FileMetadata>,
 }
 
 #[derive(Debug, Deserialize)]
