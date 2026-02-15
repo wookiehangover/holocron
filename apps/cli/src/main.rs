@@ -41,6 +41,11 @@ enum Command {
         /// File ID to check
         id: String,
     },
+    /// Trigger re-indexing of a file
+    Reindex {
+        /// File ID to re-index
+        id: String,
+    },
     /// Check API health
     Health,
     /// One-shot bidirectional sync
@@ -192,6 +197,17 @@ async fn main() {
                 }
                 Err(e) => {
                     eprintln!("Failed to get file status: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Command::Reindex { id } => {
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+            match api.reindex_file(&id).await {
+                Ok(()) => println!("Re-indexing started for file {id}"),
+                Err(e) => {
+                    eprintln!("Failed to trigger re-indexing: {e}");
                     std::process::exit(1);
                 }
             }

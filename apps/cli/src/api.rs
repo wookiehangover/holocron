@@ -271,5 +271,16 @@ impl ApiClient {
         let resp = Self::check(resp).await?;
         Ok(resp.json().await?)
     }
+
+    /// POST /files/:id/reindex — trigger re-indexing of a file.
+    pub async fn reindex_file(&self, id: &str) -> Result<(), ApiError> {
+        let resp = self
+            .client
+            .post(self.url(&format!("/files/{id}/reindex")))
+            .send()
+            .await?;
+        Self::check(resp).await?;
+        Ok(())
+    }
 }
 
