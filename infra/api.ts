@@ -3,18 +3,16 @@
  */
 
 import { bucket } from "./storage.js";
-import { agentDbApiKey, agentDbToken, AGENTDB_API_URL, AGENTDB_DB_NAME } from "./database.js";
+import { table, holocronApiKey } from "./database.js";
 import { processingStateMachine } from "./processing.js";
 
 const honoFn = new sst.aws.Function("HolocronApi", {
   handler: "packages/api/src/index.handler",
   runtime: "nodejs20.x",
-  link: [bucket, agentDbApiKey, agentDbToken],
+  link: [bucket, table, holocronApiKey],
   environment: {
-    AGENTDB_API_URL,
-    AGENTDB_DB_NAME,
-    AGENTDB_API_KEY: agentDbApiKey.value,
-    AGENTDB_TOKEN: agentDbToken.value,
+    HOLOCRON_TABLE_NAME: table.name,
+    HOLOCRON_API_KEY: holocronApiKey.value,
     BUCKET_NAME: bucket.name,
     PROCESSING_STATE_MACHINE_ARN: processingStateMachine.arn,
   },
