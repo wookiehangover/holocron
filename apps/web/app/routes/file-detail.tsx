@@ -1,7 +1,9 @@
 import { useState, useCallback } from "react";
 import { Link, useLoaderData } from "react-router";
+import { ArrowLeft } from "lucide-react";
 import type { HolocronFile } from "@holocron/core/types";
 import { getFile, getFileChunks, createShareLink } from "~/lib/api";
+import { Layout } from "~/components/layout";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -128,50 +130,56 @@ export default function FileDetail() {
 
   if (!data.ok) {
     return (
-      <div className="mx-auto max-w-5xl px-4 py-6">
-        <Link
-          to="/"
-          className="mb-4 inline-block text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Back
-        </Link>
-        <Card>
-          <CardHeader>
-            <CardTitle>Error</CardTitle>
-            <CardDescription>{data.error}</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <Layout>
+        <div className="space-y-4">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back
+          </Link>
+          <Card>
+            <CardHeader>
+              <CardTitle>Error</CardTitle>
+              <CardDescription>{data.error}</CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </Layout>
     );
   }
 
   const { file, downloadUrl } = data;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
-      {/* Back link */}
-      <Link
-        to="/"
-        className="mb-4 inline-block text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Back
-      </Link>
+    <Layout>
+      <div className="space-y-6">
+        {/* Back link */}
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-3.5" />
+          Back
+        </Link>
 
-      {/* File header */}
-      <FileHeader file={file} downloadUrl={downloadUrl} />
+        {/* File header */}
+        <FileHeader file={file} downloadUrl={downloadUrl} />
 
-      <Separator className="my-5" />
+        <Separator className="my-1" />
 
-      {/* Metadata */}
-      {file.metadata && <MetadataSection file={file} />}
+        {/* Metadata */}
+        {file.metadata && <MetadataSection file={file} />}
 
-      {/* Preview */}
-      <PreviewSection
-        mimeType={file.mimeType}
-        downloadUrl={downloadUrl}
-        fileName={file.name}
-      />
-    </div>
+        {/* Preview */}
+        <PreviewSection
+          mimeType={file.mimeType}
+          downloadUrl={downloadUrl}
+          fileName={file.name}
+        />
+      </div>
+    </Layout>
   );
 }
 

@@ -1,6 +1,7 @@
 import { Form, Link, useLoaderData, useNavigation } from "react-router";
 import type { Route } from "./+types/search";
 import { searchFiles, type SearchResult } from "../lib/api";
+import { Layout } from "~/components/layout";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -68,51 +69,53 @@ export default function SearchPage() {
     new URLSearchParams(navigation.location?.search).has("q");
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      {/* Search form */}
-      <Form method="get" action="/search" className="relative mb-8">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-        <Input
-          type="search"
-          name="q"
-          defaultValue={query}
-          placeholder="Search your vault…"
-          autoFocus
-          className="h-11 pl-10 pr-10 text-sm"
-        />
-        {query && (
-          <Link
-            to="/search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            <X className="size-4" />
-          </Link>
+    <Layout>
+      <div className="space-y-6">
+        {/* Search form */}
+        <Form method="get" action="/search" className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Search your vault…"
+            autoFocus
+            className="h-11 pl-10 pr-10 text-sm"
+          />
+          {query && (
+            <Link
+              to="/search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="size-4" />
+            </Link>
+          )}
+        </Form>
+
+        {/* Loading skeleton */}
+        {isSearching && <SearchSkeleton />}
+
+        {/* No query yet */}
+        {!isSearching && results === null && <EmptyPrompt />}
+
+        {/* Query with no results */}
+        {!isSearching && results !== null && results.length === 0 && (
+          <NoResults query={query} />
         )}
-      </Form>
 
-      {/* Loading skeleton */}
-      {isSearching && <SearchSkeleton />}
-
-      {/* No query yet */}
-      {!isSearching && results === null && <EmptyPrompt />}
-
-      {/* Query with no results */}
-      {!isSearching && results !== null && results.length === 0 && (
-        <NoResults query={query} />
-      )}
-
-      {/* Results */}
-      {!isSearching && results !== null && results.length > 0 && (
-        <div className="space-y-6">
-          <p className="text-xs text-muted-foreground">
-            {total} {total === 1 ? "result" : "results"} for &ldquo;{query}&rdquo;
-          </p>
-          {results.map((result) => (
-            <ResultItem key={result.file.id} result={result} query={query} />
-          ))}
-        </div>
-      )}
-    </main>
+        {/* Results */}
+        {!isSearching && results !== null && results.length > 0 && (
+          <div className="space-y-6">
+            <p className="text-xs text-muted-foreground">
+              {total} {total === 1 ? "result" : "results"} for &ldquo;{query}&rdquo;
+            </p>
+            {results.map((result) => (
+              <ResultItem key={result.file.id} result={result} query={query} />
+            ))}
+          </div>
+        )}
+      </div>
+    </Layout>
   );
 }
 

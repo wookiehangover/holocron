@@ -50,7 +50,7 @@ export function FileTable({
       </TableHeader>
       <TableBody>
         {files.map((file) => (
-          <TableRow key={file.id}>
+          <TableRow key={file.id} className="hover:bg-muted/50 transition-colors">
             <TableCell className="text-xs">
               <Link
                 to={`/files/${file.id}`}

@@ -27,10 +27,10 @@ export function UploadZone({
   return (
     <Card
       className={cn(
-        "flex cursor-pointer items-center justify-center border-dashed py-8 transition-colors",
+        "flex cursor-pointer items-center justify-center border-2 border-dashed py-8 transition-colors",
         uploadState === "dragover"
           ? "border-primary bg-accent"
-          : "hover:bg-accent/50"
+          : "border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-accent/50"
       )}
       onDragOver={(e) => {
         e.preventDefault();
