@@ -8,6 +8,8 @@ import {
   useLoaderData,
 } from "react-router";
 import type { Route } from "./+types/root";
+import { ThemeProvider } from "./lib/theme-provider";
+import "./app.css";
 
 // ---------------------------------------------------------------------------
 // Root loader — inject env vars for client-side use
@@ -28,20 +30,12 @@ export function loader() {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, -apple-system, sans-serif; color: #1a1a1a; background: #fafafa; line-height: 1.5; }
-`,
-          }}
-        />
       </head>
       <body>
         {children}
@@ -59,14 +53,14 @@ body { font-family: system-ui, -apple-system, sans-serif; color: #1a1a1a; backgr
 export default function App() {
   const { ENV } = useLoaderData<typeof loader>();
   return (
-    <>
+    <ThemeProvider>
       <script
         dangerouslySetInnerHTML={{
           __html: `window.ENV=${JSON.stringify(ENV)}`,
         }}
       />
       <Outlet />
-    </>
+    </ThemeProvider>
   );
 }
 
@@ -89,7 +83,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main style={{ padding: "2rem", fontFamily: "system-ui, sans-serif" }}>
+    <main className="p-8 font-sans">
       <h1>{message}</h1>
       <p>{details}</p>
     </main>

@@ -12,7 +12,11 @@
     "jsx": "react-jsx",
     "rootDirs": [".", "./.react-router/types"],
     "outDir": "dist",
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./app/*"]
+    }
   }
 }
 
