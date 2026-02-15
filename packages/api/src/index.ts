@@ -4,25 +4,10 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { connectDb, ensureSchema, insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum } from "./db.js";
+import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
-
-// ---------------------------------------------------------------------------
-// DB initialisation (once per cold start)
-// ---------------------------------------------------------------------------
-
-let dbReady = false;
-
-app.use("*", async (_c, next) => {
-  if (!dbReady) {
-    await connectDb();
-    await ensureSchema();
-    dbReady = true;
-  }
-  await next();
-});
 
 // ---------------------------------------------------------------------------
 // CORS – allow cross-origin requests from the web app

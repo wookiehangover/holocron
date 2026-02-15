@@ -1,101 +1,60 @@
 /**
- * AgentDB connection helper and typed query helpers.
+ * DynamoDB data access layer for Holocron.
  *
- * Provides a configured DatabaseService instance for use across
- * the API. Connection details are injected via environment variables
- * at runtime (SST resource linking).
+ * Uses a single-table design with two GSIs. Table is provisioned by
+ * SST in infra/database.ts; the table name is injected via the
+ * HOLOCRON_TABLE_NAME environment variable.
  */
 
-import { DatabaseConnection, DatabaseService } from "@agentdb/sdk";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  BatchWriteCommand,
+  DeleteCommand,
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
-import { SCHEMA_DDL } from "./db/schema.js";
-
-const AGENTDB_API_URL =
-  process.env.AGENTDB_API_URL ?? "https://api.agentdb.dev";
-const AGENTDB_API_KEY = process.env.AGENTDB_API_KEY ?? "";
-const AGENTDB_TOKEN = process.env.AGENTDB_TOKEN ?? "";
-const AGENTDB_DB_NAME = process.env.AGENTDB_DB_NAME ?? "holocron";
-
-/**
- * Singleton AgentDB DatabaseService instance.
- */
-export const agentdb = new DatabaseService(AGENTDB_API_URL, AGENTDB_API_KEY);
-
-/** Cached database connection. Set by connectDb(). */
-let _db: DatabaseConnection | null = null;
-
-/**
- * Return the current database connection.
- * Throws if connectDb() has not been called.
- */
-function getDb(): DatabaseConnection {
-  if (!_db) {
-    throw new Error("Database not connected. Call connectDb() first.");
-  }
-  return _db;
-}
-
-/**
- * Connect to the Holocron database.
- *
- * Call this once during Lambda cold start to establish a connection.
- */
-export async function connectDb(token?: string): Promise<DatabaseConnection> {
-  const authToken = token ?? AGENTDB_TOKEN;
-  _db = agentdb.connect(authToken, AGENTDB_DB_NAME, "sqlite");
-  return _db;
-}
+import { TABLE_NAME, GSI1_NAME, GSI2_NAME, PREFIX } from "./db/schema.js";
 
 // ---------------------------------------------------------------------------
-// Schema bootstrap
+// DynamoDB client (singleton)
 // ---------------------------------------------------------------------------
 
-/**
- * Run the DDL statements to create tables and indexes if they don't exist.
- * Safe to call on every cold start (uses IF NOT EXISTS).
- */
-export async function ensureSchema(): Promise<void> {
-  const conn = getDb();
-  const statements = SCHEMA_DDL.split(";")
-    .map((s) =>
-      s
-        .split("\n")
-        .filter((line) => !line.trimStart().startsWith("--"))
-        .join("\n")
-        .trim(),
-    )
-    .filter((s) => s.length > 0);
-
-  await conn.execute(statements.map((sql) => ({ sql })));
-}
+const ddbClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(ddbClient, {
+  marshallOptions: { removeUndefinedValues: true },
+});
 
 // ---------------------------------------------------------------------------
-// Row ↔ type mapping helpers
+// Item ↔ type mapping helpers
 // ---------------------------------------------------------------------------
 
-/** Map a raw DB row to a HolocronFile. */
-function rowToFile(row: Record<string, unknown>): HolocronFile {
+/** Map a DynamoDB item to a HolocronFile. */
+function itemToFile(item: Record<string, unknown>): HolocronFile {
   return {
-    id: row.id as string,
-    name: row.name as string,
-    path: row.path as string,
-    s3Key: row.s3_key as string,
-    size: row.size as number,
-    mimeType: row.mime_type as string,
-    checksum: row.checksum as string,
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
+    id: item.id as string,
+    name: item.name as string,
+    path: item.path as string,
+    s3Key: item.s3Key as string,
+    size: item.size as number,
+    mimeType: item.mimeType as string,
+    checksum: item.checksum as string,
+    createdAt: new Date(item.createdAt as string),
+    updatedAt: new Date(item.updatedAt as string),
   };
 }
 
-/** Map a raw DB row to a ShareLink. */
-function rowToShareLink(row: Record<string, unknown>): ShareLink {
+/** Map a DynamoDB item to a ShareLink. */
+function itemToShareLink(item: Record<string, unknown>): ShareLink {
   return {
-    id: row.id as string,
-    fileId: row.file_id as string,
-    url: row.url as string,
-    expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
-    createdAt: new Date(row.created_at as string),
+    id: item.id as string,
+    fileId: item.fileId as string,
+    url: item.url as string,
+    expiresAt: item.expiresAt ? new Date(item.expiresAt as string) : null,
+    createdAt: new Date(item.createdAt as string),
   };
 }
 
@@ -103,32 +62,30 @@ function rowToShareLink(row: Record<string, unknown>): ShareLink {
 // File helpers
 // ---------------------------------------------------------------------------
 
-/** Insert or update a file record (upsert on unique path). */
+/** Insert or update a file record (PutItem — overwrites by pk/sk). */
 export async function insertFile(file: HolocronFile): Promise<void> {
-  const conn = getDb();
-  await conn.execute({
-    sql: `INSERT INTO files (id, name, path, s3_key, size, mime_type, checksum, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(path) DO UPDATE SET
-            id = excluded.id,
-            name = excluded.name,
-            s3_key = excluded.s3_key,
-            size = excluded.size,
-            mime_type = excluded.mime_type,
-            checksum = excluded.checksum,
-            updated_at = excluded.updated_at`,
-    params: [
-      file.id,
-      file.name,
-      file.path,
-      file.s3Key ?? file.path,
-      file.size,
-      file.mimeType,
-      file.checksum,
-      file.createdAt.toISOString(),
-      file.updatedAt.toISOString(),
-    ],
-  });
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        pk: `${PREFIX.FILE}${file.id}`,
+        sk: `${PREFIX.FILE}${file.id}`,
+        gsi1pk: PREFIX.FILES,
+        gsi1sk: `${file.createdAt.toISOString()}#${file.id}`,
+        gsi2pk: `${PREFIX.PATH}${file.path}`,
+        gsi2sk: `${PREFIX.FILE}${file.id}`,
+        id: file.id,
+        name: file.name,
+        path: file.path,
+        s3Key: file.s3Key ?? file.path,
+        size: file.size,
+        mimeType: file.mimeType,
+        checksum: file.checksum,
+        createdAt: file.createdAt.toISOString(),
+        updatedAt: file.updatedAt.toISOString(),
+      },
+    }),
+  );
 }
 
 /** Update the checksum (and updated_at) for an existing file. */
@@ -136,49 +93,68 @@ export async function updateFileChecksum(
   id: string,
   checksum: string,
 ): Promise<void> {
-  const conn = getDb();
-  await conn.execute({
-    sql: `UPDATE files SET checksum = ?, updated_at = ? WHERE id = ?`,
-    params: [checksum, new Date().toISOString(), id],
-  });
+  await docClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
+      UpdateExpression: "SET checksum = :c, updatedAt = :u",
+      ExpressionAttributeValues: {
+        ":c": checksum,
+        ":u": new Date().toISOString(),
+      },
+    }),
+  );
 }
 
 /** Fetch a single file by its primary key. */
 export async function getFileById(id: string): Promise<HolocronFile | null> {
-  const conn = getDb();
-  const result = await conn.execute({
-    sql: "SELECT * FROM files WHERE id = ?",
-    params: [id],
-  });
-  const row = result.results[0]?.rows?.[0] as
-    | Record<string, unknown>
-    | undefined;
-  return row ? rowToFile(row) : null;
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
+    }),
+  );
+  return result.Item ? itemToFile(result.Item) : null;
 }
 
-/** Fetch a single file by its unique path. */
+/** Fetch a single file by its unique path (via GSI2). */
 export async function getFileByPath(
   path: string,
 ): Promise<HolocronFile | null> {
-  const conn = getDb();
-  const result = await conn.execute({
-    sql: "SELECT * FROM files WHERE path = ?",
-    params: [path],
-  });
-  const row = result.results[0]?.rows?.[0] as
-    | Record<string, unknown>
-    | undefined;
-  return row ? rowToFile(row) : null;
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: GSI2_NAME,
+      KeyConditionExpression: "gsi2pk = :pk",
+      ExpressionAttributeValues: { ":pk": `${PREFIX.PATH}${path}` },
+      Limit: 1,
+    }),
+  );
+  const item = result.Items?.[0];
+  return item ? itemToFile(item) : null;
 }
 
-/** List all files, most recent first. */
+/** List all files, most recent first (via GSI1, ScanIndexForward=false). */
 export async function listFiles(): Promise<HolocronFile[]> {
-  const conn = getDb();
-  const result = await conn.execute({
-    sql: "SELECT * FROM files ORDER BY created_at DESC",
-  });
-  const rows = (result.results[0]?.rows ?? []) as Record<string, unknown>[];
-  return rows.map(rowToFile);
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: GSI1_NAME,
+        KeyConditionExpression: "gsi1pk = :pk",
+        ExpressionAttributeValues: { ":pk": PREFIX.FILES },
+        ScanIndexForward: false,
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    if (result.Items) items.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  return items.map(itemToFile);
 }
 
 /** Return the latest vault version info (latest change timestamp + file count). */
@@ -186,17 +162,39 @@ export async function getVaultVersion(): Promise<{
   latestChange: string | null;
   fileCount: number;
 }> {
-  const conn = getDb();
-  const result = await conn.execute({
-    sql: "SELECT MAX(updated_at) as latest_change, COUNT(*) as file_count FROM files",
-  });
-  const row = result.results[0]?.rows?.[0] as
-    | Record<string, unknown>
-    | undefined;
-  return {
-    latestChange: (row?.latest_change as string) ?? null,
-    fileCount: (row?.file_count as number) ?? 0,
-  };
+  // Query GSI1 for all files — ScanIndexForward=false so first item is newest
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: GSI1_NAME,
+        KeyConditionExpression: "gsi1pk = :pk",
+        ExpressionAttributeValues: { ":pk": PREFIX.FILES },
+        ScanIndexForward: false,
+        ExclusiveStartKey: lastKey,
+      }),
+    );
+    if (result.Items) items.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  if (items.length === 0) {
+    return { latestChange: null, fileCount: 0 };
+  }
+
+  // Find the maximum updatedAt across all items
+  let latestChange: string | null = null;
+  for (const item of items) {
+    const updatedAt = item.updatedAt as string;
+    if (!latestChange || updatedAt > latestChange) {
+      latestChange = updatedAt;
+    }
+  }
+
+  return { latestChange, fileCount: items.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -205,42 +203,82 @@ export async function getVaultVersion(): Promise<{
 
 /** Insert a new share link record. */
 export async function insertShareLink(link: ShareLink): Promise<void> {
-  const conn = getDb();
-  await conn.execute({
-    sql: `INSERT INTO share_links (id, file_id, url, expires_at, created_at)
-          VALUES (?, ?, ?, ?, ?)`,
-    params: [
-      link.id,
-      link.fileId,
-      link.url,
-      link.expiresAt ? link.expiresAt.toISOString() : null,
-      link.createdAt.toISOString(),
-    ],
-  });
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        pk: `${PREFIX.SHARE}${link.id}`,
+        sk: `${PREFIX.SHARE}${link.id}`,
+        gsi1pk: `${PREFIX.FILE_SHARES}${link.fileId}`,
+        gsi1sk: `${PREFIX.SHARE}${link.id}`,
+        gsi2pk: `${PREFIX.URL}${link.url}`,
+        gsi2sk: `${PREFIX.SHARE}${link.id}`,
+        id: link.id,
+        fileId: link.fileId,
+        url: link.url,
+        expiresAt: link.expiresAt ? link.expiresAt.toISOString() : null,
+        createdAt: link.createdAt.toISOString(),
+      },
+    }),
+  );
 }
 
-/** Fetch a share link by its unique URL. */
+/** Fetch a share link by its unique URL (via GSI2). */
 export async function getShareLinkByUrl(
   url: string,
 ): Promise<ShareLink | null> {
-  const conn = getDb();
-  const result = await conn.execute({
-    sql: "SELECT * FROM share_links WHERE url = ?",
-    params: [url],
-  });
-  const row = result.results[0]?.rows?.[0] as
-    | Record<string, unknown>
-    | undefined;
-  return row ? rowToShareLink(row) : null;
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      IndexName: GSI2_NAME,
+      KeyConditionExpression: "gsi2pk = :pk",
+      ExpressionAttributeValues: { ":pk": `${PREFIX.URL}${url}` },
+      Limit: 1,
+    }),
+  );
+  const item = result.Items?.[0];
+  return item ? itemToShareLink(item) : null;
 }
 
-/** Delete all share links associated with a file. */
+/** Delete all share links associated with a file (query GSI1 then batch delete). */
 export async function deleteShareLinksByFileId(fileId: string): Promise<void> {
-  const conn = getDb();
-  await conn.execute({
-    sql: "DELETE FROM share_links WHERE file_id = ?",
-    params: [fileId],
-  });
+  // 1. Query all share links for this file via GSI1
+  const items: Record<string, unknown>[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: GSI1_NAME,
+        KeyConditionExpression: "gsi1pk = :pk",
+        ExpressionAttributeValues: {
+          ":pk": `${PREFIX.FILE_SHARES}${fileId}`,
+        },
+      }),
+    );
+    if (result.Items) items.push(...result.Items);
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+
+  if (items.length === 0) return;
+
+  // 2. Batch delete in chunks of 25 (DynamoDB limit)
+  const BATCH_SIZE = 25;
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [TABLE_NAME]: batch.map((item) => ({
+            DeleteRequest: {
+              Key: { pk: item.pk as string, sk: item.sk as string },
+            },
+          })),
+        },
+      }),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -249,10 +287,11 @@ export async function deleteShareLinksByFileId(fileId: string): Promise<void> {
 
 /** Delete a file record by its primary key. */
 export async function deleteFile(id: string): Promise<void> {
-  const conn = getDb();
-  await conn.execute({
-    sql: "DELETE FROM files WHERE id = ?",
-    params: [id],
-  });
+  await docClient.send(
+    new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
+    }),
+  );
 }
 

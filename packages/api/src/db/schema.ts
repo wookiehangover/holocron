@@ -1,34 +1,24 @@
 /**
- * Embedded DDL for the Holocron database schema.
+ * DynamoDB single-table constants.
  *
- * Sourced from databases/schema.sql. Keep in sync with that file.
- * Used by ensureSchema() to bootstrap tables on first connect.
+ * Key prefixes and index names used by the data access layer in db.ts.
+ * Table is provisioned by SST in infra/database.ts.
  */
 
-export const SCHEMA_DDL = `
-CREATE TABLE IF NOT EXISTS files (
-    id         TEXT    NOT NULL PRIMARY KEY,
-    name       TEXT    NOT NULL,
-    path       TEXT    NOT NULL UNIQUE,
-    s3_key     TEXT    NOT NULL,
-    size       INTEGER NOT NULL,
-    mime_type  TEXT    NOT NULL,
-    checksum   TEXT    NOT NULL,
-    created_at TEXT    NOT NULL,
-    updated_at TEXT    NOT NULL
-);
+/** Table name — injected at runtime via SST resource linking. */
+export const TABLE_NAME = process.env.HOLOCRON_TABLE_NAME ?? "Holocron";
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_files_path ON files (path);
+/** GSI names (must match infra/database.ts definitions). */
+export const GSI1_NAME = "gsi1";
+export const GSI2_NAME = "gsi2";
 
-CREATE TABLE IF NOT EXISTS share_links (
-    id         TEXT NOT NULL PRIMARY KEY,
-    file_id    TEXT NOT NULL REFERENCES files (id),
-    url        TEXT NOT NULL UNIQUE,
-    expires_at TEXT,
-    created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_share_links_file_id ON share_links (file_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_share_links_url ON share_links (url);
-`;
+/** Key prefixes for the single-table design. */
+export const PREFIX = {
+  FILE: "FILE#",
+  FILES: "FILES",
+  PATH: "PATH#",
+  SHARE: "SHARE#",
+  FILE_SHARES: "FILE_SHARES#",
+  URL: "URL#",
+} as const;
 
