@@ -12,6 +12,12 @@
 export const holocronApiKey = new sst.Secret("HolocronApiKey");
 
 /**
+ * SST secret for the Google AI (Gemini) API key used by LLM-calling Lambdas.
+ * Set via: `sst secret set GoogleAIApiKey <value>`
+ */
+export const googleAiApiKey = new sst.Secret("GoogleAIApiKey");
+
+/**
  * Single-table DynamoDB table for Holocron.
  *
  * Primary key: pk (S) + sk (S)

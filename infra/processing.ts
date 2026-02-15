@@ -1,16 +1,56 @@
 /**
- * Step Functions state machine for the file processing pipeline.
+ * Step Functions state machine for the file indexing pipeline.
+ *
+ * Pipeline: ExtractText → Parallel(ChunkText, ExtractMetadata) → End
  */
 
 import { bucket } from "./storage.js";
+import { table, googleAiApiKey } from "./database.js";
+
+// ---------------------------------------------------------------------------
+// Lambda functions
+// ---------------------------------------------------------------------------
 
 export const processUploadFn = new sst.aws.Function("ProcessUpload", {
   handler: "packages/functions/src/process-upload.handler",
-  runtime: "nodejs20.x",
+  runtime: "nodejs24.x",
   link: [bucket],
 });
 
+export const extractTextFn = new sst.aws.Function("ExtractText", {
+  handler: "packages/functions/src/extract-text.handler",
+  runtime: "nodejs24.x",
+  timeout: "300 seconds",
+  memory: "1024 MB",
+  link: [bucket, table, googleAiApiKey],
+  environment: {
+    GOOGLE_GENERATIVE_AI_API_KEY: googleAiApiKey.value,
+  },
+});
+
+export const chunkTextFn = new sst.aws.Function("ChunkText", {
+  handler: "packages/functions/src/chunk-text.handler",
+  runtime: "nodejs24.x",
+  timeout: "120 seconds",
+  memory: "512 MB",
+  link: [bucket, table],
+});
+
+export const extractMetadataFn = new sst.aws.Function("ExtractMetadata", {
+  handler: "packages/functions/src/extract-metadata.handler",
+  runtime: "nodejs24.x",
+  timeout: "120 seconds",
+  memory: "512 MB",
+  link: [bucket, table, googleAiApiKey],
+  environment: {
+    GOOGLE_GENERATIVE_AI_API_KEY: googleAiApiKey.value,
+  },
+});
+
+// ---------------------------------------------------------------------------
 // IAM role for the Step Functions state machine
+// ---------------------------------------------------------------------------
+
 const sfnRole = new aws.iam.Role("ProcessingStateMachineRole", {
   assumeRolePolicy: JSON.stringify({
     Version: "2012-10-17",
@@ -26,43 +66,98 @@ const sfnRole = new aws.iam.Role("ProcessingStateMachineRole", {
 
 new aws.iam.RolePolicy("ProcessingStateMachinePolicy", {
   role: sfnRole.id,
-  policy: processUploadFn.arn.apply((arn) =>
-    JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: "lambda:InvokeFunction",
-          Resource: arn,
-        },
-      ],
-    })
-  ),
+  policy: $util
+    .all([
+      processUploadFn.arn,
+      extractTextFn.arn,
+      chunkTextFn.arn,
+      extractMetadataFn.arn,
+    ])
+    .apply(([processArn, extractArn, chunkArn, metadataArn]) =>
+      JSON.stringify({
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Effect: "Allow",
+            Action: "lambda:InvokeFunction",
+            Resource: [processArn, extractArn, chunkArn, metadataArn],
+          },
+        ],
+      }),
+    ),
 });
 
-/**
- * Placeholder state machine for the file processing pipeline.
- * Currently a single-step workflow that invokes the ProcessUpload Lambda.
- * Extend with additional states (e.g. thumbnail generation, metadata
- * extraction) as the processing pipeline is fleshed out.
- */
+// ---------------------------------------------------------------------------
+// State machine — multi-step indexing pipeline
+//
+// ExtractText → Parallel(ChunkText, ExtractMetadata) → End
+// Any error → FailureHandler (log + set status to "failed")
+// ---------------------------------------------------------------------------
+
 export const processingStateMachine = new aws.sfn.StateMachine(
   "HolocronProcessing",
   {
     roleArn: sfnRole.arn,
-    definition: processUploadFn.arn.apply((arn) =>
-      JSON.stringify({
-        Comment: "Holocron file processing pipeline",
-        StartAt: "ProcessUpload",
-        States: {
-          ProcessUpload: {
-            Type: "Task",
-            Resource: arn,
-            End: true,
+    definition: $util
+      .all([extractTextFn.arn, chunkTextFn.arn, extractMetadataFn.arn])
+      .apply(([extractArn, chunkArn, metadataArn]) =>
+        JSON.stringify({
+          Comment: "Holocron file indexing pipeline",
+          StartAt: "ExtractText",
+          States: {
+            ExtractText: {
+              Type: "Task",
+              Resource: extractArn,
+              Next: "ParallelProcessing",
+              Catch: [
+                {
+                  ErrorEquals: ["States.ALL"],
+                  Next: "FailureHandler",
+                  ResultPath: "$.error",
+                },
+              ],
+            },
+            ParallelProcessing: {
+              Type: "Parallel",
+              Branches: [
+                {
+                  StartAt: "ChunkText",
+                  States: {
+                    ChunkText: {
+                      Type: "Task",
+                      Resource: chunkArn,
+                      End: true,
+                    },
+                  },
+                },
+                {
+                  StartAt: "ExtractMetadata",
+                  States: {
+                    ExtractMetadata: {
+                      Type: "Task",
+                      Resource: metadataArn,
+                      End: true,
+                    },
+                  },
+                },
+              ],
+              End: true,
+              Catch: [
+                {
+                  ErrorEquals: ["States.ALL"],
+                  Next: "FailureHandler",
+                  ResultPath: "$.error",
+                },
+              ],
+            },
+            FailureHandler: {
+              Type: "Pass",
+              Result: "Pipeline failed",
+              End: true,
+            },
           },
-        },
-      })
-    ),
-  }
+        }),
+      ),
+  },
 );
 
