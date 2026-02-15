@@ -8,7 +8,7 @@
 
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateText } from "ai";
-import { google } from "@ai-sdk/google";
+import { gateway } from "@ai-sdk/gateway";
 import { PDFParse } from "pdf-parse";
 import { updateFileIndexingStatus } from "@holocron/api/db";
 
@@ -123,7 +123,7 @@ function extractTextContent(buffer: Buffer): string {
 /** Extract text/content from an image using Gemini 3.0 Flash via Vercel AI SDK. */
 async function extractImage(buffer: Buffer, mimeType: string): Promise<string> {
   const { text } = await generateText({
-    model: google("gemini-3.0-flash"),
+    model: gateway("google/gemini-3.0-flash"),
     messages: [
       {
         role: "user",

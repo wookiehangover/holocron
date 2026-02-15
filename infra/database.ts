@@ -12,10 +12,10 @@
 export const holocronApiKey = new sst.Secret("HolocronApiKey");
 
 /**
- * SST secret for the Google AI (Gemini) API key used by LLM-calling Lambdas.
- * Set via: `sst secret set GoogleAIApiKey <value>`
+ * SST secret for the Vercel AI Gateway API key used by LLM-calling Lambdas.
+ * Set via: `sst secret set VercelAIGatewayApiKey <value>`
  */
-export const googleAiApiKey = new sst.Secret("GoogleAIApiKey");
+export const vercelAiGatewayApiKey = new sst.Secret("VercelAIGatewayApiKey");
 
 /**
  * Single-table DynamoDB table for Holocron.

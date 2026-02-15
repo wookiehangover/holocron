@@ -5,7 +5,7 @@
  */
 
 import { bucket } from "./storage.js";
-import { table, googleAiApiKey } from "./database.js";
+import { table, vercelAiGatewayApiKey } from "./database.js";
 
 // ---------------------------------------------------------------------------
 // Lambda functions
@@ -16,9 +16,9 @@ export const extractTextFn = new sst.aws.Function("ExtractText", {
   runtime: "nodejs24.x",
   timeout: "300 seconds",
   memory: "1024 MB",
-  link: [bucket, table, googleAiApiKey],
+  link: [bucket, table, vercelAiGatewayApiKey],
   environment: {
-    GOOGLE_GENERATIVE_AI_API_KEY: googleAiApiKey.value,
+    AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
 
@@ -35,9 +35,9 @@ export const extractMetadataFn = new sst.aws.Function("ExtractMetadata", {
   runtime: "nodejs24.x",
   timeout: "120 seconds",
   memory: "512 MB",
-  link: [bucket, table, googleAiApiKey],
+  link: [bucket, table, vercelAiGatewayApiKey],
   environment: {
-    GOOGLE_GENERATIVE_AI_API_KEY: googleAiApiKey.value,
+    AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
 

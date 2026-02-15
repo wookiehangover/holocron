@@ -8,7 +8,7 @@
 
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { generateObject } from "ai";
-import { google } from "@ai-sdk/google";
+import { gateway } from "@ai-sdk/gateway";
 import { z } from "zod";
 import type { FileMetadata } from "@holocron/core/types";
 import { updateFileIndexingStatus } from "@holocron/api/db";
@@ -81,7 +81,7 @@ export async function handler(
     try {
       const textForLlm = fullText.slice(0, MAX_TEXT_LENGTH);
       const { object } = await generateObject({
-        model: google("gemini-3.0-flash"),
+        model: gateway("google/gemini-3.0-flash"),
         schema: metadataSchema,
         prompt: `${METADATA_PROMPT}\n\nInput:\n${textForLlm}`,
       });
