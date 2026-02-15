@@ -74,7 +74,7 @@ pub struct ShareLinkResponse {
 #[serde(rename_all = "camelCase")]
 pub struct VaultVersion {
     pub latest_change: Option<String>,
-    pub file_count: u64,
+    pub file_count: i64,
 }
 
 // Private request bodies

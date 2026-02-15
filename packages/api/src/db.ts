@@ -208,7 +208,7 @@ export async function getVaultVersion(): Promise<{
   if (counterResult.Item) {
     return {
       latestChange: (counterResult.Item.lastModified as string) ?? null,
-      fileCount: (counterResult.Item.fileCount as number) ?? 0,
+      fileCount: Math.max(0, (counterResult.Item.fileCount as number) ?? 0),
     };
   }
 
