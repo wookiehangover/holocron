@@ -11,17 +11,20 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@agentdb/sdk": "^1.1.26",
+    "@aws-sdk/client-dynamodb": "^3.990.0",
     "@aws-sdk/client-s3": "^3.985.0",
     "@aws-sdk/client-sfn": "^3.990.0",
+    "@aws-sdk/lib-dynamodb": "^3.990.0",
     "@aws-sdk/s3-request-presigner": "^3.990.0",
     "@holocron/core": "workspace:*",
     "hono": "^4.11.9"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.160"
+    "@types/aws-lambda": "^8.10.160",
+    "vitest": "^4.0.18"
   }
 }
