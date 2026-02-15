@@ -8,7 +8,7 @@ import { processingStateMachine } from "./processing.js";
 
 const honoFn = new sst.aws.Function("HolocronApi", {
   handler: "packages/api/src/index.handler",
-  runtime: "nodejs24.x",
+  runtime: "nodejs22.x",
   link: [bucket, table, holocronApiKey],
   environment: {
     HOLOCRON_TABLE_NAME: table.name,

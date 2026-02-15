@@ -13,7 +13,7 @@ import { table, vercelAiGatewayApiKey } from "./database.js";
 
 export const extractTextFn = new sst.aws.Function("ExtractText", {
   handler: "packages/functions/src/extract-text.handler",
-  runtime: "nodejs24.x",
+  runtime: "nodejs22.x",
   timeout: "300 seconds",
   memory: "1024 MB",
   link: [bucket, table, vercelAiGatewayApiKey],
@@ -24,7 +24,7 @@ export const extractTextFn = new sst.aws.Function("ExtractText", {
 
 export const chunkTextFn = new sst.aws.Function("ChunkText", {
   handler: "packages/functions/src/chunk-text.handler",
-  runtime: "nodejs24.x",
+  runtime: "nodejs22.x",
   timeout: "120 seconds",
   memory: "512 MB",
   link: [bucket, table],
@@ -32,7 +32,7 @@ export const chunkTextFn = new sst.aws.Function("ChunkText", {
 
 export const extractMetadataFn = new sst.aws.Function("ExtractMetadata", {
   handler: "packages/functions/src/extract-metadata.handler",
-  runtime: "nodejs24.x",
+  runtime: "nodejs22.x",
   timeout: "120 seconds",
   memory: "512 MB",
   link: [bucket, table, vercelAiGatewayApiKey],
