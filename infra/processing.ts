@@ -18,6 +18,7 @@ export const extractTextFn = new sst.aws.Function("ExtractText", {
   memory: "1024 MB",
   link: [bucket, table, vercelAiGatewayApiKey],
   environment: {
+    HOLOCRON_TABLE_NAME: table.name,
     AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
@@ -28,6 +29,9 @@ export const chunkTextFn = new sst.aws.Function("ChunkText", {
   timeout: "120 seconds",
   memory: "512 MB",
   link: [bucket, table],
+  environment: {
+    HOLOCRON_TABLE_NAME: table.name,
+  },
 });
 
 export const extractMetadataFn = new sst.aws.Function("ExtractMetadata", {
@@ -37,6 +41,7 @@ export const extractMetadataFn = new sst.aws.Function("ExtractMetadata", {
   memory: "512 MB",
   link: [bucket, table, vercelAiGatewayApiKey],
   environment: {
+    HOLOCRON_TABLE_NAME: table.name,
     AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
@@ -47,114 +52,9 @@ export const markIndexingFailedFn = new sst.aws.Function("MarkIndexingFailed", {
   timeout: "30 seconds",
   memory: "256 MB",
   link: [table],
-});
-
-// ---------------------------------------------------------------------------
-// Explicit DynamoDB IAM policies for processing Lambdas
-// ---------------------------------------------------------------------------
-
-new aws.iam.RolePolicy("ExtractTextDynamoPolicy", {
-  role: extractTextFn.nodes.role.name,
-  policy: table.arn.apply((arn) =>
-    JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: [
-            "dynamodb:GetItem",
-            "dynamodb:PutItem",
-            "dynamodb:UpdateItem",
-            "dynamodb:DeleteItem",
-            "dynamodb:Query",
-            "dynamodb:Scan",
-            "dynamodb:BatchGetItem",
-            "dynamodb:BatchWriteItem",
-            "dynamodb:ConditionCheckItem",
-          ],
-          Resource: [arn, `${arn}/index/*`],
-        },
-      ],
-    }),
-  ),
-});
-
-new aws.iam.RolePolicy("ChunkTextDynamoPolicy", {
-  role: chunkTextFn.nodes.role.name,
-  policy: table.arn.apply((arn) =>
-    JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: [
-            "dynamodb:GetItem",
-            "dynamodb:PutItem",
-            "dynamodb:UpdateItem",
-            "dynamodb:DeleteItem",
-            "dynamodb:Query",
-            "dynamodb:Scan",
-            "dynamodb:BatchGetItem",
-            "dynamodb:BatchWriteItem",
-            "dynamodb:ConditionCheckItem",
-          ],
-          Resource: [arn, `${arn}/index/*`],
-        },
-      ],
-    }),
-  ),
-});
-
-new aws.iam.RolePolicy("ExtractMetadataDynamoPolicy", {
-  role: extractMetadataFn.nodes.role.name,
-  policy: table.arn.apply((arn) =>
-    JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: [
-            "dynamodb:GetItem",
-            "dynamodb:PutItem",
-            "dynamodb:UpdateItem",
-            "dynamodb:DeleteItem",
-            "dynamodb:Query",
-            "dynamodb:Scan",
-            "dynamodb:BatchGetItem",
-            "dynamodb:BatchWriteItem",
-            "dynamodb:ConditionCheckItem",
-          ],
-          Resource: [arn, `${arn}/index/*`],
-        },
-      ],
-    }),
-  ),
-});
-
-new aws.iam.RolePolicy("MarkIndexingFailedDynamoPolicy", {
-  role: markIndexingFailedFn.nodes.role.name,
-  policy: table.arn.apply((arn) =>
-    JSON.stringify({
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Action: [
-            "dynamodb:GetItem",
-            "dynamodb:PutItem",
-            "dynamodb:UpdateItem",
-            "dynamodb:DeleteItem",
-            "dynamodb:Query",
-            "dynamodb:Scan",
-            "dynamodb:BatchGetItem",
-            "dynamodb:BatchWriteItem",
-            "dynamodb:ConditionCheckItem",
-          ],
-          Resource: [arn, `${arn}/index/*`],
-        },
-      ],
-    }),
-  ),
+  environment: {
+    HOLOCRON_TABLE_NAME: table.name,
+  },
 });
 
 // ---------------------------------------------------------------------------
