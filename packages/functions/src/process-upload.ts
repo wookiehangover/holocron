@@ -27,7 +27,7 @@ export async function handler(event: S3Event): Promise<{ processed: boolean; fil
     new HeadObjectCommand({ Bucket: bucket, Key: key })
   );
 
-  // TODO: extract metadata, generate thumbnails, update AgentDB record
+  // TODO: extract metadata, generate thumbnails, update DynamoDB record
   const fileMeta: Partial<HolocronFile> = {
     name: key.split("/").pop() ?? key,
     path: key,

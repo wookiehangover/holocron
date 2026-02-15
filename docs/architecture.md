@@ -56,8 +56,8 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
         "kind": "store"
       },
       {
-        "id": "agentdb",
-        "label": "AgentDB\n(serverless SQLite)",
+        "id": "dynamodb",
+        "label": "DynamoDB\n(single-table)",
         "kind": "store"
       },
       {
@@ -99,8 +99,8 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
       {
         "id": "e5",
         "from": "hono",
-        "to": "agentdb",
-        "label": "SQL over HTTP"
+        "to": "dynamodb",
+        "label": "DynamoDB SDK"
       },
       {
         "id": "e6",
@@ -147,7 +147,7 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
   "states": [
     {
       "id": "overview",
-      "narrative": "Full system: three clients (desktop app, web app, Rust CLI) talk to the API, which coordinates S3 storage and AgentDB metadata. A Step Functions pipeline processes uploads asynchronously.",
+      "narrative": "Full system: three clients (desktop app, web app, Rust CLI) talk to the API, which coordinates S3 storage and DynamoDB metadata. A Step Functions pipeline processes uploads asynchronously.",
       "highlightedNodes": [],
       "highlightedEdges": []
     },
@@ -172,10 +172,10 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
     },
     {
       "id": "metadata-flow",
-      "narrative": "Metadata flow: the API reads and writes file metadata to AgentDB (serverless SQLite). Clients never talk to the database directly.",
+      "narrative": "Metadata flow: the API reads and writes file metadata to DynamoDB (single-table design). Clients never talk to the database directly.",
       "highlightedNodes": [
         "hono",
-        "agentdb"
+        "dynamodb"
       ],
       "highlightedEdges": [
         "e5"
@@ -441,7 +441,8 @@ All infrastructure is defined in `infra/` and wired together in `sst.config.ts`.
 | Resource | SST / Pulumi type | Defined in | Purpose |
 | --- | --- | --- | --- |
 | HolocronBucket | sst.aws.Bucket | infra/storage.ts | Private S3 bucket for file blobs |
-| AgentDbApiKey | sst.Secret | infra/database.ts | API key for AgentDB, injected at runtime |
+| Holocron | sst.aws.Dynamo | infra/database.ts | DynamoDB single-table for metadata (files, share links) |
+| HolocronApiKey | sst.Secret | infra/database.ts | Self-generated API key, provisioned via `scripts/setup.sh` |
 | HolocronApi | sst.aws.Function | infra/api.ts | Hono API Lambda (Node 20) |
 | HolocronGateway | sst.aws.ApiGatewayV2 | infra/api.ts | HTTP API fronting the Lambda |
 | ProcessUpload | sst.aws.Function | infra/processing.ts | File processing Lambda (Node 20) |
@@ -451,7 +452,7 @@ All infrastructure is defined in `infra/` and wired together in `sst.config.ts`.
 
 SST's `link` mechanism injects environment variables and IAM permissions at deploy time:
 
-- `HolocronApi` is linked to `HolocronBucket` (S3 access) and `AgentDbApiKey` (database auth)
+- `HolocronApi` is linked to `HolocronBucket` (S3 access), `Holocron` DynamoDB table (metadata read/write), and `HolocronApiKey` (auth)
 - `ProcessUpload` is linked to `HolocronBucket` (S3 read)
 
 ### Stage management
@@ -481,11 +482,11 @@ Non-production stages are fully torn down on removal. Production retains resourc
 
 ### Authentication
 
-API key authentication is implemented via the `apiKeyAuth` middleware (`packages/api/src/middleware/auth.ts`). All requests must include an `X-Api-Key` header matching the `AGENTDB_API_KEY` environment variable. Excluded paths: `/health`, `/share/:token` (public resolution), and CORS preflight (`OPTIONS`).
+API key authentication is implemented via the `apiKeyAuth` middleware (`packages/api/src/middleware/auth.ts`). All requests must include an `X-Api-Key` header matching the `HOLOCRON_API_KEY` environment variable (injected from the `HolocronApiKey` SST secret). Excluded paths: `/health`, `/share/:token` (public resolution), and CORS preflight (`OPTIONS`).
 
 ### Database access
 
-`packages/api/src/db.ts` provides a singleton `DatabaseService` (from `@agentdb/sdk`) and a `connectDb()` helper. AgentDB is a serverless SQLite-over-HTTP service — no connection pooling or VPC required. Schema is bootstrapped on every cold start via `ensureSchema()` (idempotent `CREATE TABLE IF NOT EXISTS`).
+`packages/api/src/db.ts` provides a DynamoDB data access layer using the AWS SDK v3 (`@aws-sdk/client-dynamodb` and `@aws-sdk/lib-dynamodb`). A singleton `DynamoDBDocumentClient` connects to the `Holocron` table (name injected via `HOLOCRON_TABLE_NAME` environment variable). The single-table design uses composite keys and two GSIs — see `packages/api/src/db/schema.ts` for key prefixes and index names. No connection pooling or VPC is required.
 
 ### Key design decisions
 
@@ -600,7 +601,7 @@ Currently the pipeline is a single-step placeholder. The `ProcessUpload` Lambda 
 
 - **Thumbnail generation** for images/videos
 - **Full-text indexing** for searchable documents
-- **DB record update** to persist extracted metadata into AgentDB
+- **DB record update** to persist extracted metadata into DynamoDB
 
 The Step Functions approach was chosen over direct S3 event triggers because:
 

@@ -1,48 +1,62 @@
--- Holocron: AgentDB / SQLite Schema
+-- Holocron: DynamoDB Single-Table Design
 --
--- This file defines the database schema for the Holocron file vault.
--- AgentDB is a serverless SQLite-over-HTTP service used as the metadata store.
--- All UUIDs are stored as TEXT. Timestamps are ISO 8601 TEXT. Sizes are INTEGER.
+-- This file documents the DynamoDB table design for the Holocron file vault.
+-- The table is provisioned by SST in infra/database.ts. All entities (Files,
+-- ShareLinks) share a single table using composite primary keys and two GSIs.
 --
--- Tables:
---   files        – metadata for every file in the vault (maps to HolocronFile)
---   share_links  – public share links pointing to files (maps to ShareLink)
-
+-- This is a DESIGN DOCUMENT, not an executable schema. The actual table is
+-- created by SST's sst.aws.Dynamo construct at deploy time.
+--
 -- =============================================================================
--- files
+-- Table: Holocron
 -- =============================================================================
--- Each row represents a file stored in the Holocron vault (S3 + local).
--- Mirrors the HolocronFile TypeScript interface in @holocron/core.
-
-CREATE TABLE IF NOT EXISTS files (
-    id         TEXT    NOT NULL PRIMARY KEY,
-    name       TEXT    NOT NULL,
-    path       TEXT    NOT NULL UNIQUE,
-    s3_key     TEXT    NOT NULL,
-    size       INTEGER NOT NULL,
-    mime_type  TEXT    NOT NULL,
-    checksum   TEXT    NOT NULL,
-    created_at TEXT    NOT NULL,
-    updated_at TEXT    NOT NULL
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_files_path ON files (path);
-
+--
+-- Primary key:  pk (S) + sk (S)
+--
+-- GSI1 (gsi1) — listing & grouping:
+--   gsi1pk (S) + gsi1sk (S)
+--
+-- GSI2 (gsi2) — unique lookups:
+--   gsi2pk (S) + gsi2sk (S)
+--
 -- =============================================================================
--- share_links
+-- Entity: File  (maps to HolocronFile in @holocron/core)
 -- =============================================================================
--- Each row is a publicly-accessible link to a file. The optional expires_at
--- column allows time-limited sharing; NULL means the link never expires.
--- Mirrors the ShareLink TypeScript interface in @holocron/core.
-
-CREATE TABLE IF NOT EXISTS share_links (
-    id         TEXT NOT NULL PRIMARY KEY,
-    file_id    TEXT NOT NULL REFERENCES files (id),
-    url        TEXT NOT NULL UNIQUE,
-    expires_at TEXT,
-    created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_share_links_file_id ON share_links (file_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_share_links_url ON share_links (url);
+--
+--   pk:     FILE#<id>
+--   sk:     FILE#<id>
+--   gsi1pk: FILES
+--   gsi1sk: <createdAt>#<id>       (enables listing files by creation date)
+--   gsi2pk: PATH#<path>
+--   gsi2sk: FILE#<id>              (enables unique lookup by vault path)
+--
+--   Attributes: id, name, path, s3Key, size, mimeType, checksum,
+--               createdAt (ISO 8601), updatedAt (ISO 8601)
+--
+-- Access patterns:
+--   Get file by ID:     GetItem  pk=FILE#<id>, sk=FILE#<id>
+--   Get file by path:   Query    GSI2  gsi2pk=PATH#<path>
+--   List all files:     Query    GSI1  gsi1pk=FILES  (ScanIndexForward=false)
+--   Insert/update file: PutItem  pk=FILE#<id>, sk=FILE#<id>
+--   Delete file:        DeleteItem pk=FILE#<id>, sk=FILE#<id>
+--
+-- =============================================================================
+-- Entity: ShareLink  (maps to ShareLink in @holocron/core)
+-- =============================================================================
+--
+--   pk:     SHARE#<id>
+--   sk:     SHARE#<id>
+--   gsi1pk: FILE_SHARES#<fileId>
+--   gsi1sk: SHARE#<id>             (enables listing shares for a file)
+--   gsi2pk: URL#<url>
+--   gsi2sk: SHARE#<id>             (enables unique lookup by public URL)
+--
+--   Attributes: id, fileId, url, expiresAt (ISO 8601 | null), createdAt (ISO 8601)
+--
+-- Access patterns:
+--   Get share by URL:       Query GSI2  gsi2pk=URL#<url>
+--   List shares for file:   Query GSI1  gsi1pk=FILE_SHARES#<fileId>
+--   Insert share:           PutItem pk=SHARE#<id>, sk=SHARE#<id>
+--   Delete share:           DeleteItem pk=SHARE#<id>, sk=SHARE#<id>
+--   Delete all file shares: Query GSI1 then BatchWrite DeleteRequests
 
