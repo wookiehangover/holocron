@@ -1,4 +1,4 @@
-import type { HolocronFile } from "@holocron/core/types";
+import type { HolocronFile, FileChunk } from "@holocron/core/types";
 
 // ---------------------------------------------------------------------------
 // Env helpers — server uses process.env, client uses window.ENV
@@ -129,5 +129,61 @@ export async function uploadFile(file: File): Promise<{ fileId: string }> {
     throw new Error(`upload confirm failed: ${confirmRes.status}`);
 
   return { fileId };
+}
+
+/** Fetch chunks for a file (text segments extracted during indexing). */
+export async function getFileChunks(
+  id: string,
+): Promise<{
+  chunks: Array<{
+    id: string;
+    text: string;
+    page?: number;
+    chunkIndex: number;
+    startOffset: number;
+    endOffset: number;
+  }>;
+  total: number;
+}> {
+  const res = await fetch(`${baseUrl()}/files/${id}/chunks`, {
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(`getFileChunks failed: ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
+
+export interface SearchResult {
+  file: {
+    id: string;
+    name: string;
+    path: string;
+    mimeType: string;
+    metadata?: unknown;
+  };
+  chunks: Array<{ text: string; page?: number; chunkIndex: number }>;
+  score: number;
+}
+
+export interface SearchResponse {
+  results: SearchResult[];
+  query: string;
+  total: number;
+}
+
+/** Full-text search across indexed file chunks. */
+export async function searchFiles(
+  query: string,
+  limit = 20,
+): Promise<SearchResponse> {
+  const params = new URLSearchParams({ q: query, limit: String(limit) });
+  const res = await fetch(`${baseUrl()}/files/search?${params}`, {
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(`searchFiles failed: ${res.status}`);
+  return res.json();
 }
 
