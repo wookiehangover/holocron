@@ -21,5 +21,7 @@ export const PREFIX = {
   FILE_SHARES: "FILE_SHARES#",
   URL: "URL#",
   VAULT_VERSION: "VAULT#VERSION",
+  CHUNK: "CHUNK#",
+  FILE_CHUNKS: "FILE_CHUNKS#",
 } as const;
 
