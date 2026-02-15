@@ -50,6 +50,114 @@ export const markIndexingFailedFn = new sst.aws.Function("MarkIndexingFailed", {
 });
 
 // ---------------------------------------------------------------------------
+// Explicit DynamoDB IAM policies for processing Lambdas
+// ---------------------------------------------------------------------------
+
+new aws.iam.RolePolicy("ExtractTextDynamoPolicy", {
+  role: extractTextFn.nodes.role.name,
+  policy: table.arn.apply((arn) =>
+    JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+            "dynamodb:Scan",
+            "dynamodb:BatchGetItem",
+            "dynamodb:BatchWriteItem",
+            "dynamodb:ConditionCheckItem",
+          ],
+          Resource: [arn, `${arn}/index/*`],
+        },
+      ],
+    }),
+  ),
+});
+
+new aws.iam.RolePolicy("ChunkTextDynamoPolicy", {
+  role: chunkTextFn.nodes.role.name,
+  policy: table.arn.apply((arn) =>
+    JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+            "dynamodb:Scan",
+            "dynamodb:BatchGetItem",
+            "dynamodb:BatchWriteItem",
+            "dynamodb:ConditionCheckItem",
+          ],
+          Resource: [arn, `${arn}/index/*`],
+        },
+      ],
+    }),
+  ),
+});
+
+new aws.iam.RolePolicy("ExtractMetadataDynamoPolicy", {
+  role: extractMetadataFn.nodes.role.name,
+  policy: table.arn.apply((arn) =>
+    JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+            "dynamodb:Scan",
+            "dynamodb:BatchGetItem",
+            "dynamodb:BatchWriteItem",
+            "dynamodb:ConditionCheckItem",
+          ],
+          Resource: [arn, `${arn}/index/*`],
+        },
+      ],
+    }),
+  ),
+});
+
+new aws.iam.RolePolicy("MarkIndexingFailedDynamoPolicy", {
+  role: markIndexingFailedFn.nodes.role.name,
+  policy: table.arn.apply((arn) =>
+    JSON.stringify({
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: [
+            "dynamodb:GetItem",
+            "dynamodb:PutItem",
+            "dynamodb:UpdateItem",
+            "dynamodb:DeleteItem",
+            "dynamodb:Query",
+            "dynamodb:Scan",
+            "dynamodb:BatchGetItem",
+            "dynamodb:BatchWriteItem",
+            "dynamodb:ConditionCheckItem",
+          ],
+          Resource: [arn, `${arn}/index/*`],
+        },
+      ],
+    }),
+  ),
+});
+
+// ---------------------------------------------------------------------------
 // IAM role for the Step Functions state machine
 // ---------------------------------------------------------------------------
 
