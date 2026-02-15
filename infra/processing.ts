@@ -41,6 +41,14 @@ export const extractMetadataFn = new sst.aws.Function("ExtractMetadata", {
   },
 });
 
+export const markIndexingFailedFn = new sst.aws.Function("MarkIndexingFailed", {
+  handler: "packages/functions/src/mark-indexing-failed.handler",
+  runtime: "nodejs22.x",
+  timeout: "30 seconds",
+  memory: "256 MB",
+  link: [table],
+});
+
 // ---------------------------------------------------------------------------
 // IAM role for the Step Functions state machine
 // ---------------------------------------------------------------------------
@@ -65,15 +73,16 @@ new aws.iam.RolePolicy("ProcessingStateMachinePolicy", {
       extractTextFn.arn,
       chunkTextFn.arn,
       extractMetadataFn.arn,
+      markIndexingFailedFn.arn,
     ])
-    .apply(([extractArn, chunkArn, metadataArn]) =>
+    .apply(([extractArn, chunkArn, metadataArn, markFailedArn]) =>
       JSON.stringify({
         Version: "2012-10-17",
         Statement: [
           {
             Effect: "Allow",
             Action: "lambda:InvokeFunction",
-            Resource: [extractArn, chunkArn, metadataArn],
+            Resource: [extractArn, chunkArn, metadataArn, markFailedArn],
           },
         ],
       }),
@@ -92,8 +101,13 @@ export const processingStateMachine = new aws.sfn.StateMachine(
   {
     roleArn: sfnRole.arn,
     definition: $util
-      .all([extractTextFn.arn, chunkTextFn.arn, extractMetadataFn.arn])
-      .apply(([extractArn, chunkArn, metadataArn]) =>
+      .all([
+        extractTextFn.arn,
+        chunkTextFn.arn,
+        extractMetadataFn.arn,
+        markIndexingFailedFn.arn,
+      ])
+      .apply(([extractArn, chunkArn, metadataArn, markFailedArn]) =>
         JSON.stringify({
           Comment: "Holocron file indexing pipeline",
           StartAt: "ExtractText",
@@ -144,8 +158,8 @@ export const processingStateMachine = new aws.sfn.StateMachine(
               ],
             },
             FailureHandler: {
-              Type: "Pass",
-              Result: "Pipeline failed",
+              Type: "Task",
+              Resource: markFailedArn,
               End: true,
             },
           },
