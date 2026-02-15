@@ -10,6 +10,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { PDFParse } from "pdf-parse";
+import { updateFileIndexingStatus } from "@holocron/api/db";
 
 const s3 = new S3Client({});
 
@@ -149,44 +150,60 @@ export async function handler(event: ExtractTextEvent): Promise<ExtractTextResul
 
   console.log(`Extracting text for file ${fileId} (${mimeType}): s3://${bucket}/${s3Key}`);
 
-  // Fetch file from S3
-  const fileBuffer = await getS3Object(bucket, s3Key);
+  try {
+    // Mark file as "extracting"
+    await updateFileIndexingStatus(fileId, "extracting");
 
-  let fullText = "";
-  let pageCount: number | undefined;
+    // Fetch file from S3
+    const fileBuffer = await getS3Object(bucket, s3Key);
 
-  if (mimeType === "application/pdf") {
-    const result = await extractPdf(fileBuffer);
-    fullText = result.text;
-    pageCount = result.pageCount;
-  } else if (
-    mimeType.startsWith("text/") ||
-    mimeType === "application/json" ||
-    mimeType === "application/xml"
-  ) {
-    fullText = extractTextContent(fileBuffer);
-  } else if (mimeType.startsWith("image/")) {
-    fullText = await extractImage(fileBuffer, mimeType);
-  } else {
-    // Unsupported MIME type — store empty text
-    console.warn(`Unsupported MIME type for text extraction: ${mimeType}`);
-    fullText = "";
+    let fullText = "";
+    let pageCount: number | undefined;
+
+    if (mimeType === "application/pdf") {
+      const result = await extractPdf(fileBuffer);
+      fullText = result.text;
+      pageCount = result.pageCount;
+    } else if (
+      mimeType.startsWith("text/") ||
+      mimeType === "application/json" ||
+      mimeType === "application/xml"
+    ) {
+      fullText = extractTextContent(fileBuffer);
+    } else if (mimeType.startsWith("image/")) {
+      fullText = await extractImage(fileBuffer, mimeType);
+    } else {
+      // Unsupported MIME type — store empty text
+      console.warn(`Unsupported MIME type for text extraction: ${mimeType}`);
+      fullText = "";
+    }
+
+    // Store extracted text to S3
+    const fullTextS3Key = `${s3Key}_fulltext`;
+    await putS3Text(bucket, fullTextS3Key, fullText);
+
+    const extractionMeta: ExtractTextResult["extractionMeta"] = {
+      wordCount: countWords(fullText),
+      charCount: fullText.length,
+      ...(pageCount !== undefined && { pageCount }),
+    };
+
+    console.log(
+      `Extraction complete for ${fileId}: ${extractionMeta.wordCount} words, ${extractionMeta.charCount} chars`,
+    );
+
+    return { fileId, s3Key, bucket, fullTextS3Key, mimeType, fileName, extractionMeta };
+  } catch (error) {
+    console.error(`Text extraction failed for file ${fileId}:`, error);
+
+    // Never leave a file stuck — always update status
+    try {
+      await updateFileIndexingStatus(fileId, "failed");
+    } catch (statusError) {
+      console.error(`Failed to update status for file ${fileId}:`, statusError);
+    }
+
+    throw error;
   }
-
-  // Store extracted text to S3
-  const fullTextS3Key = `${s3Key}_fulltext`;
-  await putS3Text(bucket, fullTextS3Key, fullText);
-
-  const extractionMeta: ExtractTextResult["extractionMeta"] = {
-    wordCount: countWords(fullText),
-    charCount: fullText.length,
-    ...(pageCount !== undefined && { pageCount }),
-  };
-
-  console.log(
-    `Extraction complete for ${fileId}: ${extractionMeta.wordCount} words, ${extractionMeta.charCount} chars`,
-  );
-
-  return { fileId, s3Key, bucket, fullTextS3Key, mimeType, fileName, extractionMeta };
 }
 

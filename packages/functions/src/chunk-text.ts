@@ -202,47 +202,60 @@ export async function handler(event: {
 
   console.log(`Chunking text for file ${fileId} from s3://${bucket}/${fullTextS3Key}`);
 
-  // Mark file as "chunking"
-  await updateFileIndexingStatus(fileId, "chunking");
+  try {
+    // Mark file as "chunking"
+    await updateFileIndexingStatus(fileId, "chunking");
 
-  // Read full text from S3
-  const response = await s3.send(
-    new GetObjectCommand({ Bucket: bucket, Key: fullTextS3Key }),
-  );
-  const fullText = (await response.Body?.transformToString("utf-8")) ?? "";
+    // Read full text from S3
+    const response = await s3.send(
+      new GetObjectCommand({ Bucket: bucket, Key: fullTextS3Key }),
+    );
+    const fullText = (await response.Body?.transformToString("utf-8")) ?? "";
 
-  // Handle empty text
-  if (!fullText.trim()) {
-    console.log(`File ${fileId}: empty text, nothing to chunk`);
-    return { fileId, chunkCount: 0, status: "empty" };
+    // Handle empty text
+    if (!fullText.trim()) {
+      console.log(`File ${fileId}: empty text, nothing to chunk`);
+      return { fileId, chunkCount: 0, status: "empty" };
+    }
+
+    // Chunk the text
+    const chunkTexts = chunkText(fullText);
+
+    // Compute offsets for each chunk
+    const offsets = computeOffsets(fullText, chunkTexts);
+
+    // Build FileChunk records
+    const now = new Date();
+    const chunks: FileChunk[] = chunkTexts.map((text, index) => ({
+      id: crypto.randomUUID(),
+      fileId,
+      chunkIndex: index,
+      text,
+      page: extractionMeta.pageCount != null ? getPageNumber(fullText, offsets[index].startOffset) : undefined,
+      startOffset: offsets[index].startOffset,
+      endOffset: offsets[index].endOffset,
+      createdAt: now,
+    }));
+
+    // Delete existing chunks (re-indexing support) then insert new ones
+    await deleteChunksByFileId(fileId);
+    await insertChunks(fileId, chunks);
+
+    console.log(`File ${fileId}: created ${chunks.length} chunks`);
+
+    return { fileId, chunkCount: chunks.length, status: "success" };
+  } catch (error) {
+    console.error(`Chunking failed for file ${fileId}:`, error);
+
+    // Never leave a file stuck — always update status
+    try {
+      await updateFileIndexingStatus(fileId, "failed");
+    } catch (statusError) {
+      console.error(`Failed to update status for file ${fileId}:`, statusError);
+    }
+
+    throw error;
   }
-
-  // Chunk the text
-  const chunkTexts = chunkText(fullText);
-
-  // Compute offsets for each chunk
-  const offsets = computeOffsets(fullText, chunkTexts);
-
-  // Build FileChunk records
-  const now = new Date();
-  const chunks: FileChunk[] = chunkTexts.map((text, index) => ({
-    id: crypto.randomUUID(),
-    fileId,
-    chunkIndex: index,
-    text,
-    page: extractionMeta.pageCount != null ? getPageNumber(fullText, offsets[index].startOffset) : undefined,
-    startOffset: offsets[index].startOffset,
-    endOffset: offsets[index].endOffset,
-    createdAt: now,
-  }));
-
-  // Delete existing chunks (re-indexing support) then insert new ones
-  await deleteChunksByFileId(fileId);
-  await insertChunks(fileId, chunks);
-
-  console.log(`File ${fileId}: created ${chunks.length} chunks`);
-
-  return { fileId, chunkCount: chunks.length, status: "success" };
 }
 
 // ---------------------------------------------------------------------------

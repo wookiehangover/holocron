@@ -11,12 +11,6 @@ import { table, googleAiApiKey } from "./database.js";
 // Lambda functions
 // ---------------------------------------------------------------------------
 
-export const processUploadFn = new sst.aws.Function("ProcessUpload", {
-  handler: "packages/functions/src/process-upload.handler",
-  runtime: "nodejs24.x",
-  link: [bucket],
-});
-
 export const extractTextFn = new sst.aws.Function("ExtractText", {
   handler: "packages/functions/src/extract-text.handler",
   runtime: "nodejs24.x",
@@ -68,19 +62,18 @@ new aws.iam.RolePolicy("ProcessingStateMachinePolicy", {
   role: sfnRole.id,
   policy: $util
     .all([
-      processUploadFn.arn,
       extractTextFn.arn,
       chunkTextFn.arn,
       extractMetadataFn.arn,
     ])
-    .apply(([processArn, extractArn, chunkArn, metadataArn]) =>
+    .apply(([extractArn, chunkArn, metadataArn]) =>
       JSON.stringify({
         Version: "2012-10-17",
         Statement: [
           {
             Effect: "Allow",
             Action: "lambda:InvokeFunction",
-            Resource: [processArn, extractArn, chunkArn, metadataArn],
+            Resource: [extractArn, chunkArn, metadataArn],
           },
         ],
       }),

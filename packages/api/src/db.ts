@@ -413,6 +413,7 @@ export async function insertChunks(
                 fileId: chunk.fileId,
                 chunkIndex: chunk.chunkIndex,
                 text: chunk.text,
+                textLower: chunk.text.toLowerCase(),
                 page: chunk.page,
                 startOffset: chunk.startOffset,
                 endOffset: chunk.endOffset,
@@ -549,8 +550,8 @@ export async function searchChunks(
       new ScanCommand({
         TableName: TABLE_NAME,
         FilterExpression:
-          "begins_with(pk, :prefix) AND contains(#t, :q)",
-        ExpressionAttributeNames: { "#t": "text" },
+          "begins_with(pk, :prefix) AND contains(#tl, :q)",
+        ExpressionAttributeNames: { "#tl": "textLower" },
         ExpressionAttributeValues: {
           ":prefix": PREFIX.CHUNK,
           ":q": query.toLowerCase(),
