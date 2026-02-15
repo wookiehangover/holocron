@@ -181,6 +181,37 @@ app.get("/files/:id", async (c) => {
   return c.json({ file, downloadUrl });
 });
 
+app.post("/files/:id/reindex", async (c) => {
+  const id = c.req.param("id");
+  const file = await getFileById(id);
+  if (!file) {
+    return c.json({ error: "File not found" }, 404);
+  }
+
+  const stateMachineArn = process.env.PROCESSING_STATE_MACHINE_ARN;
+  if (!stateMachineArn) {
+    return c.json({ error: "Processing pipeline not configured" }, 500);
+  }
+
+  await updateFileIndexingStatus(id, "pending");
+
+  const sfn = getSfnClient();
+  await sfn.send(
+    new StartExecutionCommand({
+      stateMachineArn,
+      input: JSON.stringify({
+        fileId: file.id,
+        s3Key: file.s3Key ?? file.path,
+        bucket: process.env.BUCKET_NAME,
+        mimeType: file.mimeType,
+        fileName: file.name,
+      }),
+    }),
+  );
+
+  return c.json({ status: "processing" });
+});
+
 app.get("/files/:id/chunks", async (c) => {
   const id = c.req.param("id");
   const file = await getFileById(id);
