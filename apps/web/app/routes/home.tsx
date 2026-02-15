@@ -1,7 +1,10 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
 import type { HolocronFile } from "@holocron/core/types";
 import { listFiles, getFile, uploadFile, createShareLink } from "../lib/api";
+import { Layout } from "~/components/layout";
+import { UploadZone } from "~/components/upload-zone";
+import { FileTable } from "~/components/file-table";
 
 // ---------------------------------------------------------------------------
 // Loader — fetch file list server-side
@@ -57,7 +60,6 @@ type UploadState = "idle" | "uploading" | "done" | "error";
 export default function Home() {
   const { files, error } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [dragOver, setDragOver] = useState(false);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
@@ -105,7 +107,6 @@ export default function Home() {
   const handleShare = useCallback(async (fileId: string) => {
     try {
       const { url } = await createShareLink(fileId);
-      // url is like /share/{token} — extract token and build frontend URL
       const token = url.split("/").pop();
       const shareUrl = `${window.location.origin}/share/${token}`;
       await navigator.clipboard.writeText(shareUrl);
@@ -116,166 +117,36 @@ export default function Home() {
     }
   }, []);
 
-  return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "1.5rem" }}>
-        Holocron
-      </h1>
+  // Map internal state to upload zone state
+  const zoneState = dragOver ? "dragover" : uploadState;
 
-      {/* Upload drop zone */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        style={{
-          border: `2px dashed ${dragOver ? "#2563eb" : "#d1d5db"}`,
-          borderRadius: 8,
-          padding: "2rem",
-          textAlign: "center",
-          cursor: "pointer",
-          marginBottom: "1.5rem",
-          background: dragOver ? "#eff6ff" : "#fff",
-          transition: "all 150ms",
-        }}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => handleUpload(e.target.files)}
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <UploadZone
+          uploadState={zoneState}
+          errorMessage={uploadError}
+          onUpload={handleUpload}
+          onDragOver={() => setDragOver(true)}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
         />
-        {uploadState === "uploading" && (
-          <p style={{ color: "#6b7280" }}>Uploading…</p>
-        )}
-        {uploadState === "done" && (
-          <p style={{ color: "#16a34a" }}>Upload complete!</p>
-        )}
-        {uploadState === "error" && (
-          <p style={{ color: "#dc2626" }}>Upload failed: {uploadError}</p>
-        )}
-        {uploadState === "idle" && (
-          <p style={{ color: "#6b7280" }}>
-            Drop files here or click to upload
+
+        {error && (
+          <p className="text-xs text-destructive">
+            Failed to load files: {error}
           </p>
         )}
+
+        <FileTable
+          files={files}
+          copiedFileId={copiedFileId}
+          onDownload={handleDownload}
+          onShare={handleShare}
+          formatBytes={formatBytes}
+          formatDate={formatDate}
+        />
       </div>
-
-      {/* Error state */}
-      {error && (
-        <p style={{ color: "#dc2626", marginBottom: "1rem" }}>
-          Failed to load files: {error}
-        </p>
-      )}
-
-      {/* Empty state */}
-      {!error && files.length === 0 && (
-        <p style={{ color: "#9ca3af", textAlign: "center", padding: "3rem 0" }}>
-          No files yet. Drop files here to upload.
-        </p>
-      )}
-
-      {/* File table */}
-      {files.length > 0 && (
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            background: "#fff",
-            borderRadius: 8,
-            overflow: "hidden",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          <thead>
-            <tr
-              style={{
-                textAlign: "left",
-                borderBottom: "1px solid #e5e7eb",
-                background: "#f9fafb",
-              }}
-            >
-              <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem", color: "#6b7280" }}>
-                Name
-              </th>
-              <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem", color: "#6b7280" }}>
-                Size
-              </th>
-              <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem", color: "#6b7280" }}>
-                Type
-              </th>
-              <th style={{ padding: "0.75rem 1rem", fontWeight: 500, fontSize: "0.875rem", color: "#6b7280" }}>
-                Date
-              </th>
-              <th style={{ padding: "0.75rem 1rem", width: 170 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {files.map((file) => (
-              <tr
-                key={file.id}
-                style={{ borderBottom: "1px solid #f3f4f6" }}
-              >
-                <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem" }}>
-                  {file.path !== file.name ? (
-                    <>
-                      <span style={{ color: "#9ca3af" }}>
-                        {file.path.slice(0, file.path.length - file.name.length)}
-                      </span>
-                      {file.name}
-                    </>
-                  ) : (
-                    file.name
-                  )}
-                </td>
-                <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "#6b7280" }}>
-                  {formatBytes(file.size)}
-                </td>
-                <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "#6b7280" }}>
-                  {file.mimeType}
-                </td>
-                <td style={{ padding: "0.75rem 1rem", fontSize: "0.875rem", color: "#6b7280" }}>
-                  {formatDate(file.createdAt)}
-                </td>
-                <td style={{ padding: "0.75rem 1rem", whiteSpace: "nowrap" }}>
-                  <button
-                    onClick={() => handleDownload(file.id)}
-                    style={{
-                      padding: "0.25rem 0.75rem",
-                      fontSize: "0.8125rem",
-                      background: "#f3f4f6",
-                      border: "1px solid #d1d5db",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      marginRight: "0.5rem",
-                    }}
-                  >
-                    Download
-                  </button>
-                  <button
-                    onClick={() => handleShare(file.id)}
-                    style={{
-                      padding: "0.25rem 0.75rem",
-                      fontSize: "0.8125rem",
-                      background: copiedFileId === file.id ? "#dcfce7" : "#f3f4f6",
-                      border: `1px solid ${copiedFileId === file.id ? "#86efac" : "#d1d5db"}`,
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      color: copiedFileId === file.id ? "#16a34a" : undefined,
-                    }}
-                  >
-                    {copiedFileId === file.id ? "Copied!" : "Share"}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </main>
+    </Layout>
   );
 }
