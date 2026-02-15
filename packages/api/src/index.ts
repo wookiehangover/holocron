@@ -193,6 +193,16 @@ app.post("/files/:id/reindex", async (c) => {
     return c.json({ error: "Processing pipeline not configured" }, 500);
   }
 
+  // Clean up old chunks and fulltext before re-indexing
+  await deleteChunksByFileId(id);
+  if (file.fullTextS3Key) {
+    try {
+      await deleteObject(getBucketName(), file.fullTextS3Key);
+    } catch {
+      // Non-fatal — fulltext may not exist yet
+    }
+  }
+
   await updateFileIndexingStatus(id, "pending");
 
   const sfn = getSfnClient();
