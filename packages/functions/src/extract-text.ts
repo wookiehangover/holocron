@@ -9,7 +9,7 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { generateText } from "ai";
 import { gateway } from "@ai-sdk/gateway";
-import { PDFParse } from "pdf-parse";
+import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import { updateFileIndexingStatus } from "@holocron/api/db";
 
 const s3 = new S3Client({});
@@ -99,15 +99,11 @@ async function putS3Text(bucket: string, key: string, text: string): Promise<voi
   );
 }
 
-/** Extract text from a PDF buffer using pdf-parse v2. */
+/** Extract text from a PDF buffer using unpdf. */
 async function extractPdf(buffer: Buffer): Promise<{ text: string; pageCount: number }> {
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-  try {
-    const result = await parser.getText();
-    return { text: result.text, pageCount: result.total };
-  } finally {
-    await parser.destroy();
-  }
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  const { totalPages, text } = await extractPdfText(pdf, { mergePages: true });
+  return { text: text as string, pageCount: totalPages };
 }
 
 /** Read a text-based file (text/*, application/json, application/xml) as UTF-8. */
