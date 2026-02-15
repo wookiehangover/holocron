@@ -1,6 +1,14 @@
 import { useLoaderData } from "react-router";
 import { resolveShareLink } from "../lib/api";
 import type { Route } from "./+types/share.$token";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -65,11 +73,11 @@ export default function SharePage() {
           : "Please try again later.";
 
     return (
-      <main style={{ maxWidth: 480, margin: "0 auto", padding: "4rem 1rem", textAlign: "center" }}>
-        <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "0.5rem" }}>
-          {heading}
-        </h1>
-        <p style={{ color: "#6b7280" }}>{detail}</p>
+      <main className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <h1 className="text-lg font-semibold mb-2">{heading}</h1>
+          <p className="text-sm text-muted-foreground">{detail}</p>
+        </div>
       </main>
     );
   }
@@ -77,45 +85,31 @@ export default function SharePage() {
   const { file, downloadUrl } = data;
 
   return (
-    <main style={{ maxWidth: 480, margin: "0 auto", padding: "4rem 1rem", textAlign: "center" }}>
-      <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "1.5rem" }}>
-        Holocron
-      </h1>
+    <main className="min-h-screen flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        <h1 className="text-lg font-semibold text-center mb-6">Holocron</h1>
 
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 8,
-          padding: "2rem",
-        }}
-      >
-        <p style={{ fontSize: "1.125rem", fontWeight: 500, marginBottom: "0.5rem" }}>
-          {file.name}
-        </p>
-        <p style={{ color: "#6b7280", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
-          {formatBytes(file.size)} · {file.mimeType}
-        </p>
-
-        <a
-          href={downloadUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-block",
-            padding: "0.625rem 1.5rem",
-            fontSize: "0.9375rem",
-            fontWeight: 500,
-            color: "#fff",
-            background: "#2563eb",
-            border: "none",
-            borderRadius: 6,
-            cursor: "pointer",
-            textDecoration: "none",
-          }}
-        >
-          Download
-        </a>
+        <Card>
+          <CardHeader className="text-center">
+            <CardTitle className="text-sm">{file.name}</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-xs text-muted-foreground">
+              {formatBytes(file.size)} · {file.mimeType}
+            </p>
+          </CardContent>
+          <CardFooter className="justify-center">
+            <Button asChild>
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download
+              </a>
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </main>
   );
