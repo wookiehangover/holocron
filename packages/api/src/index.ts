@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, searchChunks, getChunksByFileId } from "./db.js";
+import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, searchChunks, getChunksByFileId } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -151,6 +151,8 @@ app.post("/files/upload/confirm", async (c) => {
   if (!stateMachineArn) {
     return c.json({ error: "Processing pipeline not configured" }, 500);
   }
+
+  await updateFileIndexingStatus(fileId, "pending");
 
   const sfn = getSfnClient();
   await sfn.send(
