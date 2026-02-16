@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { HolocronFile } from "@holocron/core/types";
-import { getFile, deleteFile } from "~/lib/api";
+import { getFile, deleteFile, uploadFile, listFiles } from "~/lib/api";
 import { useTheme } from "~/lib/theme-provider";
 import { FolderIcon } from "./FolderIcon";
 import { TrashIcon } from "./TrashIcon";
@@ -55,6 +55,8 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   const [activeWindowId, setActiveWindowId] = useState<number | null>(null);
   const [trashHighlight, setTrashHighlight] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /** Counter for staggering preview window positions. */
   const previewCount = windows.filter((w) => w.kind === "preview").length;
@@ -75,6 +77,23 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         const { file, downloadUrl } = await getFile(fileId);
         const id = nextWindowId++;
         const offset = (previewCount % 8) * 20;
+
+        // Compute initial window size from image metadata when available
+        let size: { width: number; height: number } | undefined;
+        if (
+          file.mimeType?.startsWith("image/") &&
+          file.metadata?.imageWidth &&
+          file.metadata?.imageHeight
+        ) {
+          const CHROME_W = 24;
+          const CHROME_H = 56;
+          const maxW = Math.min(800, window.innerWidth * 0.8);
+          const maxH = Math.min(600, window.innerHeight * 0.8);
+          const w = Math.max(200, Math.min(file.metadata.imageWidth + CHROME_W, maxW));
+          const h = Math.max(150, Math.min(file.metadata.imageHeight + CHROME_H, maxH));
+          size = { width: w, height: h };
+        }
+
         setWindows((prev) => [
           ...prev,
           {
@@ -82,6 +101,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             kind: "preview",
             title: file.name,
             position: { x: 160 + offset, y: 80 + offset },
+            size,
             file,
             downloadUrl,
           },
@@ -121,6 +141,10 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
           (w) => !(w.kind === "preview" && w.file.id === pendingDelete.fileId),
         ),
       );
+      // Clear selection if the deleted file was selected
+      setSelectedFileId((prev) =>
+        prev === pendingDelete.fileId ? null : prev,
+      );
     } catch (e) {
       console.error("Failed to delete file:", e);
     } finally {
@@ -132,6 +156,30 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     setWindows((prev) => prev.filter((w) => w.id !== id));
     setActiveWindowId((prev) => (prev === id ? null : prev));
   }, []);
+
+  const handleFileUpload = useCallback(
+    async (fileList: FileList) => {
+      const uploads = Array.from(fileList).map((f) => uploadFile(f));
+      try {
+        await Promise.all(uploads);
+        const refreshed = await listFiles();
+        setFiles(refreshed);
+      } catch (e) {
+        console.error("Upload failed:", e);
+      }
+    },
+    [],
+  );
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!selectedFileId) return;
+    const fileName =
+      files.find((f) => f.id === selectedFileId)?.name || "this file";
+    setPendingDelete({ fileId: selectedFileId, fileName });
+  }, [selectedFileId, files]);
+
+  const hasOpenWindow = windows.length > 0;
+  const hasSelectedFile = selectedFileId !== null;
 
   return (
     <div
@@ -156,7 +204,91 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         <li role="menu-item">
           <span className="apple" />
         </li>
-        <li role="menu-item" aria-haspopup="false"><strong>File</strong></li>
+        <li role="menu-item" aria-haspopup="true">
+          <strong>File</strong>
+          <ul role="menu">
+            <li role="menu-item">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "2px 16px",
+                  border: "none",
+                  cursor: "default",
+                  font: "inherit",
+                  color: "inherit",
+                  background: "inherit",
+                }}
+              >
+                New
+              </button>
+            </li>
+            <hr />
+            <li role="menu-item">
+              <button
+                onClick={() => {
+                  if (hasSelectedFile) openFilePreview(selectedFileId);
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "2px 16px",
+                  border: "none",
+                  cursor: "default",
+                  font: "inherit",
+                  color: "inherit",
+                  background: "inherit",
+                  opacity: hasSelectedFile ? 1 : 0.5,
+                  pointerEvents: hasSelectedFile ? "auto" : "none",
+                }}
+              >
+                Open
+              </button>
+            </li>
+            <li role="menu-item">
+              <button
+                onClick={() => {
+                  if (activeWindowId !== null) closeWindow(activeWindowId);
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "2px 16px",
+                  border: "none",
+                  cursor: "default",
+                  font: "inherit",
+                  color: "inherit",
+                  background: "inherit",
+                  opacity: hasOpenWindow ? 1 : 0.5,
+                  pointerEvents: hasOpenWindow ? "auto" : "none",
+                }}
+              >
+                Close
+              </button>
+            </li>
+            <hr />
+            <li role="menu-item">
+              <button
+                onClick={handleDeleteSelected}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "2px 16px",
+                  border: "none",
+                  cursor: "default",
+                  font: "inherit",
+                  color: "inherit",
+                  background: "inherit",
+                  opacity: hasSelectedFile ? 1 : 0.5,
+                  pointerEvents: hasSelectedFile ? "auto" : "none",
+                }}
+              >
+                Delete
+              </button>
+            </li>
+          </ul>
+        </li>
         <li role="menu-item" aria-haspopup="false"><strong>Edit</strong></li>
         <li role="menu-item" aria-haspopup="true">
           <strong>View</strong>
@@ -260,11 +392,17 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             onClose={() => closeWindow(w.id)}
           >
             {w.kind === "folder" ? (
-              <FileListWindow files={files} onFileClick={openFilePreview} />
+              <FileListWindow
+                files={files}
+                selectedFileId={selectedFileId}
+                onSelectFile={setSelectedFileId}
+                onFileClick={openFilePreview}
+              />
             ) : (
               <FilePreviewWindow
                 file={w.file}
                 downloadUrl={w.downloadUrl}
+                initialSized={!!w.size}
                 onNaturalSize={(width, height) => {
                   setWindows((prev) =>
                     prev.map((win) =>
@@ -286,6 +424,20 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
           />
         )}
       </div>
+
+      {/* Hidden file input for uploads */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleFileUpload(e.target.files);
+            e.target.value = "";
+          }
+        }}
+      />
     </div>
   );
 }

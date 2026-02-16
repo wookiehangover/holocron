@@ -24,6 +24,8 @@ function formatBytes(bytes: number): string {
 interface FilePreviewWindowProps {
   file: HolocronFile;
   downloadUrl: string;
+  /** When true, the window was already sized from metadata — skip onNaturalSize resize. */
+  initialSized?: boolean;
   onNaturalSize?: (width: number, height: number) => void;
 }
 
@@ -34,11 +36,11 @@ interface FilePreviewWindowProps {
  * - PDF: <iframe>
  * - Other: file info + download link
  */
-export function FilePreviewWindow({ file, downloadUrl, onNaturalSize }: FilePreviewWindowProps) {
+export function FilePreviewWindow({ file, downloadUrl, initialSized, onNaturalSize }: FilePreviewWindowProps) {
   const mime = file.mimeType ?? "";
 
   if (mime.startsWith("image/")) {
-    return <ImagePreview url={downloadUrl} name={file.name} onNaturalSize={onNaturalSize} />;
+    return <ImagePreview url={downloadUrl} name={file.name} onNaturalSize={initialSized ? undefined : onNaturalSize} />;
   }
 
   if (isTextMime(mime)) {
