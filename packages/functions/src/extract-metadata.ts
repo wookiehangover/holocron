@@ -50,6 +50,8 @@ interface ExtractMetadataEvent {
     wordCount: number;
     charCount: number;
     pageCount?: number;
+    imageWidth?: number;
+    imageHeight?: number;
   };
 }
 
@@ -74,6 +76,8 @@ export async function handler(
       wordCount: extractionMeta.wordCount,
       charCount: extractionMeta.charCount,
       pageCount: extractionMeta.pageCount,
+      imageWidth: extractionMeta.imageWidth,
+      imageHeight: extractionMeta.imageHeight,
     };
 
     // 3. Call LLM for rich metadata
@@ -101,6 +105,8 @@ export async function handler(
       wordCount: baseMetadata.wordCount,
       charCount: baseMetadata.charCount,
       pageCount: baseMetadata.pageCount,
+      imageWidth: baseMetadata.imageWidth,
+      imageHeight: baseMetadata.imageHeight,
     };
 
     // 5. Store metadata and update status

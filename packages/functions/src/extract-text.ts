@@ -10,6 +10,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3
 import { generateText } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
+import { imageSize } from "image-size";
 import { updateFileIndexingStatus } from "@holocron/api/db";
 
 const s3 = new S3Client({});
@@ -75,7 +76,7 @@ interface ExtractTextResult {
   fullTextS3Key: string;
   mimeType: string;
   fileName: string;
-  extractionMeta: { wordCount: number; charCount: number; pageCount?: number };
+  extractionMeta: { wordCount: number; charCount: number; pageCount?: number; imageWidth?: number; imageHeight?: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +156,8 @@ export async function handler(event: ExtractTextEvent): Promise<ExtractTextResul
 
     let fullText = "";
     let pageCount: number | undefined;
+    let imageWidth: number | undefined;
+    let imageHeight: number | undefined;
 
     if (mimeType === "application/pdf") {
       const result = await extractPdf(fileBuffer);
@@ -167,6 +170,15 @@ export async function handler(event: ExtractTextEvent): Promise<ExtractTextResul
     ) {
       fullText = extractTextContent(fileBuffer);
     } else if (mimeType.startsWith("image/")) {
+      // Extract image dimensions
+      try {
+        const dimensions = imageSize(fileBuffer);
+        imageWidth = dimensions.width;
+        imageHeight = dimensions.height;
+      } catch (dimErr) {
+        console.warn(`Could not extract image dimensions for ${fileId}:`, dimErr);
+      }
+
       fullText = await extractImage(fileBuffer, mimeType);
     } else {
       // Unsupported MIME type — store empty text
@@ -182,6 +194,8 @@ export async function handler(event: ExtractTextEvent): Promise<ExtractTextResul
       wordCount: countWords(fullText),
       charCount: fullText.length,
       ...(pageCount !== undefined && { pageCount }),
+      ...(imageWidth !== undefined && { imageWidth }),
+      ...(imageHeight !== undefined && { imageHeight }),
     };
 
     console.log(

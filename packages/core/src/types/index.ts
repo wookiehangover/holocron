@@ -74,6 +74,10 @@ export interface FileMetadata {
   wordCount?: number;
   /** Character count of extracted text. */
   charCount?: number;
+  /** Image width in pixels (images only). */
+  imageWidth?: number;
+  /** Image height in pixels (images only). */
+  imageHeight?: number;
 }
 
 /**
