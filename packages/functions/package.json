@@ -13,6 +13,7 @@
     "@holocron/api": "workspace:*",
     "@holocron/core": "workspace:*",
     "ai": "^6.0.86",
+    "image-size": "^2.0.2",
     "unpdf": "^1.4.0",
     "zod": "^4.3.6"
   },
