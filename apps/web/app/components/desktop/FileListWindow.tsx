@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { HolocronFile } from "@holocron/core/types";
 import { DocumentIcon } from "./DocumentIcon";
 
@@ -28,6 +29,8 @@ interface FileListWindowProps {
  * Small document icons with names, sizes, and dates.
  */
 export function FileListWindow({ files, onFileClick }: FileListWindowProps) {
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+
   if (files.length === 0) {
     return (
       <div style={{ padding: 8 }}>
@@ -79,7 +82,8 @@ export function FileListWindow({ files, onFileClick }: FileListWindowProps) {
             e.dataTransfer.setData("text/plain", file.name);
             e.dataTransfer.effectAllowed = "move";
           }}
-          onClick={() => onFileClick?.(file.id)}
+          onClick={() => setSelectedFileId(file.id)}
+          onDoubleClick={() => onFileClick?.(file.id)}
           style={{
             display: "grid",
             gridTemplateColumns: "28px 1fr 80px 100px",
@@ -87,6 +91,12 @@ export function FileListWindow({ files, onFileClick }: FileListWindowProps) {
             padding: "3px 8px",
             alignItems: "center",
             cursor: "default",
+            ...(file.id === selectedFileId
+              ? {
+                  backgroundColor: "var(--s7-fg, #000)",
+                  color: "var(--s7-bg, #fff)",
+                }
+              : {}),
           }}
         >
           <DocumentIcon size={20} />
