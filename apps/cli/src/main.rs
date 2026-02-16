@@ -46,6 +46,14 @@ enum Command {
         /// File ID to re-index
         id: String,
     },
+    /// Download a file to the current directory
+    Pull {
+        /// File ID to download
+        id: String,
+        /// Output path (defaults to original filename in current directory)
+        #[arg(long)]
+        output: Option<String>,
+    },
     /// Search indexed files
     Search {
         /// Search query
@@ -260,6 +268,40 @@ async fn main() {
                 Ok(()) => println!("Re-indexing started for file {id}"),
                 Err(e) => {
                     eprintln!("Failed to trigger re-indexing: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Command::Pull { id, output } => {
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+
+            // Resolve the destination path up-front so we can show progress
+            // before the download starts.
+            let detail = match api.get_file(&id).await {
+                Ok(d) => d,
+                Err(e) => {
+                    eprintln!("Failed to get file info: {e}");
+                    std::process::exit(1);
+                }
+            };
+
+            let dest = match output {
+                Some(p) => std::path::PathBuf::from(p),
+                None => std::path::PathBuf::from(&detail.file.name),
+            };
+
+            println!(
+                "Downloading {} ({} bytes)...",
+                detail.file.name, detail.file.size
+            );
+
+            match api.download_file(&id, &dest).await {
+                Ok(_) => {
+                    println!("Saved to {}", dest.display());
+                }
+                Err(e) => {
+                    eprintln!("Download failed: {e}");
                     std::process::exit(1);
                 }
             }
