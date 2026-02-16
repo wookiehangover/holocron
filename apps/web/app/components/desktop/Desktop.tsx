@@ -91,6 +91,14 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const desktopRef = useRef<HTMLDivElement>(null);
   const [shortcuts, setShortcuts] = useState<DesktopShortcut[]>(loadShortcuts);
+  const dragShortcutRef = useRef<{
+    shortcutId: string;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    hasMoved: boolean;
+  } | null>(null);
 
   // Persist shortcuts to localStorage whenever they change
   useEffect(() => {
@@ -324,6 +332,61 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     setShortcuts((prev) => prev.filter((s) => s.id !== shortcutId));
   }, []);
 
+  /** Drag-to-reposition for desktop shortcut icons. */
+  const handleShortcutMouseDown = useCallback(
+    (e: React.MouseEvent, shortcut: DesktopShortcut) => {
+      if (e.button !== 0) return; // primary button only
+      e.preventDefault();
+
+      dragShortcutRef.current = {
+        shortcutId: shortcut.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: shortcut.position.x,
+        origY: shortcut.position.y,
+        hasMoved: false,
+      };
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!dragShortcutRef.current) return;
+        const dx = ev.clientX - dragShortcutRef.current.startX;
+        const dy = ev.clientY - dragShortcutRef.current.startY;
+
+        // Movement threshold — prevents accidental drags during click/double-click
+        if (!dragShortcutRef.current.hasMoved) {
+          if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+          dragShortcutRef.current.hasMoved = true;
+        }
+
+        const rect = desktopRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const ICON_W = 72;
+        const ICON_H = 72;
+        const newX = Math.max(0, Math.min(dragShortcutRef.current.origX + dx, rect.width - ICON_W));
+        const newY = Math.max(0, Math.min(dragShortcutRef.current.origY + dy, rect.height - ICON_H));
+
+        setShortcuts((prev) =>
+          prev.map((s) =>
+            s.id === dragShortcutRef.current!.shortcutId
+              ? { ...s, position: { x: newX, y: newY } }
+              : s,
+          ),
+        );
+      };
+
+      const handleMouseUp = () => {
+        dragShortcutRef.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [],
+  );
+
   // ⌘I / Ctrl+I keyboard shortcut for Get Info
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -472,6 +535,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
               <div
                 className="s7-desktop-shortcut absolute flex flex-col items-center cursor-default select-none gap-[4px]"
                 style={{ left: shortcut.position.x, top: shortcut.position.y }}
+                onMouseDown={(e) => handleShortcutMouseDown(e, shortcut)}
                 onDoubleClick={() => {
                   if (shortcut.kind === "file" && shortcut.targetId) {
                     openFilePreview(shortcut.targetId);
