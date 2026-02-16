@@ -14,7 +14,7 @@ interface ThemeContextValue {
   resolvedTheme: "light" | "dark";
 }
 
-const STORAGE_KEY = "holocron-theme";
+export const STORAGE_KEY = "holocron-theme";
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 

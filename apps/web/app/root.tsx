@@ -8,8 +8,15 @@ import {
   useLoaderData,
 } from "react-router";
 import type { Route } from "./+types/root";
-import { ThemeProvider } from "./lib/theme-provider";
+import { ThemeProvider, STORAGE_KEY } from "./lib/theme-provider";
 import "./app.css";
+
+// ---------------------------------------------------------------------------
+// Inline script that runs before first paint to prevent FOUC.
+// Reads the stored theme from localStorage and applies the correct class
+// to <html> synchronously, before any CSS paints.
+// ---------------------------------------------------------------------------
+const themeScript = `(function(){try{var t=localStorage.getItem("${STORAGE_KEY}");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme:dark)").matches);document.documentElement.classList.add(d?"dark":"light")}catch(e){}})();`;
 
 // ---------------------------------------------------------------------------
 // Root loader — inject env vars for client-side use
@@ -34,6 +41,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <Meta />
         <Links />
       </head>
