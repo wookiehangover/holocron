@@ -131,6 +131,15 @@ export async function uploadFile(file: File): Promise<{ fileId: string }> {
   return { fileId };
 }
 
+/** Delete a file by ID. The backend returns 204 on success. */
+export async function deleteFile(id: string): Promise<void> {
+  const res = await fetch(`${baseUrl()}/files/${id}`, {
+    method: "DELETE",
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(`deleteFile failed: ${res.status}`);
+}
+
 /** Fetch chunks for a file (text segments extracted during indexing). */
 export async function getFileChunks(
   id: string,
