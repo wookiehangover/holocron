@@ -269,11 +269,11 @@
   position: absolute !important;
 }
 
-/* --- Close button X: always visible -------------------------------- */
-/* system.css draws a + (::before) and a rotated + (::after = X).     */
-/* Showing both creates an asterisk/loading shape. Only show ::after   */
-/* (the rotated cross) which renders as a clean X.                    */
-.system7-desktop .title-bar button.close::after {
+/* --- Close button X: show on hover --------------------------------- */
+/* system.css only shows the X on :active (mousedown). Real System 7   */
+/* shows an empty square, then X on hover. Override to show on hover.  */
+.system7-desktop .title-bar button.close:hover::before,
+.system7-desktop .title-bar button.close:hover::after {
   opacity: 1;
 }
 
@@ -360,7 +360,8 @@
   background-color: var(--s7-bg);
   border-color: var(--s7-border);
 }
-/* Close button X: use light color in dark mode (system.css draws with #000) */
+/* Close button X: light color in dark mode (system.css uses #000) */
+.dark .system7-desktop .title-bar button.close::before,
 .dark .system7-desktop .title-bar button.close::after {
   background:
     linear-gradient(var(--s7-fg), var(--s7-fg)) 0,
@@ -368,6 +369,11 @@
     linear-gradient(var(--s7-fg), var(--s7-fg)) top,
     linear-gradient(var(--s7-fg), var(--s7-fg)) bottom;
   background-repeat: no-repeat;
+}
+.dark .system7-desktop .title-bar button.close::before {
+  background-size: 30% 4px, 30% 4px, 4px 30%, 4px 30%;
+}
+.dark .system7-desktop .title-bar button.close::after {
   background-size: 22.5% 3.64px, 22.5% 3.64px, 3.64px 22.5%, 3.64px 22.5%;
 }
 .dark .system7-desktop .inactive-title-bar {
