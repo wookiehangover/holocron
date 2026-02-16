@@ -5,5 +5,6 @@ export default [
   route("files/:id", "routes/file-detail.tsx"),
   route("search", "routes/search.tsx"),
   route("share/:token", "routes/share.$token.tsx"),
+  route("desktop", "routes/desktop.tsx"),
 ] satisfies RouteConfig;
 
