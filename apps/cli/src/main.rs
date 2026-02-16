@@ -12,6 +12,10 @@ use config::Config;
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    /// Output results as JSON instead of human-readable text
+    #[arg(long, global = true)]
+    json: bool,
 }
 
 #[derive(Subcommand)]
@@ -88,15 +92,25 @@ enum ConfigAction {
     },
 }
 
+/// Print a JSON error to stdout and exit with code 1.
+fn json_error(msg: &str) -> ! {
+    println!("{}", serde_json::json!({ "error": msg }));
+    std::process::exit(1);
+}
+
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
+    let Cli { command, json } = Cli::parse();
 
-    match cli.command {
+    match command {
         Command::Config { action } => match action {
             ConfigAction::Show => {
                 let config = Config::load();
-                println!("{}", config.to_json_pretty());
+                if json {
+                    println!("{}", serde_json::json!({ "config": config }));
+                } else {
+                    println!("{}", config.to_json_pretty());
+                }
             }
             ConfigAction::Set { key, value } => {
                 let mut config = Config::load();
@@ -105,16 +119,26 @@ async fn main() {
                     "vault-path" => config.vault_path = Some(value.clone()),
                     "api-key" => config.api_key = Some(value.clone()),
                     _ => {
+                        if json {
+                            json_error(&format!("Unknown config key: {key}"));
+                        }
                         eprintln!("Unknown config key: {key}");
                         eprintln!("Valid keys: api-url, vault-path, api-key");
                         std::process::exit(1);
                     }
                 }
                 if let Err(e) = config.save() {
+                    if json {
+                        json_error(&format!("Failed to save config: {e}"));
+                    }
                     eprintln!("Failed to save config: {e}");
                     std::process::exit(1);
                 }
-                println!("Set {key} = {value}");
+                if json {
+                    println!("{}", serde_json::json!({ "key": key, "value": value }));
+                } else {
+                    println!("Set {key} = {value}");
+                }
             }
             ConfigAction::Get { key } => {
                 let config = Config::load();
@@ -123,20 +147,36 @@ async fn main() {
                     "vault-path" => config.resolved_vault_path(),
                     "api-key" => config.resolved_api_key(),
                     _ => {
+                        if json {
+                            json_error(&format!("Unknown config key: {key}"));
+                        }
                         eprintln!("Unknown config key: {key}");
                         eprintln!("Valid keys: api-url, vault-path, api-key");
                         std::process::exit(1);
                     }
                 };
-                println!("{value}");
+                if json {
+                    println!("{}", serde_json::json!({ "key": key, "value": value }));
+                } else {
+                    println!("{value}");
+                }
             }
         },
         Command::Health => {
             let config = Config::load();
             let api = ApiClient::from_config(&config);
             match api.health().await {
-                Ok(()) => println!("API is healthy"),
+                Ok(()) => {
+                    if json {
+                        println!("{}", serde_json::json!({ "status": "ok" }));
+                    } else {
+                        println!("API is healthy");
+                    }
+                }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Health check failed: {e}"));
+                    }
                     eprintln!("Health check failed: {e}");
                     std::process::exit(1);
                 }
@@ -147,7 +187,9 @@ async fn main() {
             let api = ApiClient::from_config(&config);
             match api.search(&query, limit).await {
                 Ok(resp) => {
-                    if resp.results.is_empty() {
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&resp).unwrap());
+                    } else if resp.results.is_empty() {
                         println!("No results found for \"{query}\".");
                     } else {
                         println!(
@@ -178,6 +220,9 @@ async fn main() {
                     }
                 }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Search failed: {e}"));
+                    }
                     eprintln!("Search failed: {e}");
                     std::process::exit(1);
                 }
@@ -188,7 +233,9 @@ async fn main() {
             let api = ApiClient::from_config(&config);
             match api.list_files().await {
                 Ok(files) => {
-                    if files.is_empty() {
+                    if json {
+                        println!("{}", serde_json::json!({ "files": files }));
+                    } else if files.is_empty() {
                         println!("No files found.");
                     } else {
                         println!(
@@ -205,6 +252,9 @@ async fn main() {
                     }
                 }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Failed to list files: {e}"));
+                    }
                     eprintln!("Failed to list files: {e}");
                     std::process::exit(1);
                 }
@@ -214,8 +264,17 @@ async fn main() {
             let config = Config::load();
             let api = ApiClient::from_config(&config);
             match api.create_share_link(&id, expires_in).await {
-                Ok(resp) => println!("{}", resp.url),
+                Ok(resp) => {
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&resp).unwrap());
+                    } else {
+                        println!("{}", resp.url);
+                    }
+                }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Failed to create share link: {e}"));
+                    }
                     eprintln!("Failed to create share link: {e}");
                     std::process::exit(1);
                 }
@@ -225,8 +284,17 @@ async fn main() {
             let config = Config::load();
             let api = ApiClient::from_config(&config);
             match api.get_file(&id).await {
-                Ok(detail) => println!("{}", detail.download_url),
+                Ok(detail) => {
+                    if json {
+                        println!("{}", serde_json::json!({ "url": detail.download_url }));
+                    } else {
+                        println!("{}", detail.download_url);
+                    }
+                }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Failed to get download URL: {e}"));
+                    }
                     eprintln!("Failed to get download URL: {e}");
                     std::process::exit(1);
                 }
@@ -237,25 +305,32 @@ async fn main() {
             let api = ApiClient::from_config(&config);
             match api.get_file(&id).await {
                 Ok(detail) => {
-                    let file = &detail.file;
-                    println!("File: {} ({})", file.name, file.path);
-                    println!("Status: {}", file.indexing_status.as_deref().unwrap_or("not indexed"));
-                    if let Some(meta) = &file.metadata {
-                        if !meta.summary.is_empty() {
-                            println!("Summary: {}", meta.summary);
-                        }
-                        if !meta.keywords.is_empty() {
-                            println!("Keywords: {}", meta.keywords.join(", "));
-                        }
-                        if !meta.topics.is_empty() {
-                            println!("Topics: {}", meta.topics.join(", "));
-                        }
-                        if let (Some(w), Some(h)) = (meta.image_width, meta.image_height) {
-                            println!("Dimensions: {w} \u{00D7} {h}");
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&detail).unwrap());
+                    } else {
+                        let file = &detail.file;
+                        println!("File: {} ({})", file.name, file.path);
+                        println!("Status: {}", file.indexing_status.as_deref().unwrap_or("not indexed"));
+                        if let Some(meta) = &file.metadata {
+                            if !meta.summary.is_empty() {
+                                println!("Summary: {}", meta.summary);
+                            }
+                            if !meta.keywords.is_empty() {
+                                println!("Keywords: {}", meta.keywords.join(", "));
+                            }
+                            if !meta.topics.is_empty() {
+                                println!("Topics: {}", meta.topics.join(", "));
+                            }
+                            if let (Some(w), Some(h)) = (meta.image_width, meta.image_height) {
+                                println!("Dimensions: {w} × {h}");
+                            }
                         }
                     }
                 }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Failed to get file status: {e}"));
+                    }
                     eprintln!("Failed to get file status: {e}");
                     std::process::exit(1);
                 }
@@ -265,8 +340,17 @@ async fn main() {
             let config = Config::load();
             let api = ApiClient::from_config(&config);
             match api.reindex_file(&id).await {
-                Ok(()) => println!("Re-indexing started for file {id}"),
+                Ok(()) => {
+                    if json {
+                        println!("{}", serde_json::json!({ "status": "reindexing", "id": id }));
+                    } else {
+                        println!("Re-indexing started for file {id}");
+                    }
+                }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Failed to trigger re-indexing: {e}"));
+                    }
                     eprintln!("Failed to trigger re-indexing: {e}");
                     std::process::exit(1);
                 }
@@ -281,6 +365,9 @@ async fn main() {
             let detail = match api.get_file(&id).await {
                 Ok(d) => d,
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Failed to get file info: {e}"));
+                    }
                     eprintln!("Failed to get file info: {e}");
                     std::process::exit(1);
                 }
@@ -291,16 +378,29 @@ async fn main() {
                 None => std::path::PathBuf::from(&detail.file.name),
             };
 
-            println!(
-                "Downloading {} ({} bytes)...",
-                detail.file.name, detail.file.size
-            );
+            if !json {
+                println!(
+                    "Downloading {} ({} bytes)...",
+                    detail.file.name, detail.file.size
+                );
+            }
 
             match api.download_file(&id, &dest).await {
                 Ok(_) => {
-                    println!("Saved to {}", dest.display());
+                    if json {
+                        println!("{}", serde_json::json!({
+                            "file": detail.file.name,
+                            "path": dest.display().to_string(),
+                            "size": detail.file.size,
+                        }));
+                    } else {
+                        println!("Saved to {}", dest.display());
+                    }
                 }
                 Err(e) => {
+                    if json {
+                        json_error(&format!("Download failed: {e}"));
+                    }
                     eprintln!("Download failed: {e}");
                     std::process::exit(1);
                 }
@@ -308,14 +408,27 @@ async fn main() {
         }
         Command::Sync => {
             let config = Config::load();
-            if let Err(e) = sync::run_sync(&config).await {
-                eprintln!("Sync failed: {e}");
-                std::process::exit(1);
+            match sync::run_sync(&config).await {
+                Ok(()) => {
+                    if json {
+                        println!("{}", serde_json::json!({ "status": "ok" }));
+                    }
+                }
+                Err(e) => {
+                    if json {
+                        json_error(&format!("Sync failed: {e}"));
+                    }
+                    eprintln!("Sync failed: {e}");
+                    std::process::exit(1);
+                }
             }
         }
         Command::Daemon => {
             let config = Config::load();
             if let Err(e) = daemon::run_daemon(&config).await {
+                if json {
+                    json_error(&format!("Daemon failed: {e}"));
+                }
                 eprintln!("Daemon failed: {e}");
                 std::process::exit(1);
             }
