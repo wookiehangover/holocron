@@ -10,6 +10,12 @@ import {
   MenubarItem,
   MenubarSeparator,
 } from "~/components/ui/menubar";
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+} from "~/components/ui/context-menu";
 import { FolderIcon } from "./FolderIcon";
 import { TrashIcon } from "./TrashIcon";
 import { Window, type SnapZone } from "./Window";
@@ -315,17 +321,26 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       </Menubar>
 
       {/* Desktop surface with crosshatch pattern */}
-      <div className="s7-desktop-surface flex-1 relative">
-        {/* Holocron folder icon */}
-        <div
-          className="absolute top-[24px] left-[24px] flex flex-col items-center cursor-default select-none gap-[4px]"
-          onDoubleClick={openFolder}
-        >
-          <FolderIcon size={48} />
-          <span className="s7-icon-label text-center">
-            Holocron
-          </span>
-        </div>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div className="s7-desktop-surface flex-1 relative">
+            {/* Holocron folder icon */}
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <div
+                  className="absolute top-[24px] left-[24px] flex flex-col items-center cursor-default select-none gap-[4px]"
+                  onDoubleClick={openFolder}
+                >
+                  <FolderIcon size={48} />
+                  <span className="s7-icon-label text-center">
+                    Holocron
+                  </span>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="s7-context-menu-content">
+                <ContextMenuItem onSelect={openFolder}>Open</ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
 
         {/* Trash icon — bottom-right */}
         <div
@@ -379,6 +394,11 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
                   selectedFileId={selectedFileId}
                   onSelectFile={setSelectedFileId}
                   onFileClick={openFilePreview}
+                  onGetInfo={openGetInfo}
+                  onDeleteFile={(fileId) => {
+                    const fileName = files.find((f) => f.id === fileId)?.name || "this file";
+                    setPendingDelete({ fileId, fileName });
+                  }}
                 />
               ) : w.kind === "info" ? (
                 <GetInfoWindow file={w.file} />
@@ -408,7 +428,23 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             onCancel={() => setPendingDelete(null)}
           />
         )}
-      </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="s7-context-menu-content">
+          <ContextMenuItem onSelect={() => fileInputRef.current?.click()}>
+            Upload File…
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={() => {
+              if (theme === "light") setTheme("dark");
+              else if (theme === "dark") setTheme("system");
+              else setTheme("light");
+            }}
+          >
+            Toggle Theme
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
 
       {/* Hidden file input for uploads */}
       <input
