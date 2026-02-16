@@ -2,7 +2,7 @@ import { useLoaderData } from "react-router";
 import type { HolocronFile } from "@holocron/core/types";
 import { listFiles } from "../lib/api";
 import { Desktop } from "~/components/desktop/Desktop";
-import "@sakun/system.css/dist/system.css";
+import "~/components/desktop/system7-scoped.css";
 import "~/components/desktop/desktop-reset.css";
 
 // ---------------------------------------------------------------------------

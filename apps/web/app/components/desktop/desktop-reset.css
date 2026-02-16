@@ -1,12 +1,14 @@
 /*
  * desktop-reset.css
  *
- * Undo Tailwind Preflight and app.css @layer base overrides within the
- * .system7-desktop scope so that system.css controls all styling for the
- * /desktop route.
+ * Companion overrides for the /desktop route. system.css is now wrapped in
+ * @layer system7 (via system7-scoped.css) so Tailwind / app.css automatically
+ * win the cascade — no more "revert" hacks needed here.
  *
- * Imported AFTER system.css in desktop.tsx so these rules patch what
- * Tailwind broke without overriding system.css's own declarations.
+ * What remains:
+ *   - @font-face declarations for Geist Pixel / Geist Mono
+ *   - Custom properties (--s7-*)
+ *   - Component-specific style patches (menus, icons, dark mode, etc.)
  */
 
 /* ================================================================== */
@@ -26,41 +28,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* 1. Undo app.css `@layer base { * { @apply border-border outline-ring/50 } }` */
-/*    revert restores the property to whatever value the cascade would          */
-/*    produce without the author-origin rule, letting system.css work.          */
-/* ------------------------------------------------------------------ */
-.system7-desktop *,
-.system7-desktop *::before,
-.system7-desktop *::after {
-  border-color: revert;
-  outline: revert;
-}
-
-/* ------------------------------------------------------------------ */
-/* 2. Undo Tailwind Preflight button resets                           */
-/*    Preflight: button { background-color: transparent; background-image: none } */
-/*    Revert restores the UA default (opaque background for buttons).          */
-/* ------------------------------------------------------------------ */
-.system7-desktop button {
-  background-color: revert;
-  background-image: revert;
-}
-
-/* ------------------------------------------------------------------ */
-/* 3. Undo Tailwind Preflight img/svg block display                   */
-/*    Preflight: img, svg, … { display: block; vertical-align: middle }       */
-/* ------------------------------------------------------------------ */
-.system7-desktop img,
-.system7-desktop svg {
-  display: revert;
-  vertical-align: revert;
-}
-
-/* ------------------------------------------------------------------ */
-/* 5. Prevent body-level Tailwind/app.css styles from leaking in      */
-/*    app.css @layer base: body { bg-background text-foreground       */
-/*    font-family: system-ui }                                        */
+/* Base .system7-desktop overrides                                    */
 /* ------------------------------------------------------------------ */
 .system7-desktop {
   /* Theme custom properties — light mode defaults */
@@ -75,8 +43,6 @@
   --s7-crosshatch-fg: #ffffff;
   --s7-dialog-overlay: rgba(0, 0, 0, 0.15);
 
-  background: revert;
-  color: revert;
   font-family: GeistPixel, Geneva, Helvetica, sans-serif;
   font-size: 14px;  /* Larger base size for readability */
   line-height: normal;
@@ -269,21 +235,6 @@
   position: absolute !important;
 }
 
-/* --- Close button X: show on hover --------------------------------- */
-/* system.css pseudo-elements draw edge marks that look wrong at our   */
-/* scale. Hide them entirely and draw a clean X with diagonal          */
-/* gradients on hover instead.                                         */
-.system7-desktop .title-bar button.close::before,
-.system7-desktop .title-bar button.close::after {
-  display: none;
-}
-.system7-desktop .title-bar button.close:hover {
-  background-image:
-    linear-gradient(45deg, transparent calc(50% - 1px), var(--s7-fg) calc(50% - 1px), var(--s7-fg) calc(50% + 1px), transparent calc(50% + 1px)),
-    linear-gradient(-45deg, transparent calc(50% - 1px), var(--s7-fg) calc(50% - 1px), var(--s7-fg) calc(50% + 1px), transparent calc(50% + 1px));
-  background-size: 100% 100%;
-  background-color: var(--s7-bg);
-}
 
 /* --- Video preview ------------------------------------------------- */
 .system7-desktop .s7-video-preview {

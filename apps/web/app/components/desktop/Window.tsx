@@ -1,3 +1,4 @@
+import { XIcon } from "lucide-react";
 import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 
 const MIN_WIDTH = 200;
@@ -210,10 +211,10 @@ export function Window({
         className={`${isActive ? "title-bar" : "inactive-title-bar"} cursor-grab`}
         onMouseDown={handleMouseDown}
       >
-        <button className="close" aria-label="Close" onClick={onClose}>
-          <span>Close</span>
+        <button className="close grid place-items-center" aria-label="Close" onClick={onClose}>
+          <XIcon />
         </button>
-        <span className="title">{title}</span>
+        <span className="title text-base! font-[GeistPixel]!">{title}</span>
         <button
           className="resize cursor-nwse-resize"
           aria-label="Resize"
