@@ -316,6 +316,34 @@
   max-width: 400px;
 }
 
+/* --- Shadcn Context Menu overrides for System 7 look --------------- */
+.system7-desktop .s7-context-menu-content {
+  font-family: GeistPixel, Geneva, Helvetica, sans-serif;
+  font-size: 14px;
+  border-radius: 0;
+  border: 2px solid var(--s7-border);
+  background: var(--s7-bg);
+  color: var(--s7-fg);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
+  padding: 2px;
+}
+.system7-desktop .s7-context-menu-content [data-slot="context-menu-item"] {
+  font-family: inherit;
+  font-size: inherit;
+  border-radius: 0;
+  cursor: default;
+  padding: 2px 16px;
+  color: var(--s7-fg);
+}
+.system7-desktop .s7-context-menu-content [data-slot="context-menu-item"]:focus,
+.system7-desktop .s7-context-menu-content [data-slot="context-menu-item"]:hover {
+  background: var(--s7-highlight-bg);
+  color: var(--s7-highlight-fg);
+}
+.system7-desktop .s7-context-menu-content [data-slot="context-menu-separator"] {
+  background: var(--s7-border);
+}
+
 /* --- File row hover & selected highlight --------------------------- */
 .system7-desktop .s7-file-row:hover {
   background: var(--s7-highlight-bg);
@@ -366,6 +394,11 @@
   color: var(--s7-fg);
 }
 .dark .system7-desktop .s7-menubar-content {
+  background-color: var(--s7-bg);
+  border-color: var(--s7-border);
+  color: var(--s7-fg);
+}
+.dark .system7-desktop .s7-context-menu-content {
   background-color: var(--s7-bg);
   border-color: var(--s7-border);
   color: var(--s7-fg);
