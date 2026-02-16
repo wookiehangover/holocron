@@ -213,11 +213,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
           <FolderIcon size={48} />
           <span
             className="s7-icon-label"
-            style={{
-              fontFamily: "Geneva_9, Geneva, sans-serif",
-              fontSize: 14,
-              textAlign: "center",
-            }}
+            style={{ textAlign: "center" }}
           >
             Holocron
           </span>
@@ -247,13 +243,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
           onDrop={handleTrashDrop}
         >
           <TrashIcon size={48} />
-          <span
-            className="s7-icon-label"
-            style={{
-              fontFamily: "Geneva_9, Geneva, sans-serif",
-              fontSize: 14,
-            }}
-          >
+          <span className="s7-icon-label">
             Trash
           </span>
         </div>

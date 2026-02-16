@@ -49,8 +49,7 @@ export default function DesktopRoute() {
             background: "white",
             border: "2px solid black",
             padding: "8px 16px",
-            fontFamily: "Chicago_12, Chicago, sans-serif",
-            fontSize: 14,
+
           }}
         >
           Failed to load files: {error}

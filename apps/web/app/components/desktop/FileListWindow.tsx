@@ -30,14 +30,14 @@ interface FileListWindowProps {
 export function FileListWindow({ files, onFileClick }: FileListWindowProps) {
   if (files.length === 0) {
     return (
-      <div style={{ fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 14, padding: 8 }}>
+      <div style={{ padding: 8 }}>
         <em>0 items</em>
       </div>
     );
   }
 
   return (
-    <div style={{ fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 14 }}>
+    <div>
       {/* Details bar */}
       <div
         className="s7-file-list-detail-bar"
@@ -45,8 +45,6 @@ export function FileListWindow({ files, onFileClick }: FileListWindowProps) {
           display: "flex",
           justifyContent: "space-between",
           padding: "4px 8px",
-          fontFamily: "Chicago_12, Chicago, sans-serif",
-          fontSize: 14,
           marginBottom: 4,
         }}
       >
@@ -61,8 +59,6 @@ export function FileListWindow({ files, onFileClick }: FileListWindowProps) {
           gridTemplateColumns: "28px 1fr 80px 100px",
           gap: 4,
           padding: "2px 8px",
-          fontFamily: "Chicago_12, Chicago, sans-serif",
-          fontSize: 14,
           fontWeight: "bold",
         }}
       >

@@ -27,8 +27,6 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
           <div
             style={{
               padding: 16,
-              fontFamily: "Chicago_12, Chicago, sans-serif",
-              fontSize: 14,
               display: "flex",
               gap: 16,
               alignItems: "flex-start",
