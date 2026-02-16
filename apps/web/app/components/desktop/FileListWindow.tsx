@@ -90,6 +90,8 @@ interface FileListWindowProps {
   onGetInfo?: (fileId: string) => void;
   onDeleteFile?: (fileId: string) => void;
   onMoveFile?: (fileId: string, newPath: string) => void;
+  /** Optional starting folder path (e.g. "docs" or "photos/2024"). */
+  initialPath?: string;
 }
 
 /**
@@ -104,8 +106,9 @@ export function FileListWindow({
   onGetInfo,
   onDeleteFile,
   onMoveFile,
+  initialPath = "",
 }: FileListWindowProps) {
-  const [currentPath, setCurrentPath] = useState("");
+  const [currentPath, setCurrentPath] = useState(initialPath);
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
   const entries = useMemo(() => entriesAtPath(files, currentPath), [files, currentPath]);
