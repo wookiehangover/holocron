@@ -9,6 +9,22 @@
  * Tailwind broke without overriding system.css's own declarations.
  */
 
+/* ================================================================== */
+/* FONT FACES — Geist Pixel (UI chrome) & Geist Mono (content)        */
+/* ================================================================== */
+@font-face {
+  font-family: "GeistPixel";
+  src: url("/fonts/GeistPixel-Square.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GeistMono";
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 /* ------------------------------------------------------------------ */
 /* 1. Undo app.css `@layer base { * { @apply border-border outline-ring/50 } }` */
 /*    revert restores the property to whatever value the cascade would          */
@@ -61,8 +77,8 @@
 
   background: revert;
   color: revert;
-  font-family: Geneva_9, Geneva, Helvetica, sans-serif;
-  font-size: 16px;  /* Larger base size for readability */
+  font-family: GeistPixel, Geneva, Helvetica, sans-serif;
+  font-size: 14px;  /* Larger base size for readability */
   line-height: normal;
 }
 
@@ -155,6 +171,33 @@
 /* from the edges. Override here so absolute positioning works flush. */
 .system7-desktop .window {
   margin: 0;
+}
+
+/* --- Font overrides ---------------------------------------------- */
+/* system.css hardcodes Chicago/Chicago_12/Geneva_9/Inconsolata on   */
+/* many elements. Override them all to use Geist Pixel (UI chrome)   */
+/* and Geist Mono (content / monospace areas).                       */
+
+/* Window body — system.css sets Inconsolata, Menlo, Chicago, Geneva */
+.system7-desktop .window {
+  font-family: GeistMono, Menlo, monospace;
+}
+
+/* Title bars, menus, buttons, labels — system.css sets Chicago_12   */
+.system7-desktop .title-bar,
+.system7-desktop .inactive-title-bar,
+.system7-desktop ul[role="menu-bar"],
+.system7-desktop ul[role="menu"],
+.system7-desktop .btn,
+.system7-desktop select,
+.system7-desktop input,
+.system7-desktop h2 {
+  font-family: GeistPixel, Geneva, sans-serif;
+}
+
+/* Window pane content — monospace for file lists, code, etc.        */
+.system7-desktop .window-pane {
+  font-family: GeistMono, Menlo, monospace;
 }
 
 /* --- Snap preview overlay ---------------------------------------- */
