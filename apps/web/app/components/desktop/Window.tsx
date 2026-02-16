@@ -2,8 +2,6 @@ import { useState, useRef, useCallback, useEffect, type ReactNode } from "react"
 
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 150;
-/** Minimum pixels of the title bar that must stay visible on each edge. */
-const VISIBLE_PX = 40;
 /** Pixels from viewport edge that trigger an edge-snap zone. */
 const SNAP_THRESHOLD = 8;
 
@@ -86,8 +84,12 @@ export function Window({
         // relative to the desktop surface
         const parentRect = windowRef.current?.parentElement?.getBoundingClientRect();
         const offsetX = parentRect?.left ?? 0;
+        const { w: surfW, h: surfH } = getParentBounds(windowRef.current);
         origX = e.clientX - offsetX - restored.width / 2;
         origY = e.clientY - (parentRect?.top ?? 0);
+        // Clamp restored position within desktop surface
+        origX = Math.max(0, Math.min(origX, Math.max(0, surfW - restored.width)));
+        origY = Math.max(0, Math.min(origY, Math.max(0, surfH - restored.height)));
         setPosition({ x: origX, y: origY });
         snappedRef.current = null;
         preSnapRef.current = null;
@@ -106,11 +108,12 @@ export function Window({
         const dy = ev.clientY - dragRef.current.startY;
 
         const winW = windowRef.current?.offsetWidth ?? MIN_WIDTH;
+        const winH = windowRef.current?.offsetHeight ?? MIN_HEIGHT;
         const { w: surfW, h: surfH } = getParentBounds(windowRef.current);
 
-        // Clamp so at least VISIBLE_PX of the title bar stays on screen
-        const x = Math.max(-(winW - VISIBLE_PX), Math.min(dragRef.current.origX + dx, surfW - VISIBLE_PX));
-        const y = Math.max(0, Math.min(dragRef.current.origY + dy, surfH - VISIBLE_PX));
+        // Keep window fully within the desktop surface
+        const x = Math.max(0, Math.min(dragRef.current.origX + dx, Math.max(0, surfW - winW)));
+        const y = Math.max(0, Math.min(dragRef.current.origY + dy, Math.max(0, surfH - winH)));
 
         // Detect snap zones
         const zone: SnapZone =
@@ -156,6 +159,9 @@ export function Window({
       e.preventDefault();
       e.stopPropagation();
       onFocus();
+      // Capture current position from DOM so resize respects bounds
+      const posX = windowRef.current?.offsetLeft ?? 0;
+      const posY = windowRef.current?.offsetTop ?? 0;
       resizeRef.current = {
         startX: e.clientX,
         startY: e.clientY,
@@ -169,8 +175,8 @@ export function Window({
         const dy = ev.clientY - resizeRef.current.startY;
         const { w: surfW, h: surfH } = getParentBounds(windowRef.current);
         setSize({
-          width: Math.max(MIN_WIDTH, Math.min(resizeRef.current.origW + dx, surfW)),
-          height: Math.max(MIN_HEIGHT, Math.min(resizeRef.current.origH + dy, surfH)),
+          width: Math.max(MIN_WIDTH, Math.min(resizeRef.current.origW + dx, surfW - posX)),
+          height: Math.max(MIN_HEIGHT, Math.min(resizeRef.current.origH + dy, surfH - posY)),
         });
       };
 
