@@ -42,6 +42,8 @@ pub struct FileMetadata {
     pub page_count: Option<u64>,
     pub word_count: Option<u64>,
     pub char_count: Option<u64>,
+    pub image_width: Option<u64>,
+    pub image_height: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

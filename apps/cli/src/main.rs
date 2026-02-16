@@ -193,6 +193,9 @@ async fn main() {
                         if !meta.topics.is_empty() {
                             println!("Topics: {}", meta.topics.join(", "));
                         }
+                        if let (Some(w), Some(h)) = (meta.image_width, meta.image_height) {
+                            println!("Dimensions: {w} \u{00D7} {h}");
+                        }
                     }
                 }
                 Err(e) => {
