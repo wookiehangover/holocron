@@ -46,11 +46,11 @@ function applyTheme(resolved: "light" | "dark") {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => getStoredTheme());
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(() => {
-    if (theme === "system") return getSystemTheme();
-    return theme;
-  });
+  // Use a fixed SSR-safe default so server and client hydration always match.
+  // The inline <script> in <head> already applies the correct class to <html>
+  // before first paint, so there is no FOUC. We correct state after mount.
+  const [theme, setThemeState] = useState<Theme>("light");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
@@ -59,14 +59,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // localStorage may be unavailable
     }
-  }, []);
-
-  // Resolve theme and apply class
-  useEffect(() => {
-    const resolved = theme === "system" ? getSystemTheme() : theme;
+    const resolved = newTheme === "system" ? getSystemTheme() : newTheme;
     setResolvedTheme(resolved);
     applyTheme(resolved);
-  }, [theme]);
+  }, []);
+
+  // After hydration, read the real theme from localStorage
+  useEffect(() => {
+    const stored = getStoredTheme();
+    const resolved = stored === "system" ? getSystemTheme() : stored;
+    setThemeState(stored);
+    setResolvedTheme(resolved);
+    applyTheme(resolved);
+  }, []);
 
   // Listen for system theme changes
   useEffect(() => {
