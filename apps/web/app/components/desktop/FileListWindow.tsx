@@ -175,7 +175,7 @@ export function FileListWindow({
         ) : (
           <div
             key={entry.file.id}
-            className="s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default"
+            className={`s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default${entry.file.id === selectedFileId ? " s7-file-row--selected" : ""}`}
             draggable
             onDragStart={(e) => {
               e.dataTransfer.setData("application/x-holocron-file-id", entry.file.id);
