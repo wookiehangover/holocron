@@ -289,9 +289,19 @@
   --s7-icon-fill: #333333;
   --s7-highlight-bg: #5a5a5a;
   --s7-highlight-fg: #ffffff;
-  --s7-crosshatch-bg: #222222;
-  --s7-crosshatch-fg: #555555;
+  --s7-crosshatch-bg: #555555;
+  --s7-crosshatch-fg: #222222;
   --s7-dialog-overlay: rgba(0, 0, 0, 0.3);
+}
+
+/* --- Desktop icon labels (dark) ----------------------------------- */
+.dark .system7-desktop .s7-icon-label {
+  color: #e0e0e0;
+  text-shadow:
+    1px 1px 0 #111111,
+    -1px -1px 0 #111111,
+    1px -1px 0 #111111,
+    -1px 1px 0 #111111;
 }
 
 /* --- Menubar (shadcn) --------------------------------------------- */
