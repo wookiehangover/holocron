@@ -421,19 +421,20 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       </Menubar>
 
       {/* Desktop surface with crosshatch pattern */}
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <div
-            ref={desktopRef}
-            className="s7-desktop-surface flex-1 relative"
-            onDragOver={handleDesktopDragOver}
-            onDrop={handleDesktopDrop}
-          >
+      <div
+        ref={desktopRef}
+        className="s7-desktop-surface flex-1 relative"
+        onDragOver={handleDesktopDragOver}
+        onDrop={handleDesktopDrop}
+      >
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="absolute inset-0">
             {/* Holocron folder icon */}
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <div
-                  className="absolute top-[24px] left-[24px] flex flex-col items-center cursor-default select-none gap-[4px]"
+                  className="absolute top-6 left-6 flex flex-col items-center cursor-default select-none gap-1"
                   onDoubleClick={openFolder}
                 >
                   <FolderIcon size={48} />
@@ -594,23 +595,24 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             onCancel={() => setPendingDelete(null)}
           />
         )}
-          </div>
-        </ContextMenuTrigger>
-        <ContextMenuContent className="s7-context-menu-content">
-          <ContextMenuItem onSelect={() => fileInputRef.current?.click()}>
-            Upload File…
-          </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => {
-              if (theme === "light") setTheme("dark");
-              else if (theme === "dark") setTheme("system");
-              else setTheme("light");
-            }}
-          >
-            Toggle Theme
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="s7-context-menu-content">
+            <ContextMenuItem onSelect={() => fileInputRef.current?.click()}>
+              Upload File…
+            </ContextMenuItem>
+            <ContextMenuItem
+              onSelect={() => {
+                if (theme === "light") setTheme("dark");
+                else if (theme === "dark") setTheme("system");
+                else setTheme("light");
+              }}
+            >
+              Toggle Theme
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      </div>
 
       {/* Hidden file input for uploads */}
       <input
