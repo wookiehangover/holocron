@@ -4,7 +4,7 @@ import { getFile, deleteFile, uploadFile, listFiles } from "~/lib/api";
 import { useTheme } from "~/lib/theme-provider";
 import { FolderIcon } from "./FolderIcon";
 import { TrashIcon } from "./TrashIcon";
-import { Window } from "./Window";
+import { Window, type SnapZone } from "./Window";
 import { FileListWindow } from "./FileListWindow";
 import { FilePreviewWindow } from "./FilePreviewWindow";
 import { GetInfoWindow } from "./GetInfoWindow";
@@ -65,6 +65,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   const [trashHighlight, setTrashHighlight] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [snapZone, setSnapZone] = useState<SnapZone>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /** Counter for staggering preview window positions. */
@@ -340,6 +341,15 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
           </span>
         </div>
 
+        {/* Snap preview overlay */}
+        {snapZone && (
+          <div
+            className={`s7-snap-preview absolute top-0 bottom-0 w-1/2 pointer-events-none z-[5] ${
+              snapZone === "left" ? "left-0" : "left-1/2"
+            }`}
+          />
+        )}
+
         {/* Open windows */}
         {windows.map((w) => {
           const defaultSize =
@@ -358,6 +368,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
               isActive={activeWindowId === w.id}
               onFocus={() => setActiveWindowId(w.id)}
               onClose={() => closeWindow(w.id)}
+              onSnapChange={setSnapZone}
             >
               {w.kind === "folder" ? (
                 <FileListWindow

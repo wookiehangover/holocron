@@ -4,6 +4,17 @@ const MIN_WIDTH = 200;
 const MIN_HEIGHT = 150;
 /** Minimum pixels of the title bar that must stay visible on each edge. */
 const VISIBLE_PX = 40;
+/** Pixels from viewport edge that trigger an edge-snap zone. */
+const SNAP_THRESHOLD = 8;
+
+export type SnapZone = "left" | "right" | null;
+
+/** Return the width and height of the desktop surface (the Window's offset parent). */
+function getParentBounds(el: HTMLElement | null): { w: number; h: number } {
+  const parent = el?.parentElement;
+  if (parent) return { w: parent.clientWidth, h: parent.clientHeight };
+  return { w: window.innerWidth, h: window.innerHeight };
+}
 
 interface WindowProps {
   title: string;
@@ -13,6 +24,8 @@ interface WindowProps {
   isActive: boolean;
   onFocus: () => void;
   onClose: () => void;
+  /** Called during drag with the current snap zone (or null). */
+  onSnapChange?: (zone: SnapZone) => void;
 }
 
 /**
@@ -27,6 +40,7 @@ export function Window({
   isActive,
   onFocus,
   onClose,
+  onSnapChange,
 }: WindowProps) {
   const [position, setPosition] = useState(defaultPosition);
   const [size, setSize] = useState({ ...defaultSize, width: Math.min(defaultSize.width, typeof window !== 'undefined' ? window.innerWidth : defaultSize.width) });
@@ -34,6 +48,10 @@ export function Window({
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
   const userResized = useRef(false);
   const windowRef = useRef<HTMLDivElement>(null);
+  /** Stores pre-snap position + size so we can restore on unsnap. */
+  const preSnapRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  /** Which edge the window is currently snapped to. */
+  const snappedRef = useRef<SnapZone>(null);
 
   // Sync size with external defaultSize changes (e.g. image natural size),
   // but only if the user hasn't manually resized.
@@ -52,11 +70,34 @@ export function Window({
       if ((e.target as HTMLElement).closest("button")) return;
       e.preventDefault();
       onFocus();
+
+      let origX = position.x;
+      let origY = position.y;
+      let dragStartW = size.width;
+      let dragStartH = size.height;
+
+      // If currently snapped, restore pre-snap size and center under cursor
+      if (snappedRef.current && preSnapRef.current) {
+        const restored = preSnapRef.current;
+        dragStartW = restored.width;
+        dragStartH = restored.height;
+        setSize({ width: restored.width, height: restored.height });
+        // Center the restored window horizontally under the cursor,
+        // relative to the desktop surface
+        const parentRect = windowRef.current?.parentElement?.getBoundingClientRect();
+        const offsetX = parentRect?.left ?? 0;
+        origX = e.clientX - offsetX - restored.width / 2;
+        origY = e.clientY - (parentRect?.top ?? 0);
+        setPosition({ x: origX, y: origY });
+        snappedRef.current = null;
+        preSnapRef.current = null;
+      }
+
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
-        origX: position.x,
-        origY: position.y,
+        origX,
+        origY,
       };
 
       const handleMouseMove = (ev: MouseEvent) => {
@@ -65,17 +106,40 @@ export function Window({
         const dy = ev.clientY - dragRef.current.startY;
 
         const winW = windowRef.current?.offsetWidth ?? MIN_WIDTH;
-        const vpW = window.innerWidth;
-        const vpH = window.innerHeight;
+        const { w: surfW, h: surfH } = getParentBounds(windowRef.current);
 
         // Clamp so at least VISIBLE_PX of the title bar stays on screen
-        const x = Math.max(-(winW - VISIBLE_PX), Math.min(dragRef.current.origX + dx, vpW - VISIBLE_PX));
-        const y = Math.max(0, Math.min(dragRef.current.origY + dy, vpH - VISIBLE_PX));
+        const x = Math.max(-(winW - VISIBLE_PX), Math.min(dragRef.current.origX + dx, surfW - VISIBLE_PX));
+        const y = Math.max(0, Math.min(dragRef.current.origY + dy, surfH - VISIBLE_PX));
+
+        // Detect snap zones
+        const zone: SnapZone =
+          ev.clientX <= SNAP_THRESHOLD ? "left" :
+          ev.clientX >= window.innerWidth - SNAP_THRESHOLD ? "right" :
+          null;
+        onSnapChange?.(zone);
 
         setPosition({ x, y });
       };
 
-      const handleMouseUp = () => {
+      const handleMouseUp = (ev: MouseEvent) => {
+        // Check if we should snap
+        const zone: SnapZone =
+          ev.clientX <= SNAP_THRESHOLD ? "left" :
+          ev.clientX >= window.innerWidth - SNAP_THRESHOLD ? "right" :
+          null;
+
+        if (zone) {
+          const { w: surfW, h: surfH } = getParentBounds(windowRef.current);
+          // Save pre-snap state using values captured at drag start
+          preSnapRef.current = { x: dragRef.current!.origX, y: dragRef.current!.origY, width: dragStartW, height: dragStartH };
+          const snapW = Math.floor(surfW / 2);
+          setPosition({ x: zone === "left" ? 0 : snapW, y: 0 });
+          setSize({ width: snapW, height: surfH });
+          snappedRef.current = zone;
+        }
+        onSnapChange?.(null);
+
         dragRef.current = null;
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
@@ -84,7 +148,7 @@ export function Window({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [position, onFocus],
+    [position, size, onFocus, onSnapChange],
   );
 
   const handleResizeMouseDown = useCallback(
@@ -103,9 +167,10 @@ export function Window({
         if (!resizeRef.current) return;
         const dx = ev.clientX - resizeRef.current.startX;
         const dy = ev.clientY - resizeRef.current.startY;
+        const { w: surfW, h: surfH } = getParentBounds(windowRef.current);
         setSize({
-          width: Math.max(MIN_WIDTH, Math.min(resizeRef.current.origW + dx, window.innerWidth)),
-          height: Math.max(MIN_HEIGHT, Math.min(resizeRef.current.origH + dy, window.innerHeight)),
+          width: Math.max(MIN_WIDTH, Math.min(resizeRef.current.origW + dx, surfW)),
+          height: Math.max(MIN_HEIGHT, Math.min(resizeRef.current.origH + dy, surfH)),
         });
       };
 
