@@ -238,7 +238,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   return (
     <div className="system7-desktop fixed inset-0 flex flex-col overflow-hidden">
       {/* Menu bar */}
-      <Menubar className="s7-menubar shrink-0 z-[100] rounded-none border-0 border-b-2 border-[var(--s7-border)] bg-[var(--s7-bg)] px-1 h-7 min-h-0">
+      <Menubar className="s7-menubar shrink-0 z-[100] rounded-none border-0 border-b-2 border-[var(--s7-border)] bg-[var(--s7-bg)] px-1 h-8 min-h-0">
         {/* Moon icon (replaces vintage Apple logo) */}
         <MenubarMenu>
           <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-normal">
