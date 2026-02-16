@@ -150,6 +150,13 @@
   background: var(--s7-dialog-overlay, rgba(0, 0, 0, 0.15));
 }
 
+/* --- Window margin override -------------------------------------- */
+/* system.css sets .window { margin: 1rem } which pushes windows away */
+/* from the edges. Override here so absolute positioning works flush. */
+.system7-desktop .window {
+  margin: 0;
+}
+
 /* --- Snap preview overlay ---------------------------------------- */
 .system7-desktop .s7-snap-preview {
   background: var(--s7-dialog-overlay, rgba(0, 0, 0, 0.15));
