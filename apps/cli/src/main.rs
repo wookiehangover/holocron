@@ -46,6 +46,14 @@ enum Command {
         /// File ID to re-index
         id: String,
     },
+    /// Search indexed files
+    Search {
+        /// Search query
+        query: String,
+        /// Maximum number of results to return
+        #[arg(long, default_value_t = 20)]
+        limit: u32,
+    },
     /// Check API health
     Health,
     /// One-shot bidirectional sync
@@ -122,6 +130,47 @@ async fn main() {
                 Ok(()) => println!("API is healthy"),
                 Err(e) => {
                     eprintln!("Health check failed: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Command::Search { query, limit } => {
+            let config = Config::load();
+            let api = ApiClient::from_config(&config);
+            match api.search(&query, limit).await {
+                Ok(resp) => {
+                    if resp.results.is_empty() {
+                        println!("No results found for \"{query}\".");
+                    } else {
+                        println!(
+                            "Found {} result{} for \"{query}\":\n",
+                            resp.total,
+                            if resp.total == 1 { "" } else { "s" }
+                        );
+                        for result in &resp.results {
+                            let snippet = result
+                                .chunks
+                                .first()
+                                .map(|c| {
+                                    let text = c.text.trim();
+                                    if text.len() > 200 {
+                                        format!("{}…", &text[..200])
+                                    } else {
+                                        text.to_string()
+                                    }
+                                })
+                                .unwrap_or_default();
+                            println!("  {} ({})", result.file.name, result.file.path);
+                            println!("  Score: {:.0}  |  Type: {}", result.score, result.file.mime_type);
+                            if !snippet.is_empty() {
+                                println!("  > {snippet}");
+                            }
+                            println!();
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Search failed: {e}");
                     std::process::exit(1);
                 }
             }
