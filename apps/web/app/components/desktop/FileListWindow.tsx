@@ -29,8 +29,12 @@ interface FileListWindowProps {
  * Window content that renders the file list in System 7 style.
  * Small document icons with names, sizes, and dates.
  */
-export function FileListWindow({ files, selectedFileId, onSelectFile, onFileClick }: FileListWindowProps) {
-
+export function FileListWindow({
+  files,
+  selectedFileId,
+  onSelectFile,
+  onFileClick,
+}: FileListWindowProps) {
   if (files.length === 0) {
     return (
       <div style={{ padding: 8 }}>
@@ -42,29 +46,14 @@ export function FileListWindow({ files, selectedFileId, onSelectFile, onFileClic
   return (
     <div>
       {/* Details bar */}
-      <div
-        className="s7-file-list-detail-bar"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          padding: "4px 8px",
-          marginBottom: 4,
-        }}
-      >
-        <span>{files.length} item{files.length !== 1 ? "s" : ""}</span>
+      <div className="s7-file-list-detail-bar text-sm flex justify-between p-1 mb-1 gap-1">
+        <span>
+          {files.length} item{files.length !== 1 ? "s" : ""}
+        </span>
       </div>
 
       {/* Header row */}
-      <div
-        className="s7-file-list-header"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "28px 1fr 80px 100px",
-          gap: 4,
-          padding: "2px 8px",
-          fontWeight: "bold",
-        }}
-      >
+      <div className="s7-file-list-header text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center mb-2">
         <span />
         <span>Name</span>
         <span>Size</span>
@@ -75,7 +64,7 @@ export function FileListWindow({ files, selectedFileId, onSelectFile, onFileClic
       {files.map((file) => (
         <div
           key={file.id}
-          className="s7-file-row"
+          className="s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default"
           draggable
           onDragStart={(e) => {
             e.dataTransfer.setData("application/x-holocron-file-id", file.id);
@@ -84,31 +73,9 @@ export function FileListWindow({ files, selectedFileId, onSelectFile, onFileClic
           }}
           onClick={() => onSelectFile(file.id)}
           onDoubleClick={() => onFileClick?.(file.id)}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "28px 1fr 80px 100px",
-            gap: 4,
-            padding: "3px 8px",
-            alignItems: "center",
-            cursor: "default",
-            ...(file.id === selectedFileId
-              ? {
-                  backgroundColor: "var(--s7-fg, #000)",
-                  color: "var(--s7-bg, #fff)",
-                }
-              : {}),
-          }}
         >
           <DocumentIcon size={20} />
-          <span
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {file.name}
-          </span>
+          <span className="truncate">{file.name}</span>
           <span>{formatBytes(file.size)}</span>
           <span>{formatDate(file.updatedAt)}</span>
         </div>
@@ -116,4 +83,3 @@ export function FileListWindow({ files, selectedFileId, onSelectFile, onFileClic
     </div>
   );
 }
-
