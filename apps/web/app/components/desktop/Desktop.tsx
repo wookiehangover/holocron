@@ -141,8 +141,6 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         inset: 0,
         display: "flex",
         flexDirection: "column",
-        fontFamily: "Chicago_12, Chicago, sans-serif",
-        fontSize: 14,
         overflow: "hidden",
       }}
     >
