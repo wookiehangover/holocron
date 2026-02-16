@@ -14,9 +14,9 @@ export function FolderIcon({ size = 32 }: { size?: number }) {
       {/* Tab on top-left */}
       <path
         d="M2 8 L2 6 L12 6 L14 8"
-        stroke="black"
+        stroke="currentColor"
         strokeWidth="1.5"
-        fill="white"
+        fill="var(--s7-icon-fill, white)"
       />
       {/* Folder body */}
       <rect
@@ -25,12 +25,12 @@ export function FolderIcon({ size = 32 }: { size?: number }) {
         width="28"
         height="20"
         rx="1"
-        stroke="black"
+        stroke="currentColor"
         strokeWidth="1.5"
-        fill="white"
+        fill="var(--s7-icon-fill, white)"
       />
       {/* Horizontal line near top of body */}
-      <line x1="2" y1="12" x2="30" y2="12" stroke="black" strokeWidth="1" />
+      <line x1="2" y1="12" x2="30" y2="12" stroke="currentColor" strokeWidth="1" />
     </svg>
   );
 }
