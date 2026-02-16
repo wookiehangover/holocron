@@ -270,9 +270,9 @@
 }
 
 /* --- Close button X: always visible -------------------------------- */
-/* system.css sets opacity:0 on ::before/::after, only showing on     */
-/* :active. Override to always show the X indicator.                   */
-.system7-desktop .title-bar button.close::before,
+/* system.css draws a + (::before) and a rotated + (::after = X).     */
+/* Showing both creates an asterisk/loading shape. Only show ::after   */
+/* (the rotated cross) which renders as a clean X.                    */
 .system7-desktop .title-bar button.close::after {
   opacity: 1;
 }
@@ -361,7 +361,6 @@
   border-color: var(--s7-border);
 }
 /* Close button X: use light color in dark mode (system.css draws with #000) */
-.dark .system7-desktop .title-bar button.close::before,
 .dark .system7-desktop .title-bar button.close::after {
   background:
     linear-gradient(var(--s7-fg), var(--s7-fg)) 0,
@@ -369,11 +368,6 @@
     linear-gradient(var(--s7-fg), var(--s7-fg)) top,
     linear-gradient(var(--s7-fg), var(--s7-fg)) bottom;
   background-repeat: no-repeat;
-}
-.dark .system7-desktop .title-bar button.close::before {
-  background-size: 30% 4px, 30% 4px, 4px 30%, 4px 30%;
-}
-.dark .system7-desktop .title-bar button.close::after {
   background-size: 22.5% 3.64px, 22.5% 3.64px, 3.64px 22.5%, 3.64px 22.5%;
 }
 .dark .system7-desktop .inactive-title-bar {
