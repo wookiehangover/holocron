@@ -18,7 +18,7 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "rgba(0, 0, 0, 0.15)",
+        background: "var(--s7-dialog-overlay, rgba(0, 0, 0, 0.15))",
       }}
       onClick={onCancel}
     >
@@ -44,7 +44,7 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
               xmlns="http://www.w3.org/2000/svg"
               style={{ flexShrink: 0 }}
             >
-              <path d="M16 2 L30 28 L2 28 Z" fill="yellow" stroke="black" strokeWidth="2" />
+              <path d="M16 2 L30 28 L2 28 Z" fill="#ffcc00" stroke="currentColor" strokeWidth="2" />
               <text
                 x="16"
                 y="24"
@@ -52,7 +52,7 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
                 fontFamily="Chicago_12, Chicago, sans-serif"
                 fontSize="18"
                 fontWeight="bold"
-                fill="black"
+                fill="currentColor"
               >
                 !
               </text>
