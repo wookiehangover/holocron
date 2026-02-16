@@ -1,6 +1,9 @@
+use std::path::Path;
+
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::io::AsyncWriteExt;
 
 use crate::config::Config;
 
@@ -24,6 +27,9 @@ pub enum ApiError {
 
     #[error("Unexpected status {0}")]
     UnexpectedStatus(u16),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +99,42 @@ pub struct ShareLinkResponse {
 pub struct VaultVersion {
     pub latest_change: Option<String>,
     pub file_count: i64,
+}
+
+// Search types
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchChunk {
+    pub text: String,
+    pub page: Option<u64>,
+    pub chunk_index: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResultFile {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub mime_type: String,
+    pub metadata: Option<FileMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub file: SearchResultFile,
+    pub chunks: Vec<SearchChunk>,
+    pub score: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResponse {
+    pub results: Vec<SearchResult>,
+    pub query: String,
+    pub total: u64,
 }
 
 // Private request bodies
@@ -283,6 +325,32 @@ impl ApiClient {
             .await?;
         Self::check(resp).await?;
         Ok(())
+    }
+
+    /// GET /files/search?q=...&limit=... — search indexed files.
+    pub async fn search(&self, query: &str, limit: u32) -> Result<SearchResponse, ApiError> {
+        let encoded_query = urlencoding::encode(query);
+        let url = format!("{}/files/search?q={}&limit={}", self.base_url, encoded_query, limit);
+        let resp = self.client.get(&url).send().await?;
+        let resp = Self::check(resp).await?;
+        Ok(resp.json().await?)
+    }
+
+    /// Fetch a file's presigned URL via [`get_file`](Self::get_file) and stream
+    /// its content to `dest`. Returns the [`FileDetail`] metadata.
+    pub async fn download_file(&self, id: &str, dest: &Path) -> Result<FileDetail, ApiError> {
+        let detail = self.get_file(id).await?;
+
+        let resp = self.client.get(&detail.download_url).send().await?;
+        let mut resp = Self::check(resp).await?;
+
+        let mut file = tokio::fs::File::create(dest).await?;
+        while let Some(chunk) = resp.chunk().await? {
+            file.write_all(&chunk).await?;
+        }
+        file.flush().await?;
+
+        Ok(detail)
     }
 }
 
