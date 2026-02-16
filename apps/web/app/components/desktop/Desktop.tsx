@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { HolocronFile } from "@holocron/core/types";
 import { getFile, deleteFile, uploadFile, listFiles } from "~/lib/api";
 import { useTheme } from "~/lib/theme-provider";
@@ -7,6 +7,7 @@ import { TrashIcon } from "./TrashIcon";
 import { Window } from "./Window";
 import { FileListWindow } from "./FileListWindow";
 import { FilePreviewWindow } from "./FilePreviewWindow";
+import { GetInfoWindow } from "./GetInfoWindow";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface DesktopProps {
@@ -33,7 +34,15 @@ interface PreviewWindow {
   downloadUrl: string;
 }
 
-type OpenWindow = FolderWindow | PreviewWindow;
+interface InfoWindow {
+  id: number;
+  kind: "info";
+  title: string;
+  position: { x: number; y: number };
+  file: HolocronFile;
+}
+
+type OpenWindow = FolderWindow | PreviewWindow | InfoWindow;
 
 interface PendingDelete {
   fileId: string;
@@ -178,6 +187,42 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     setPendingDelete({ fileId: selectedFileId, fileName });
   }, [selectedFileId, files]);
 
+  const openGetInfo = useCallback(
+    (fileId: string) => {
+      const file = files.find((f) => f.id === fileId);
+      if (!file) return;
+      const id = nextWindowId++;
+      const infoCount = windows.filter((w) => w.kind === "info").length;
+      const offset = (infoCount % 6) * 20;
+      setWindows((prev) => [
+        ...prev,
+        {
+          id,
+          kind: "info",
+          title: `${file.name} Info`,
+          position: { x: 200 + offset, y: 60 + offset },
+          file,
+        },
+      ]);
+      setActiveWindowId(id);
+    },
+    [files, windows],
+  );
+
+  // ⌘I / Ctrl+I keyboard shortcut for Get Info
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "i") {
+        e.preventDefault();
+        if (selectedFileId) {
+          openGetInfo(selectedFileId);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedFileId, openGetInfo]);
+
   const hasOpenWindow = windows.length > 0;
   const hasSelectedFile = selectedFileId !== null;
 
@@ -244,6 +289,27 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
                 }}
               >
                 Open
+              </button>
+            </li>
+            <li role="menu-item">
+              <button
+                onClick={() => {
+                  if (hasSelectedFile) openGetInfo(selectedFileId);
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "2px 16px",
+                  border: "none",
+                  cursor: "default",
+                  font: "inherit",
+                  color: "inherit",
+                  background: "inherit",
+                  opacity: hasSelectedFile ? 1 : 0.5,
+                  pointerEvents: hasSelectedFile ? "auto" : "none",
+                }}
+              >
+                Get Info
               </button>
             </li>
             <li role="menu-item">
@@ -381,39 +447,50 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         </div>
 
         {/* Open windows */}
-        {windows.map((w) => (
-          <Window
-            key={w.id}
-            title={w.title}
-            defaultPosition={w.position}
-            defaultSize={w.kind === "preview" && w.size ? w.size : undefined}
-            isActive={activeWindowId === w.id}
-            onFocus={() => setActiveWindowId(w.id)}
-            onClose={() => closeWindow(w.id)}
-          >
-            {w.kind === "folder" ? (
-              <FileListWindow
-                files={files}
-                selectedFileId={selectedFileId}
-                onSelectFile={setSelectedFileId}
-                onFileClick={openFilePreview}
-              />
-            ) : (
-              <FilePreviewWindow
-                file={w.file}
-                downloadUrl={w.downloadUrl}
-                initialSized={!!w.size}
-                onNaturalSize={(width, height) => {
-                  setWindows((prev) =>
-                    prev.map((win) =>
-                      win.id === w.id ? { ...win, size: { width, height } } : win,
-                    ),
-                  );
-                }}
-              />
-            )}
-          </Window>
-        ))}
+        {windows.map((w) => {
+          const defaultSize =
+            w.kind === "preview" && w.size
+              ? w.size
+              : w.kind === "info"
+                ? { width: 340, height: 400 }
+                : undefined;
+
+          return (
+            <Window
+              key={w.id}
+              title={w.title}
+              defaultPosition={w.position}
+              defaultSize={defaultSize}
+              isActive={activeWindowId === w.id}
+              onFocus={() => setActiveWindowId(w.id)}
+              onClose={() => closeWindow(w.id)}
+            >
+              {w.kind === "folder" ? (
+                <FileListWindow
+                  files={files}
+                  selectedFileId={selectedFileId}
+                  onSelectFile={setSelectedFileId}
+                  onFileClick={openFilePreview}
+                />
+              ) : w.kind === "info" ? (
+                <GetInfoWindow file={w.file} />
+              ) : (
+                <FilePreviewWindow
+                  file={w.file}
+                  downloadUrl={w.downloadUrl}
+                  initialSized={!!w.size}
+                  onNaturalSize={(width, height) => {
+                    setWindows((prev) =>
+                      prev.map((win) =>
+                        win.id === w.id ? { ...win, size: { width, height } } : win,
+                      ),
+                    );
+                  }}
+                />
+              )}
+            </Window>
+          );
+        })}
 
         {/* Delete confirmation dialog */}
         {pendingDelete && (
