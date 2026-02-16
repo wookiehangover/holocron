@@ -11,36 +11,20 @@ interface ConfirmDialogProps {
 export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--s7-dialog-overlay, rgba(0, 0, 0, 0.15))",
-      }}
+      className="s7-dialog-overlay fixed inset-0 z-[9999] flex items-center justify-center"
       onClick={onCancel}
     >
       <div className="outer-border" onClick={(e) => e.stopPropagation()}>
         <div className="inner-border">
-          <div
-            style={{
-              padding: 16,
-              display: "flex",
-              gap: 16,
-              alignItems: "flex-start",
-              maxWidth: 400,
-            }}
-          >
+          <div className="flex items-start gap-[16px] p-[16px] max-w-[400px]">
             {/* Alert icon — classic Mac caution triangle */}
             <svg
+              className="shrink-0"
               width="32"
               height="32"
               viewBox="0 0 32 32"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              style={{ flexShrink: 0 }}
             >
               <path d="M16 2 L30 28 L2 28 Z" fill="#ffcc00" stroke="currentColor" strokeWidth="2" />
               <text
@@ -56,9 +40,9 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
               </text>
             </svg>
 
-            <div style={{ flex: 1 }}>
-              <div style={{ marginBottom: 16 }}>{message}</div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <div className="flex-1">
+              <div className="mb-[16px]">{message}</div>
+              <div className="flex justify-end gap-[8px]">
                 <button className="btn" onClick={onCancel}>
                   Cancel
                 </button>

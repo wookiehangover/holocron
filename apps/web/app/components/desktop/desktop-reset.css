@@ -111,6 +111,53 @@
   border-bottom: 1px solid var(--s7-border);
 }
 
+/* --- Menu button reset --------------------------------------------- */
+/* Strip browser/Tailwind button styles so menu items look like plain */
+/* text within the system.css menu chrome.                            */
+.system7-desktop .s7-menu-btn {
+  width: 100%;
+  text-align: left;
+  padding: 2px 16px;
+  border: none;
+  cursor: default;
+  font: inherit;
+  color: inherit;
+  background: inherit;
+}
+
+/* --- Grow box (resize handle) ------------------------------------- */
+.system7-desktop .s7-grow-box {
+  background-image:
+    linear-gradient(
+      135deg,
+      transparent 30%,
+      var(--s7-border, #000) 30%,
+      var(--s7-border, #000) 33%,
+      transparent 33%,
+      transparent 55%,
+      var(--s7-border, #000) 55%,
+      var(--s7-border, #000) 58%,
+      transparent 58%,
+      transparent 80%,
+      var(--s7-border, #000) 80%,
+      var(--s7-border, #000) 83%,
+      transparent 83%
+    );
+}
+
+/* --- Dialog overlay background ------------------------------------ */
+.system7-desktop .s7-dialog-overlay {
+  background: var(--s7-dialog-overlay, rgba(0, 0, 0, 0.15));
+}
+
+/* --- Hide button text in inactive title bars ---------------------- */
+/* system.css clips .title-bar button span but has no equivalent for */
+/* .inactive-title-bar, so the "Close"/"Resize" text leaks through. */
+.system7-desktop .inactive-title-bar button span {
+  clip: rect(1px, 1px, 1px, 1px);
+  position: absolute !important;
+}
+
 /* --- File row hover highlight ------------------------------------- */
 .system7-desktop .s7-file-row:hover {
   background: var(--s7-highlight-bg);

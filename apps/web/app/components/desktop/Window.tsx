@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect, type ReactNode } from "react"
 
 const MIN_WIDTH = 200;
 const MIN_HEIGHT = 150;
+/** Minimum pixels of the title bar that must stay visible on each edge. */
+const VISIBLE_PX = 40;
 
 interface WindowProps {
   title: string;
@@ -61,10 +63,16 @@ export function Window({
         if (!dragRef.current) return;
         const dx = ev.clientX - dragRef.current.startX;
         const dy = ev.clientY - dragRef.current.startY;
-        setPosition({
-          x: dragRef.current.origX + dx,
-          y: dragRef.current.origY + dy,
-        });
+
+        const winW = windowRef.current?.offsetWidth ?? MIN_WIDTH;
+        const vpW = window.innerWidth;
+        const vpH = window.innerHeight;
+
+        // Clamp so at least VISIBLE_PX of the title bar stays on screen
+        const x = Math.max(-(winW - VISIBLE_PX), Math.min(dragRef.current.origX + dx, vpW - VISIBLE_PX));
+        const y = Math.max(0, Math.min(dragRef.current.origY + dy, vpH - VISIBLE_PX));
+
+        setPosition({ x, y });
       };
 
       const handleMouseUp = () => {
@@ -97,7 +105,7 @@ export function Window({
         const dy = ev.clientY - resizeRef.current.startY;
         setSize({
           width: Math.max(MIN_WIDTH, Math.min(resizeRef.current.origW + dx, window.innerWidth)),
-          height: Math.max(MIN_HEIGHT, resizeRef.current.origH + dy),
+          height: Math.max(MIN_HEIGHT, Math.min(resizeRef.current.origH + dy, window.innerHeight)),
         });
       };
 
@@ -117,55 +125,40 @@ export function Window({
   return (
     <div
       ref={windowRef}
-      className="window"
+      className="window absolute flex m-0"
       style={{
-        position: "absolute",
         left: position.x,
         top: position.y,
         width: size.width,
         height: size.height,
-        display: "flex",
         zIndex: isActive ? 10 : 1,
-        margin: 0,
       }}
       onMouseDown={onFocus}
     >
       <div
-        className={isActive ? "title-bar" : "inactive-title-bar"}
+        className={`${isActive ? "title-bar" : "inactive-title-bar"} cursor-grab`}
         onMouseDown={handleMouseDown}
-        style={{ cursor: "grab" }}
       >
         <button className="close" aria-label="Close" onClick={onClose}>
-          {isActive && <span>Close</span>}
+          <span>Close</span>
         </button>
         <span className="title">{title}</span>
         <button
-          className="resize"
+          className="resize cursor-nwse-resize"
           aria-label="Resize"
           onMouseDown={handleResizeMouseDown}
-          style={{ cursor: "nwse-resize" }}
         >
           <span>Resize</span>
         </button>
       </div>
       <div className="separator" />
-      <div className="window-pane" style={{ flex: 1, overflow: "auto" }}>
+      <div className="window-pane flex-1 overflow-auto">
         {children}
       </div>
       {/* Grow box — System 7 resize handle at bottom-right */}
       <div
+        className="s7-grow-box absolute right-0 bottom-0 w-[15px] h-[15px] cursor-nwse-resize"
         onMouseDown={handleResizeMouseDown}
-        style={{
-          position: "absolute",
-          right: 0,
-          bottom: 0,
-          width: 15,
-          height: 15,
-          cursor: "nwse-resize",
-          /* Diagonal lines mimicking the classic grow box */
-          backgroundImage:
-            "linear-gradient(135deg, transparent 30%, var(--secondary, #000) 30%, var(--secondary, #000) 33%, transparent 33%, transparent 55%, var(--secondary, #000) 55%, var(--secondary, #000) 58%, transparent 58%, transparent 80%, var(--secondary, #000) 80%, var(--secondary, #000) 83%, transparent 83%)",
-        }}
       />
     </div>
   );

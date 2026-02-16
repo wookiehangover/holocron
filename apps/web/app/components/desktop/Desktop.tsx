@@ -227,24 +227,11 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   const hasSelectedFile = selectedFileId !== null;
 
   return (
-    <div
-      className="system7-desktop"
-      style={{
-        position: "fixed",
-        inset: 0,
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
-      }}
-    >
+    <div className="system7-desktop fixed inset-0 flex flex-col overflow-hidden">
       {/* Menu bar */}
       <ul
         role="menu-bar"
-        className="s7-menu-bar"
-        style={{
-          flexShrink: 0,
-          zIndex: 100,
-        }}
+        className="s7-menu-bar shrink-0 z-[100]"
       >
         <li role="menu-item">
           <span className="apple" />
@@ -254,17 +241,8 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
           <ul role="menu">
             <li role="menu-item">
               <button
+                className="s7-menu-btn"
                 onClick={() => fileInputRef.current?.click()}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "2px 16px",
-                  border: "none",
-                  cursor: "default",
-                  font: "inherit",
-                  color: "inherit",
-                  background: "inherit",
-                }}
               >
                 New
               </button>
@@ -272,20 +250,9 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             <hr />
             <li role="menu-item">
               <button
+                className={`s7-menu-btn ${hasSelectedFile ? "" : "opacity-50 pointer-events-none"}`}
                 onClick={() => {
                   if (hasSelectedFile) openFilePreview(selectedFileId);
-                }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "2px 16px",
-                  border: "none",
-                  cursor: "default",
-                  font: "inherit",
-                  color: "inherit",
-                  background: "inherit",
-                  opacity: hasSelectedFile ? 1 : 0.5,
-                  pointerEvents: hasSelectedFile ? "auto" : "none",
                 }}
               >
                 Open
@@ -293,20 +260,9 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             </li>
             <li role="menu-item">
               <button
+                className={`s7-menu-btn ${hasSelectedFile ? "" : "opacity-50 pointer-events-none"}`}
                 onClick={() => {
                   if (hasSelectedFile) openGetInfo(selectedFileId);
-                }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "2px 16px",
-                  border: "none",
-                  cursor: "default",
-                  font: "inherit",
-                  color: "inherit",
-                  background: "inherit",
-                  opacity: hasSelectedFile ? 1 : 0.5,
-                  pointerEvents: hasSelectedFile ? "auto" : "none",
                 }}
               >
                 Get Info
@@ -314,20 +270,9 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             </li>
             <li role="menu-item">
               <button
+                className={`s7-menu-btn ${hasOpenWindow ? "" : "opacity-50 pointer-events-none"}`}
                 onClick={() => {
                   if (activeWindowId !== null) closeWindow(activeWindowId);
-                }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "2px 16px",
-                  border: "none",
-                  cursor: "default",
-                  font: "inherit",
-                  color: "inherit",
-                  background: "inherit",
-                  opacity: hasOpenWindow ? 1 : 0.5,
-                  pointerEvents: hasOpenWindow ? "auto" : "none",
                 }}
               >
                 Close
@@ -336,19 +281,8 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             <hr />
             <li role="menu-item">
               <button
+                className={`s7-menu-btn ${hasSelectedFile ? "" : "opacity-50 pointer-events-none"}`}
                 onClick={handleDeleteSelected}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "2px 16px",
-                  border: "none",
-                  cursor: "default",
-                  font: "inherit",
-                  color: "inherit",
-                  background: "inherit",
-                  opacity: hasSelectedFile ? 1 : 0.5,
-                  pointerEvents: hasSelectedFile ? "auto" : "none",
-                }}
               >
                 Delete
               </button>
@@ -361,20 +295,11 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
           <ul role="menu">
             <li role="menu-item">
               <button
+                className="s7-menu-btn"
                 onClick={() => {
                   if (theme === "light") setTheme("dark");
                   else if (theme === "dark") setTheme("system");
                   else setTheme("light");
-                }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "2px 16px",
-                  border: "none",
-                  cursor: "default",
-                  font: "inherit",
-                  color: "inherit",
-                  background: "inherit",
                 }}
               >
                 Theme: {theme === "system" ? `System (${resolvedTheme})` : theme}
@@ -386,53 +311,22 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       </ul>
 
       {/* Desktop surface with crosshatch pattern */}
-      <div
-        className="s7-desktop-surface"
-        style={{
-          flex: 1,
-          position: "relative",
-        }}
-      >
+      <div className="s7-desktop-surface flex-1 relative">
         {/* Holocron folder icon */}
         <div
-          style={{
-            position: "absolute",
-            top: 24,
-            left: 24,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            cursor: "default",
-            userSelect: "none",
-            gap: 4,
-          }}
+          className="absolute top-[24px] left-[24px] flex flex-col items-center cursor-default select-none gap-[4px]"
           onDoubleClick={openFolder}
         >
           <FolderIcon size={48} />
-          <span
-            className="s7-icon-label"
-            style={{ textAlign: "center" }}
-          >
+          <span className="s7-icon-label text-center">
             Holocron
           </span>
         </div>
 
         {/* Trash icon — bottom-right */}
         <div
-          className={trashHighlight ? "s7-trash-zone--active" : undefined}
-          style={{
-            position: "absolute",
-            bottom: 24,
-            right: 24,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            cursor: "default",
-            userSelect: "none",
-            gap: 4,
-            padding: 4,
-            border: trashHighlight ? undefined : "2px solid transparent",
-          }}
+          className={`absolute bottom-[24px] right-[24px] flex flex-col items-center cursor-default select-none gap-[4px] p-[4px] ${trashHighlight ? "s7-trash-zone--active" : ""}`}
+          style={trashHighlight ? undefined : { border: "2px solid transparent" }}
           onDragOver={(e) => {
             e.preventDefault();
             setTrashHighlight(true);
@@ -507,7 +401,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         ref={fileInputRef}
         type="file"
         multiple
-        style={{ display: "none" }}
+        className="hidden"
         onChange={(e) => {
           if (e.target.files && e.target.files.length > 0) {
             handleFileUpload(e.target.files);
