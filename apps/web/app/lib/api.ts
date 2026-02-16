@@ -131,6 +131,16 @@ export async function uploadFile(file: File): Promise<{ fileId: string }> {
   return { fileId };
 }
 
+/** Move/rename a file by updating its path. */
+export async function moveFile(id: string, newPath: string): Promise<void> {
+  const res = await fetch(`${baseUrl()}/files/${id}`, {
+    method: "PATCH",
+    headers: headers(),
+    body: JSON.stringify({ path: newPath }),
+  });
+  if (!res.ok) throw new Error(`moveFile failed: ${res.status}`);
+}
+
 /** Delete a file by ID. The backend returns 204 on success. */
 export async function deleteFile(id: string): Promise<void> {
   const res = await fetch(`${baseUrl()}/files/${id}`, {

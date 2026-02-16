@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { HolocronFile } from "@holocron/core/types";
-import { getFile, deleteFile, uploadFile, listFiles } from "~/lib/api";
+import { getFile, deleteFile, uploadFile, listFiles, moveFile } from "~/lib/api";
 import { useTheme } from "~/lib/theme-provider";
 import {
   Menubar,
@@ -224,6 +224,19 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     [files, windows],
   );
 
+  const handleMoveFile = useCallback(
+    async (fileId: string, newPath: string) => {
+      try {
+        await moveFile(fileId, newPath);
+        const refreshed = await listFiles();
+        setFiles(refreshed);
+      } catch (e) {
+        console.error("Failed to move file:", e);
+      }
+    },
+    [],
+  );
+
   // ⌘I / Ctrl+I keyboard shortcut for Get Info
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -399,6 +412,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
                     const fileName = files.find((f) => f.id === fileId)?.name || "this file";
                     setPendingDelete({ fileId, fileName });
                   }}
+                  onMoveFile={handleMoveFile}
                 />
               ) : w.kind === "info" ? (
                 <GetInfoWindow file={w.file} />

@@ -89,6 +89,7 @@ interface FileListWindowProps {
   onFileClick?: (fileId: string) => void;
   onGetInfo?: (fileId: string) => void;
   onDeleteFile?: (fileId: string) => void;
+  onMoveFile?: (fileId: string, newPath: string) => void;
 }
 
 /**
@@ -102,8 +103,10 @@ export function FileListWindow({
   onFileClick,
   onGetInfo,
   onDeleteFile,
+  onMoveFile,
 }: FileListWindowProps) {
   const [currentPath, setCurrentPath] = useState("");
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
   const entries = useMemo(() => entriesAtPath(files, currentPath), [files, currentPath]);
 
@@ -174,7 +177,33 @@ export function FileListWindow({
           <ContextMenu key={`folder:${entry.name}`}>
             <ContextMenuTrigger asChild>
               <div
-                className="s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default"
+                className={`s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default${dragOverFolder === entry.name ? " s7-file-row--selected" : ""}`}
+                draggable
+                onDragStart={(e) => {
+                  const folderPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+                  e.dataTransfer.setData("application/x-holocron-folder", folderPath);
+                  e.dataTransfer.setData("text/plain", entry.name);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  setDragOverFolder(entry.name);
+                }}
+                onDragLeave={() => setDragOverFolder(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverFolder(null);
+                  const fileId = e.dataTransfer.getData("application/x-holocron-file-id");
+                  if (!fileId || !onMoveFile) return;
+                  const fileName = e.dataTransfer.getData("text/plain");
+                  const folderPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+                  const newPath = `${folderPath}/${fileName}`;
+                  onMoveFile(fileId, newPath);
+                }}
                 onDoubleClick={() =>
                   setCurrentPath(currentPath ? `${currentPath}/${entry.name}` : entry.name)
                 }
