@@ -31,7 +31,7 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
                 x="16"
                 y="24"
                 textAnchor="middle"
-                fontFamily="Chicago_12, Chicago, sans-serif"
+                fontFamily="GeistPixel, Geneva, sans-serif"
                 fontSize="18"
                 fontWeight="bold"
                 fill="currentColor"
