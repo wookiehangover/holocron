@@ -11,17 +11,13 @@
 
 /* ------------------------------------------------------------------ */
 /* 1. Undo app.css `@layer base { * { @apply border-border outline-ring/50 } }` */
-/*    border-color: currentcolor restores the CSS default so system.css's      */
-/*    own border declarations (which use currentcolor implicitly) work.         */
-/*    outline: revert restores UA-stylesheet outline behaviour.                */
-/*    NOTE: Do NOT reset border-style or border-width here — initial values    */
-/*    (none / medium) would destroy system.css borders.                        */
+/*    revert restores the property to whatever value the cascade would          */
+/*    produce without the author-origin rule, letting system.css work.          */
 /* ------------------------------------------------------------------ */
-.system7-desktop,
 .system7-desktop *,
 .system7-desktop *::before,
 .system7-desktop *::after {
-  border-color: currentcolor;
+  border-color: revert;
   outline: revert;
 }
 
@@ -36,19 +32,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* 3. Undo Tailwind Preflight list resets                             */
-/*    Preflight: ol, ul { list-style: none; margin: 0; padding: 0 }           */
-/*    system.css menu-bar uses ul[role] with its own overrides.                */
-/* ------------------------------------------------------------------ */
-.system7-desktop ul,
-.system7-desktop ol {
-  list-style: revert;
-  margin: revert;
-  padding: revert;
-}
-
-/* ------------------------------------------------------------------ */
-/* 4. Undo Tailwind Preflight img/svg block display                   */
+/* 3. Undo Tailwind Preflight img/svg block display                   */
 /*    Preflight: img, svg, … { display: block; vertical-align: middle }       */
 /* ------------------------------------------------------------------ */
 .system7-desktop img,
@@ -63,8 +47,178 @@
 /*    font-family: system-ui }                                        */
 /* ------------------------------------------------------------------ */
 .system7-desktop {
-  color: #000;
-  background: transparent;
+  /* Theme custom properties — light mode defaults */
+  --s7-fg: #000000;
+  --s7-bg: #ffffff;
+  --s7-border: #000000;
+  --s7-window-bg: #ffffff;
+  --s7-icon-fill: #ffffff;
+  --s7-highlight-bg: #000000;
+  --s7-highlight-fg: #ffffff;
+  --s7-crosshatch-bg: #000000;
+  --s7-crosshatch-fg: #ffffff;
+  --s7-dialog-overlay: rgba(0, 0, 0, 0.15);
+
+  background: revert;
+  color: revert;
+  font-family: Geneva_9, Geneva, Helvetica, sans-serif;
+  font-size: 14px;  /* Larger base size for readability */
   line-height: normal;
+}
+
+/* --- Menu bar / menu list resets ---------------------------------- */
+.system7-desktop ul[role="menu-bar"],
+.system7-desktop ul[role="menu"] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- Desktop crosshatch background -------------------------------- */
+.system7-desktop .s7-desktop-surface {
+  background:
+    linear-gradient(90deg, var(--s7-crosshatch-fg) 21px, transparent 1%) center,
+    linear-gradient(var(--s7-crosshatch-fg) 21px, transparent 1%) center,
+    var(--s7-crosshatch-bg);
+  background-size: 22px 22px;
+  background-attachment: fixed;
+}
+
+/* --- Menu bar border ---------------------------------------------- */
+.system7-desktop .s7-menu-bar {
+  border-bottom: 2px solid var(--s7-border);
+}
+
+/* --- Desktop icon labels ------------------------------------------ */
+.system7-desktop .s7-icon-label {
+  color: var(--s7-crosshatch-fg);
+  text-shadow:
+    1px 1px 0 var(--s7-crosshatch-bg),
+    -1px -1px 0 var(--s7-crosshatch-bg),
+    1px -1px 0 var(--s7-crosshatch-bg),
+    -1px 1px 0 var(--s7-crosshatch-bg);
+}
+
+/* --- Trash highlight zone ----------------------------------------- */
+.system7-desktop .s7-trash-zone--active {
+  border: 2px dotted var(--s7-border);
+  background: var(--s7-dialog-overlay);
+}
+
+/* --- File list borders -------------------------------------------- */
+.system7-desktop .s7-file-list-header,
+.system7-desktop .s7-file-list-detail-bar {
+  border-bottom: 1px solid var(--s7-border);
+}
+
+/* --- File row hover highlight ------------------------------------- */
+.system7-desktop .s7-file-row:hover {
+  background: var(--s7-highlight-bg);
+  color: var(--s7-highlight-fg);
+}
+
+/* ================================================================== */
+/* DARK MODE                                                           */
+/* The ThemeProvider adds .dark to <html>. All overrides are scoped    */
+/* under .dark .system7-desktop so they only affect the desktop route. */
+/* ================================================================== */
+
+/* --- Custom property overrides ------------------------------------ */
+.dark .system7-desktop {
+  --s7-fg: #e0e0e0;
+  --s7-bg: #333333;
+  --s7-border: #777777;
+  --s7-window-bg: #2a2a2a;
+  --s7-icon-fill: #333333;
+  --s7-highlight-bg: #5a5a5a;
+  --s7-highlight-fg: #ffffff;
+  --s7-crosshatch-bg: #555555;
+  --s7-crosshatch-fg: #222222;
+  --s7-dialog-overlay: rgba(0, 0, 0, 0.3);
+}
+
+/* --- Menu bar ----------------------------------------------------- */
+.dark .system7-desktop [role="menu-bar"] {
+  background-color: var(--s7-bg);
+  color: var(--s7-fg);
+}
+.dark .system7-desktop [role="menu-bar"] li[role="menu-item"] {
+  color: var(--s7-fg);
+}
+.dark .system7-desktop [role="menu-bar"] ul[role="menu"] {
+  background-color: var(--s7-bg);
+  border-color: var(--s7-border);
+}
+
+/* --- Window chrome ------------------------------------------------ */
+.dark .system7-desktop .window {
+  background-color: var(--s7-bg);
+  border-color: var(--s7-border);
+  color: var(--s7-fg);
+}
+.dark .system7-desktop .title-bar {
+  background: repeating-linear-gradient(
+    to bottom,
+    #666 0px,
+    #666 1px,
+    #444 1px,
+    #444 2px
+  );
+}
+.dark .system7-desktop .title-bar .title {
+  color: var(--s7-fg);
+  background-color: var(--s7-bg);
+}
+.dark .system7-desktop .title-bar .close,
+.dark .system7-desktop .title-bar .resize {
+  background-color: var(--s7-bg);
+  border-color: var(--s7-border);
+}
+.dark .system7-desktop .inactive-title-bar {
+  background-color: #3a3a3a;
+  color: #999999;
+}
+.dark .system7-desktop .inactive-title-bar .title {
+  background-color: #3a3a3a;
+  color: #999999;
+}
+.dark .system7-desktop .separator {
+  border-color: var(--s7-border);
+  background-color: var(--s7-border);
+}
+.dark .system7-desktop .window-pane {
+  background-color: var(--s7-window-bg);
+  color: var(--s7-fg);
+}
+
+/* --- Buttons ------------------------------------------------------ */
+.dark .system7-desktop .btn {
+  background-color: var(--s7-bg);
+  color: var(--s7-fg);
+  border-color: var(--s7-border);
+}
+.dark .system7-desktop .btn-default {
+  border-color: var(--s7-fg);
+}
+
+/* --- Dialog (outer-border / inner-border) ------------------------- */
+.dark .system7-desktop .outer-border {
+  background-color: var(--s7-bg);
+  border-color: var(--s7-border);
+}
+.dark .system7-desktop .inner-border {
+  border-color: var(--s7-border);
+}
+
+/* --- Scrollbars --------------------------------------------------- */
+.dark .system7-desktop ::-webkit-scrollbar {
+  background-color: #3a3a3a;
+}
+.dark .system7-desktop ::-webkit-scrollbar-thumb {
+  background-color: #666666;
+  border-color: var(--s7-border);
+}
+.dark .system7-desktop ::-webkit-scrollbar-track {
+  background-color: #3a3a3a;
 }
 

@@ -20,13 +20,14 @@ function formatDate(d: string | Date): string {
 
 interface FileListWindowProps {
   files: HolocronFile[];
+  onFileClick?: (fileId: string) => void;
 }
 
 /**
  * Window content that renders the file list in System 7 style.
  * Small document icons with names, sizes, and dates.
  */
-export function FileListWindow({ files }: FileListWindowProps) {
+export function FileListWindow({ files, onFileClick }: FileListWindowProps) {
   if (files.length === 0) {
     return (
       <div style={{ fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 14, padding: 8 }}>
@@ -39,13 +40,13 @@ export function FileListWindow({ files }: FileListWindowProps) {
     <div style={{ fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 14 }}>
       {/* Details bar */}
       <div
+        className="s7-file-list-detail-bar"
         style={{
           display: "flex",
           justifyContent: "space-between",
           padding: "4px 8px",
-          borderBottom: "1px solid black",
           fontFamily: "Chicago_12, Chicago, sans-serif",
-          fontSize: 12,
+          fontSize: 14,
           marginBottom: 4,
         }}
       >
@@ -54,14 +55,14 @@ export function FileListWindow({ files }: FileListWindowProps) {
 
       {/* Header row */}
       <div
+        className="s7-file-list-header"
         style={{
           display: "grid",
           gridTemplateColumns: "28px 1fr 80px 100px",
           gap: 4,
           padding: "2px 8px",
-          borderBottom: "1px solid black",
           fontFamily: "Chicago_12, Chicago, sans-serif",
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: "bold",
         }}
       >
@@ -75,6 +76,14 @@ export function FileListWindow({ files }: FileListWindowProps) {
       {files.map((file) => (
         <div
           key={file.id}
+          className="s7-file-row"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData("application/x-holocron-file-id", file.id);
+            e.dataTransfer.setData("text/plain", file.name);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          onClick={() => onFileClick?.(file.id)}
           style={{
             display: "grid",
             gridTemplateColumns: "28px 1fr 80px 100px",
@@ -82,14 +91,6 @@ export function FileListWindow({ files }: FileListWindowProps) {
             padding: "3px 8px",
             alignItems: "center",
             cursor: "default",
-          }}
-          onMouseOver={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "black";
-            (e.currentTarget as HTMLElement).style.color = "white";
-          }}
-          onMouseOut={(e) => {
-            (e.currentTarget as HTMLElement).style.background = "";
-            (e.currentTarget as HTMLElement).style.color = "";
           }}
         >
           <DocumentIcon size={20} />

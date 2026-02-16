@@ -120,7 +120,7 @@ function TextPreview({ url, name }: { url: string; name: string }) {
 
   if (error) {
     return (
-      <div style={{ padding: 8, fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 12 }}>
+      <div style={{ padding: 8, fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 14 }}>
         Error loading {name}: {error}
       </div>
     );
@@ -128,7 +128,7 @@ function TextPreview({ url, name }: { url: string; name: string }) {
 
   if (text === null) {
     return (
-      <div style={{ padding: 8, fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 12 }}>
+      <div style={{ padding: 8, fontFamily: "Geneva_9, Geneva, sans-serif", fontSize: 14 }}>
         Loading…
       </div>
     );
@@ -140,7 +140,7 @@ function TextPreview({ url, name }: { url: string; name: string }) {
         padding: 8,
         margin: 0,
         fontFamily: "Monaco, Courier, monospace",
-        fontSize: 11,
+        fontSize: 13,
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
         tabSize: 4,
@@ -173,7 +173,7 @@ function GenericPreview({
       style={{
         padding: 16,
         fontFamily: "Geneva_9, Geneva, sans-serif",
-        fontSize: 12,
+        fontSize: 14,
         display: "flex",
         flexDirection: "column",
         gap: 8,
