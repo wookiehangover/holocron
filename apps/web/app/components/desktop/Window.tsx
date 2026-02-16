@@ -27,7 +27,7 @@ export function Window({
   onClose,
 }: WindowProps) {
   const [position, setPosition] = useState(defaultPosition);
-  const [size, setSize] = useState(defaultSize);
+  const [size, setSize] = useState({ ...defaultSize, width: Math.min(defaultSize.width, typeof window !== 'undefined' ? window.innerWidth : defaultSize.width) });
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
   const userResized = useRef(false);
@@ -39,7 +39,7 @@ export function Window({
     if (!userResized.current) {
       setSize((prev) => {
         if (prev.width === defaultSize.width && prev.height === defaultSize.height) return prev;
-        return { width: defaultSize.width, height: defaultSize.height };
+        return { width: Math.min(defaultSize.width, window.innerWidth), height: defaultSize.height };
       });
     }
   }, [defaultSize.width, defaultSize.height]);
@@ -96,7 +96,7 @@ export function Window({
         const dx = ev.clientX - resizeRef.current.startX;
         const dy = ev.clientY - resizeRef.current.startY;
         setSize({
-          width: Math.max(MIN_WIDTH, resizeRef.current.origW + dx),
+          width: Math.max(MIN_WIDTH, Math.min(resizeRef.current.origW + dx, window.innerWidth)),
           height: Math.max(MIN_HEIGHT, resizeRef.current.origH + dy),
         });
       };
