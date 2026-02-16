@@ -177,92 +177,100 @@ export function FileListWindow({
       {/* Entries */}
       {entries.map((entry) =>
         entry.kind === "folder" ? (
-          <ContextMenu key={`folder:${entry.name}`}>
-            <ContextMenuTrigger asChild>
-              <div
-                className={`s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default${dragOverFolder === entry.name ? " s7-file-row--selected" : ""}`}
-                draggable
-                onDragStart={(e) => {
-                  const folderPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
-                  e.dataTransfer.setData("application/x-holocron-folder", folderPath);
-                  e.dataTransfer.setData("text/plain", entry.name);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                }}
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setDragOverFolder(entry.name);
-                }}
-                onDragLeave={() => setDragOverFolder(null)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOverFolder(null);
-                  const fileId = e.dataTransfer.getData("application/x-holocron-file-id");
-                  if (!fileId || !onMoveFile) return;
-                  const fileName = e.dataTransfer.getData("text/plain");
-                  const folderPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
-                  const newPath = `${folderPath}/${fileName}`;
-                  onMoveFile(fileId, newPath);
-                }}
-                onDoubleClick={() =>
-                  setCurrentPath(currentPath ? `${currentPath}/${entry.name}` : entry.name)
-                }
-              >
-                <FolderIcon size={20} />
-                <span className="truncate font-bold">{entry.name}</span>
-                <span>{entry.count} item{entry.count !== 1 ? "s" : ""}</span>
-                <span>—</span>
-              </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="s7-context-menu-content">
-              <ContextMenuItem
-                onSelect={() =>
-                  setCurrentPath(currentPath ? `${currentPath}/${entry.name}` : entry.name)
-                }
-              >
-                Open Folder
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
+          <div
+            key={`folder:${entry.name}`}
+            draggable
+            onDragStart={(e) => {
+              const folderPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+              e.dataTransfer.setData("application/x-holocron-folder", folderPath);
+              e.dataTransfer.setData("text/plain", entry.name);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              setDragOverFolder(entry.name);
+            }}
+            onDragLeave={() => setDragOverFolder(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverFolder(null);
+              const fileId = e.dataTransfer.getData("application/x-holocron-file-id");
+              if (!fileId || !onMoveFile) return;
+              const fileName = e.dataTransfer.getData("text/plain");
+              const folderPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+              const newPath = `${folderPath}/${fileName}`;
+              onMoveFile(fileId, newPath);
+            }}
+          >
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <div
+                  className={`s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default${dragOverFolder === entry.name ? " s7-file-row--selected" : ""}`}
+                  onDoubleClick={() =>
+                    setCurrentPath(currentPath ? `${currentPath}/${entry.name}` : entry.name)
+                  }
+                >
+                  <FolderIcon size={20} />
+                  <span className="truncate font-bold">{entry.name}</span>
+                  <span>{entry.count} item{entry.count !== 1 ? "s" : ""}</span>
+                  <span>—</span>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="s7-context-menu-content">
+                <ContextMenuItem
+                  onSelect={() =>
+                    setCurrentPath(currentPath ? `${currentPath}/${entry.name}` : entry.name)
+                  }
+                >
+                  Open Folder
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          </div>
         ) : (
-          <ContextMenu key={entry.file.id}>
-            <ContextMenuTrigger asChild>
-              <div
-                className={`s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default${entry.file.id === selectedFileId ? " s7-file-row--selected" : ""}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("application/x-holocron-file-id", entry.file.id);
-                  e.dataTransfer.setData("text/plain", entry.file.name);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                onClick={() => onSelectFile(entry.file.id)}
-                onDoubleClick={() => onFileClick?.(entry.file.id)}
-              >
-                <DocumentIcon size={20} />
-                <span className="truncate">{entry.file.name}</span>
-                <span>{formatBytes(entry.file.size)}</span>
-                <span>{formatDate(entry.file.updatedAt)}</span>
-              </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="s7-context-menu-content">
-              <ContextMenuItem onSelect={() => onFileClick?.(entry.file.id)}>
-                Open
-              </ContextMenuItem>
-              <ContextMenuItem onSelect={() => onGetInfo?.(entry.file.id)}>
-                Get Info
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                variant="destructive"
-                onSelect={() => onDeleteFile?.(entry.file.id)}
-              >
-                Delete
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
+          <div
+            key={entry.file.id}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData("application/x-holocron-file-id", entry.file.id);
+              e.dataTransfer.setData("text/plain", entry.file.name);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+          >
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <div
+                  className={`s7-file-row text-sm grid grid-cols-[28px_1fr_80px_100px] gap-4 p-1 items-center cursor-default${entry.file.id === selectedFileId ? " s7-file-row--selected" : ""}`}
+                  onClick={() => onSelectFile(entry.file.id)}
+                  onDoubleClick={() => onFileClick?.(entry.file.id)}
+                >
+                  <DocumentIcon size={20} />
+                  <span className="truncate">{entry.file.name}</span>
+                  <span>{formatBytes(entry.file.size)}</span>
+                  <span>{formatDate(entry.file.updatedAt)}</span>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="s7-context-menu-content">
+                <ContextMenuItem onSelect={() => onFileClick?.(entry.file.id)}>
+                  Open
+                </ContextMenuItem>
+                <ContextMenuItem onSelect={() => onGetInfo?.(entry.file.id)}>
+                  Get Info
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  variant="destructive"
+                  onSelect={() => onDeleteFile?.(entry.file.id)}
+                >
+                  Delete
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          </div>
         ),
       )}
     </div>
