@@ -204,7 +204,13 @@ async fn main() {
                                 .map(|c| {
                                     let text = c.text.trim();
                                     if text.len() > 200 {
-                                        format!("{}…", &text[..200])
+                                        let end = text
+                                            .char_indices()
+                                            .map(|(i, _)| i)
+                                            .take_while(|&i| i <= 200)
+                                            .last()
+                                            .unwrap_or(200);
+                                        format!("{}…", &text[..end])
                                     } else {
                                         text.to_string()
                                     }
