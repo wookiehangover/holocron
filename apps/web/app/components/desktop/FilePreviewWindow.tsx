@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { HolocronFile } from "@holocron/core/types";
 
 function isTextMime(mime: string): boolean {
@@ -24,6 +24,7 @@ function formatBytes(bytes: number): string {
 interface FilePreviewWindowProps {
   file: HolocronFile;
   downloadUrl: string;
+  onNaturalSize?: (width: number, height: number) => void;
 }
 
 /**
@@ -33,11 +34,11 @@ interface FilePreviewWindowProps {
  * - PDF: <iframe>
  * - Other: file info + download link
  */
-export function FilePreviewWindow({ file, downloadUrl }: FilePreviewWindowProps) {
+export function FilePreviewWindow({ file, downloadUrl, onNaturalSize }: FilePreviewWindowProps) {
   const mime = file.mimeType ?? "";
 
   if (mime.startsWith("image/")) {
-    return <ImagePreview url={downloadUrl} name={file.name} />;
+    return <ImagePreview url={downloadUrl} name={file.name} onNaturalSize={onNaturalSize} />;
   }
 
   if (isTextMime(mime)) {
@@ -53,12 +54,42 @@ export function FilePreviewWindow({ file, downloadUrl }: FilePreviewWindowProps)
 
 /* ------------------------------------------------------------------ */
 
-function ImagePreview({ url, name }: { url: string; name: string }) {
+/** Chrome padding: ~24px width (8px padding each side + borders), ~56px height (title bar + separator + padding). */
+const CHROME_W = 24;
+const CHROME_H = 56;
+const MAX_W = 800;
+const MAX_H = 600;
+const MIN_W = 200;
+const MIN_H = 150;
+
+function ImagePreview({
+  url,
+  name,
+  onNaturalSize,
+}: {
+  url: string;
+  name: string;
+  onNaturalSize?: (width: number, height: number) => void;
+}) {
+  const reported = useRef(false);
+
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (reported.current || !onNaturalSize) return;
+    reported.current = true;
+    const img = e.currentTarget;
+    const maxW = Math.min(MAX_W, window.innerWidth * 0.8);
+    const maxH = Math.min(MAX_H, window.innerHeight * 0.8);
+    const w = Math.max(MIN_W, Math.min(img.naturalWidth + CHROME_W, maxW));
+    const h = Math.max(MIN_H, Math.min(img.naturalHeight + CHROME_H, maxH));
+    onNaturalSize(w, h);
+  };
+
   return (
     <div style={{ padding: 8, textAlign: "center" }}>
       <img
         src={url}
         alt={name}
+        onLoad={handleLoad}
         style={{ maxWidth: "100%", maxHeight: "100%", imageRendering: "auto" }}
       />
     </div>
