@@ -37,9 +37,12 @@ export function Window({
   // but only if the user hasn't manually resized.
   useEffect(() => {
     if (!userResized.current) {
-      setSize(defaultSize);
+      setSize((prev) => {
+        if (prev.width === defaultSize.width && prev.height === defaultSize.height) return prev;
+        return { width: defaultSize.width, height: defaultSize.height };
+      });
     }
-  }, [defaultSize]);
+  }, [defaultSize.width, defaultSize.height]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
