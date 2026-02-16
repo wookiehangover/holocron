@@ -51,6 +51,14 @@ export function FilePreviewWindow({ file, downloadUrl, initialSized, onNaturalSi
     return <PdfPreview url={downloadUrl} name={file.name} />;
   }
 
+  if (mime.startsWith("video/")) {
+    return <VideoPreview url={downloadUrl} name={file.name} />;
+  }
+
+  if (mime.startsWith("audio/")) {
+    return <AudioPreview url={downloadUrl} name={file.name} />;
+  }
+
   return <GenericPreview file={file} downloadUrl={downloadUrl} />;
 }
 
@@ -159,6 +167,29 @@ function PdfPreview({ url, name }: { url: string; name: string }) {
       title={name}
       style={{ width: "100%", height: "100%", border: "none" }}
     />
+  );
+}
+
+function VideoPreview({ url, name }: { url: string; name: string }) {
+  return (
+    <div className="s7-video-preview">
+      <video controls src={url} title={name} style={{ width: "100%", height: "100%" }}>
+        Your browser does not support the video element.
+      </video>
+    </div>
+  );
+}
+
+function AudioPreview({ url, name }: { url: string; name: string }) {
+  return (
+    <div className="s7-audio-preview">
+      <div style={{ fontFamily: "GeistPixel, Geneva, sans-serif", fontSize: 14, marginBottom: 12 }}>
+        {name}
+      </div>
+      <audio controls src={url} title={name} style={{ width: "100%" }}>
+        Your browser does not support the audio element.
+      </audio>
+    </div>
   );
 }
 

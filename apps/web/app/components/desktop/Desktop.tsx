@@ -245,7 +245,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             <img
               src="/moon.dust.svg"
               alt="Holocron"
-              className="s7-moon-icon h-4 w-4"
+              className="s7-moon-icon h-6 w-6"
             />
           </MenubarTrigger>
         </MenubarMenu>
