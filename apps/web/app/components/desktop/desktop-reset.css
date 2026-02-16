@@ -279,8 +279,8 @@
 }
 .system7-desktop .title-bar button.close:hover {
   background-image:
-    linear-gradient(45deg, transparent 38%, var(--s7-fg) 38%, var(--s7-fg) 62%, transparent 62%),
-    linear-gradient(-45deg, transparent 38%, var(--s7-fg) 38%, var(--s7-fg) 62%, transparent 62%);
+    linear-gradient(45deg, transparent calc(50% - 0.5px), var(--s7-fg) calc(50% - 0.5px), var(--s7-fg) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(-45deg, transparent calc(50% - 0.5px), var(--s7-fg) calc(50% - 0.5px), var(--s7-fg) calc(50% + 0.5px), transparent calc(50% + 0.5px));
   background-size: 100% 100%;
   background-color: var(--s7-bg);
 }
