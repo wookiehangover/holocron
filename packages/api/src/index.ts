@@ -4,7 +4,7 @@ import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, searchChunks, getChunksByFileId } from "./db.js";
+import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, updateFilePath, searchChunks, getChunksByFileId } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -179,6 +179,16 @@ app.get("/files/:id", async (c) => {
   }
   const downloadUrl = await getPresignedGetUrl(getBucketName(), file.s3Key ?? file.path);
   return c.json({ file, downloadUrl });
+});
+
+app.patch("/files/:id", async (c) => {
+  const id = c.req.param("id");
+  const { path } = await c.req.json<{ path: string }>();
+  if (!path) {
+    return c.json({ error: "Missing required field: path" }, 400);
+  }
+  await updateFilePath(id, path);
+  return c.json({ ok: true });
 });
 
 app.post("/files/:id/reindex", async (c) => {

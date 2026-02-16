@@ -162,6 +162,36 @@ export async function updateFileChecksum(
   await bumpVaultVersion(0);
 }
 
+/** Update the path (and GSI2 key, name, updatedAt) for an existing file. */
+export async function updateFilePath(
+  id: string,
+  newPath: string,
+): Promise<void> {
+  const newName = newPath.includes("/")
+    ? newPath.slice(newPath.lastIndexOf("/") + 1)
+    : newPath;
+
+  await docClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
+      UpdateExpression:
+        "SET #p = :p, #n = :n, gsi2pk = :gsi2pk, updatedAt = :u",
+      ExpressionAttributeNames: {
+        "#p": "path",
+        "#n": "name",
+      },
+      ExpressionAttributeValues: {
+        ":p": newPath,
+        ":n": newName,
+        ":gsi2pk": `${PREFIX.PATH}${newPath}`,
+        ":u": new Date().toISOString(),
+      },
+    }),
+  );
+  await bumpVaultVersion(0);
+}
+
 /** Fetch a single file by its primary key. */
 export async function getFileById(id: string): Promise<HolocronFile | null> {
   const result = await docClient.send(
