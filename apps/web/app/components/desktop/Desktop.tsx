@@ -2,6 +2,14 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import type { HolocronFile } from "@holocron/core/types";
 import { getFile, deleteFile, uploadFile, listFiles } from "~/lib/api";
 import { useTheme } from "~/lib/theme-provider";
+import {
+  Menubar,
+  MenubarMenu,
+  MenubarTrigger,
+  MenubarContent,
+  MenubarItem,
+  MenubarSeparator,
+} from "~/components/ui/menubar";
 import { FolderIcon } from "./FolderIcon";
 import { TrashIcon } from "./TrashIcon";
 import { Window, type SnapZone } from "./Window";
@@ -230,86 +238,81 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   return (
     <div className="system7-desktop fixed inset-0 flex flex-col overflow-hidden">
       {/* Menu bar */}
-      <ul
-        role="menu-bar"
-        className="s7-menu-bar shrink-0 z-[100]"
-      >
-        <li role="menu-item">
-          <span className="apple" />
-        </li>
-        <li role="menu-item" aria-haspopup="true">
-          <strong>File</strong>
-          <ul role="menu">
-            <li role="menu-item">
-              <button
-                className="s7-menu-btn"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                New
-              </button>
-            </li>
-            <hr />
-            <li role="menu-item">
-              <button
-                className={`s7-menu-btn ${hasSelectedFile ? "" : "opacity-50 pointer-events-none"}`}
-                onClick={() => {
-                  if (hasSelectedFile) openFilePreview(selectedFileId);
-                }}
-              >
-                Open
-              </button>
-            </li>
-            <li role="menu-item">
-              <button
-                className={`s7-menu-btn ${hasSelectedFile ? "" : "opacity-50 pointer-events-none"}`}
-                onClick={() => {
-                  if (hasSelectedFile) openGetInfo(selectedFileId);
-                }}
-              >
-                Get Info
-              </button>
-            </li>
-            <li role="menu-item">
-              <button
-                className={`s7-menu-btn ${hasOpenWindow ? "" : "opacity-50 pointer-events-none"}`}
-                onClick={() => {
-                  if (activeWindowId !== null) closeWindow(activeWindowId);
-                }}
-              >
-                Close
-              </button>
-            </li>
-            <hr />
-            <li role="menu-item">
-              <button
-                className={`s7-menu-btn ${hasSelectedFile ? "" : "opacity-50 pointer-events-none"}`}
-                onClick={handleDeleteSelected}
-              >
-                Delete
-              </button>
-            </li>
-          </ul>
-        </li>
-        <li role="menu-item" aria-haspopup="false"><strong>Edit</strong></li>
-        <li role="menu-item" aria-haspopup="true">
-          <strong>View</strong>
-          <ul role="menu">
-            <li role="menu-item">
-              <button
-                className="s7-menu-btn"
-                onClick={() => {
-                  if (theme === "light") setTheme("dark");
-                  else if (theme === "dark") setTheme("system");
-                  else setTheme("light");
-                }}
-              >
-                Theme: {theme === "system" ? `System (${resolvedTheme})` : theme}
-              </button>
-            </li>
-          </ul>
-        </li>
-        <li role="menu-item" aria-haspopup="false"><strong>Special</strong></li>
-      </ul>
+      <Menubar className="s7-menubar shrink-0 z-[100] rounded-none border-0 border-b-2 border-[var(--s7-border)] bg-[var(--s7-bg)] px-1 h-7 min-h-0">
+        {/* Moon icon (replaces vintage Apple logo) */}
+        <MenubarMenu>
+          <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-normal">
+            <img
+              src="/moon.dust.svg"
+              alt="Holocron"
+              className="s7-moon-icon h-4 w-4"
+            />
+          </MenubarTrigger>
+        </MenubarMenu>
+
+        {/* File menu */}
+        <MenubarMenu>
+          <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-bold">File</MenubarTrigger>
+          <MenubarContent className="s7-menubar-content">
+            <MenubarItem onSelect={() => fileInputRef.current?.click()}>
+              New
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem
+              disabled={!hasSelectedFile}
+              onSelect={() => { if (hasSelectedFile) openFilePreview(selectedFileId); }}
+            >
+              Open
+            </MenubarItem>
+            <MenubarItem
+              disabled={!hasSelectedFile}
+              onSelect={() => { if (hasSelectedFile) openGetInfo(selectedFileId); }}
+            >
+              Get Info
+            </MenubarItem>
+            <MenubarItem
+              disabled={!hasOpenWindow}
+              onSelect={() => { if (activeWindowId !== null) closeWindow(activeWindowId); }}
+            >
+              Close
+            </MenubarItem>
+            <MenubarSeparator />
+            <MenubarItem
+              variant="destructive"
+              disabled={!hasSelectedFile}
+              onSelect={handleDeleteSelected}
+            >
+              Delete
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+
+        {/* Edit menu (placeholder) */}
+        <MenubarMenu>
+          <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-bold">Edit</MenubarTrigger>
+        </MenubarMenu>
+
+        {/* View menu */}
+        <MenubarMenu>
+          <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-bold">View</MenubarTrigger>
+          <MenubarContent className="s7-menubar-content">
+            <MenubarItem
+              onSelect={() => {
+                if (theme === "light") setTheme("dark");
+                else if (theme === "dark") setTheme("system");
+                else setTheme("light");
+              }}
+            >
+              Theme: {theme === "system" ? `System (${resolvedTheme})` : theme}
+            </MenubarItem>
+          </MenubarContent>
+        </MenubarMenu>
+
+        {/* Special menu (placeholder) */}
+        <MenubarMenu>
+          <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-bold">Special</MenubarTrigger>
+        </MenubarMenu>
+      </Menubar>
 
       {/* Desktop surface with crosshatch pattern */}
       <div className="s7-desktop-surface flex-1 relative">

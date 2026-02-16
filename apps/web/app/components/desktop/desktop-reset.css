@@ -90,6 +90,60 @@
   padding: 0;
 }
 
+/* --- Shadcn Menubar overrides for System 7 look ------------------- */
+.system7-desktop .s7-menubar {
+  font-family: GeistPixel, Geneva, Helvetica, sans-serif;
+  font-size: 14px;
+  color: var(--s7-fg);
+  box-shadow: none;
+}
+.system7-desktop .s7-menubar-trigger {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1;
+  border-radius: 0;
+  cursor: default;
+  color: var(--s7-fg);
+  background: transparent;
+}
+.system7-desktop .s7-menubar-trigger:hover,
+.system7-desktop .s7-menubar-trigger[data-state="open"] {
+  background: var(--s7-highlight-bg);
+  color: var(--s7-highlight-fg);
+}
+.system7-desktop .s7-menubar-content {
+  font-family: GeistPixel, Geneva, Helvetica, sans-serif;
+  font-size: 14px;
+  border-radius: 0;
+  border: 2px solid var(--s7-border);
+  background: var(--s7-bg);
+  color: var(--s7-fg);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.25);
+  padding: 2px;
+}
+.system7-desktop .s7-menubar-content [data-slot="menubar-item"] {
+  font-family: inherit;
+  font-size: inherit;
+  border-radius: 0;
+  cursor: default;
+  padding: 2px 16px;
+  color: var(--s7-fg);
+}
+.system7-desktop .s7-menubar-content [data-slot="menubar-item"]:focus,
+.system7-desktop .s7-menubar-content [data-slot="menubar-item"]:hover {
+  background: var(--s7-highlight-bg);
+  color: var(--s7-highlight-fg);
+}
+.system7-desktop .s7-menubar-content [data-slot="menubar-separator"] {
+  background: var(--s7-border);
+}
+
+/* --- Moon icon (menu bar logo) ------------------------------------ */
+.system7-desktop .s7-moon-icon {
+  /* In light mode the SVG is white-filled; invert to black */
+  filter: invert(1);
+}
+
 /* --- Desktop crosshatch background -------------------------------- */
 .system7-desktop .s7-desktop-surface {
   background:
@@ -235,22 +289,28 @@
   --s7-icon-fill: #333333;
   --s7-highlight-bg: #5a5a5a;
   --s7-highlight-fg: #ffffff;
-  --s7-crosshatch-bg: #555555;
-  --s7-crosshatch-fg: #222222;
+  --s7-crosshatch-bg: #222222;
+  --s7-crosshatch-fg: #555555;
   --s7-dialog-overlay: rgba(0, 0, 0, 0.3);
 }
 
-/* --- Menu bar ----------------------------------------------------- */
-.dark .system7-desktop [role="menu-bar"] {
+/* --- Menubar (shadcn) --------------------------------------------- */
+.dark .system7-desktop .s7-menubar {
   background-color: var(--s7-bg);
   color: var(--s7-fg);
+  border-color: var(--s7-border);
 }
-.dark .system7-desktop [role="menu-bar"] li[role="menu-item"] {
+.dark .system7-desktop .s7-menubar-trigger {
   color: var(--s7-fg);
 }
-.dark .system7-desktop [role="menu-bar"] ul[role="menu"] {
+.dark .system7-desktop .s7-menubar-content {
   background-color: var(--s7-bg);
   border-color: var(--s7-border);
+  color: var(--s7-fg);
+}
+/* In dark mode the SVG is already white-filled; remove the invert */
+.dark .system7-desktop .s7-moon-icon {
+  filter: none;
 }
 
 /* --- Window chrome ------------------------------------------------ */
