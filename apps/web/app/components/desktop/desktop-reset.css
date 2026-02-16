@@ -344,6 +344,15 @@
   background: var(--s7-border);
 }
 
+/* --- Desktop shortcut icons ---------------------------------------- */
+.system7-desktop .s7-desktop-shortcut {
+  width: 72px;
+  padding: 4px;
+}
+.system7-desktop .s7-shortcut-arrow {
+  pointer-events: none;
+}
+
 /* --- File row hover & selected highlight --------------------------- */
 .system7-desktop .s7-file-row:hover {
   background: var(--s7-highlight-bg);

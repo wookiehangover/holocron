@@ -15,7 +15,9 @@ import {
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
 } from "~/components/ui/context-menu";
+import { DocumentIcon } from "./DocumentIcon";
 import { FolderIcon } from "./FolderIcon";
 import { TrashIcon } from "./TrashIcon";
 import { Window, type SnapZone } from "./Window";
@@ -23,6 +25,11 @@ import { FileListWindow } from "./FileListWindow";
 import { FilePreviewWindow } from "./FilePreviewWindow";
 import { GetInfoWindow } from "./GetInfoWindow";
 import { ConfirmDialog } from "./ConfirmDialog";
+import {
+  type DesktopShortcut,
+  loadShortcuts,
+  saveShortcuts,
+} from "~/lib/desktop-shortcuts";
 
 interface DesktopProps {
   files: HolocronFile[];
@@ -36,6 +43,7 @@ interface FolderWindow {
   kind: "folder";
   title: string;
   position: { x: number; y: number };
+  initialPath?: string;
 }
 
 interface PreviewWindow {
@@ -81,6 +89,13 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [snapZone, setSnapZone] = useState<SnapZone>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const desktopRef = useRef<HTMLDivElement>(null);
+  const [shortcuts, setShortcuts] = useState<DesktopShortcut[]>(loadShortcuts);
+
+  // Persist shortcuts to localStorage whenever they change
+  useEffect(() => {
+    saveShortcuts(shortcuts);
+  }, [shortcuts]);
 
   /** Counter for staggering preview window positions. */
   const previewCount = windows.filter((w) => w.kind === "preview").length;
@@ -94,6 +109,26 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     ]);
     setActiveWindowId(id);
   }, [windows]);
+
+  const openFolderAtPath = useCallback(
+    (folderPath: string) => {
+      const id = nextWindowId++;
+      const offset = (windows.filter((w) => w.kind === "folder").length % 5) * 24;
+      const folderName = folderPath.split("/").pop() || folderPath;
+      setWindows((prev) => [
+        ...prev,
+        {
+          id,
+          kind: "folder",
+          title: folderName,
+          position: { x: 80 + offset, y: 60 + offset },
+          initialPath: folderPath,
+        },
+      ]);
+      setActiveWindowId(id);
+    },
+    [windows],
+  );
 
   const openFilePreview = useCallback(
     async (fileId: string) => {
@@ -237,6 +272,58 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     [],
   );
 
+  /** Handle files/folders dropped onto the desktop surface to create shortcuts. */
+  const handleDesktopDrop = useCallback(
+    (e: React.DragEvent) => {
+      const fileId = e.dataTransfer.getData("application/x-holocron-file-id");
+      const folderPath = e.dataTransfer.getData("application/x-holocron-folder");
+      if (!fileId && !folderPath) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = desktopRef.current?.getBoundingClientRect();
+      const x = e.clientX - (rect?.left ?? 0) - 24; // centre the icon
+      const y = e.clientY - (rect?.top ?? 0) - 24;
+
+      if (fileId) {
+        // Prevent duplicate file shortcut
+        if (shortcuts.some((s) => s.targetId === fileId)) return;
+        const name =
+          e.dataTransfer.getData("text/plain") ||
+          files.find((f) => f.id === fileId)?.name ||
+          "File";
+        setShortcuts((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), kind: "file", targetId: fileId, name, position: { x, y } },
+        ]);
+      } else if (folderPath) {
+        // Prevent duplicate folder shortcut
+        if (shortcuts.some((s) => s.targetPath === folderPath)) return;
+        const name = folderPath.split("/").pop() || folderPath;
+        setShortcuts((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), kind: "folder", targetPath: folderPath, name, position: { x, y } },
+        ]);
+      }
+    },
+    [files, shortcuts],
+  );
+
+  const handleDesktopDragOver = useCallback((e: React.DragEvent) => {
+    if (
+      e.dataTransfer.types.includes("application/x-holocron-file-id") ||
+      e.dataTransfer.types.includes("application/x-holocron-folder")
+    ) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "link";
+    }
+  }, []);
+
+  const removeShortcut = useCallback((shortcutId: string) => {
+    setShortcuts((prev) => prev.filter((s) => s.id !== shortcutId));
+  }, []);
+
   // ⌘I / Ctrl+I keyboard shortcut for Get Info
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -336,7 +423,12 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       {/* Desktop surface with crosshatch pattern */}
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <div className="s7-desktop-surface flex-1 relative">
+          <div
+            ref={desktopRef}
+            className="s7-desktop-surface flex-1 relative"
+            onDragOver={handleDesktopDragOver}
+            onDrop={handleDesktopDrop}
+          >
             {/* Holocron folder icon */}
             <ContextMenu>
               <ContextMenuTrigger asChild>
@@ -371,6 +463,65 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
             Trash
           </span>
         </div>
+
+        {/* Desktop shortcuts */}
+        {shortcuts.map((shortcut) => (
+          <ContextMenu key={shortcut.id}>
+            <ContextMenuTrigger asChild>
+              <div
+                className="s7-desktop-shortcut absolute flex flex-col items-center cursor-default select-none gap-[4px]"
+                style={{ left: shortcut.position.x, top: shortcut.position.y }}
+                onDoubleClick={() => {
+                  if (shortcut.kind === "file" && shortcut.targetId) {
+                    openFilePreview(shortcut.targetId);
+                  } else if (shortcut.kind === "folder" && shortcut.targetPath) {
+                    openFolderAtPath(shortcut.targetPath);
+                  }
+                }}
+              >
+                <div className="relative">
+                  {shortcut.kind === "file" ? (
+                    <DocumentIcon size={48} />
+                  ) : (
+                    <FolderIcon size={48} />
+                  )}
+                  {/* Shortcut arrow overlay */}
+                  <svg
+                    className="s7-shortcut-arrow absolute bottom-0 left-0"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    fill="none"
+                  >
+                    <rect width="10" height="10" fill="var(--s7-bg, white)" />
+                    <path d="M2 8 L2 3 L7 3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                    <path d="M5 3 L7 3 L7 5" stroke="currentColor" strokeWidth="1.5" fill="currentColor" />
+                  </svg>
+                </div>
+                <span className="s7-icon-label text-center max-w-[72px] truncate text-xs">
+                  {shortcut.name}
+                </span>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="s7-context-menu-content">
+              <ContextMenuItem
+                onSelect={() => {
+                  if (shortcut.kind === "file" && shortcut.targetId) {
+                    openFilePreview(shortcut.targetId);
+                  } else if (shortcut.kind === "folder" && shortcut.targetPath) {
+                    openFolderAtPath(shortcut.targetPath);
+                  }
+                }}
+              >
+                Open
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={() => removeShortcut(shortcut.id)}>
+                Remove Shortcut
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        ))}
 
         {/* Snap preview overlay */}
         {snapZone && (
@@ -413,6 +564,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
                     setPendingDelete({ fileId, fileName });
                   }}
                   onMoveFile={handleMoveFile}
+                  initialPath={w.initialPath}
                 />
               ) : w.kind === "info" ? (
                 <GetInfoWindow file={w.file} />
