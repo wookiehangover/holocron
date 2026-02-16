@@ -270,11 +270,19 @@
 }
 
 /* --- Close button X: show on hover --------------------------------- */
-/* system.css only shows the X on :active (mousedown). Real System 7   */
-/* shows an empty square, then X on hover. Override to show on hover.  */
-.system7-desktop .title-bar button.close:hover::before,
-.system7-desktop .title-bar button.close:hover::after {
-  opacity: 1;
+/* system.css pseudo-elements draw edge marks that look wrong at our   */
+/* scale. Hide them entirely and draw a clean X with diagonal          */
+/* gradients on hover instead.                                         */
+.system7-desktop .title-bar button.close::before,
+.system7-desktop .title-bar button.close::after {
+  display: none;
+}
+.system7-desktop .title-bar button.close:hover {
+  background-image:
+    linear-gradient(45deg, transparent 38%, var(--s7-fg) 38%, var(--s7-fg) 62%, transparent 62%),
+    linear-gradient(-45deg, transparent 38%, var(--s7-fg) 38%, var(--s7-fg) 62%, transparent 62%);
+  background-size: 100% 100%;
+  background-color: var(--s7-bg);
 }
 
 /* --- File row hover & selected highlight --------------------------- */
@@ -360,22 +368,7 @@
   background-color: var(--s7-bg);
   border-color: var(--s7-border);
 }
-/* Close button X: light color in dark mode (system.css uses #000) */
-.dark .system7-desktop .title-bar button.close::before,
-.dark .system7-desktop .title-bar button.close::after {
-  background:
-    linear-gradient(var(--s7-fg), var(--s7-fg)) 0,
-    linear-gradient(var(--s7-fg), var(--s7-fg)) 100%,
-    linear-gradient(var(--s7-fg), var(--s7-fg)) top,
-    linear-gradient(var(--s7-fg), var(--s7-fg)) bottom;
-  background-repeat: no-repeat;
-}
-.dark .system7-desktop .title-bar button.close::before {
-  background-size: 30% 4px, 30% 4px, 4px 30%, 4px 30%;
-}
-.dark .system7-desktop .title-bar button.close::after {
-  background-size: 22.5% 3.64px, 22.5% 3.64px, 3.64px 22.5%, 3.64px 22.5%;
-}
+
 .dark .system7-desktop .inactive-title-bar {
   background-color: #3a3a3a;
   color: #999999;
