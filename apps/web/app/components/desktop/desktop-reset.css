@@ -1,58 +1,70 @@
 /*
  * desktop-reset.css
  *
- * Undo Tailwind Preflight and app.css @layer base interference
- * within the .system7-desktop scope so that system.css controls
- * all styling for the /desktop route.
+ * Undo Tailwind Preflight and app.css @layer base overrides within the
+ * .system7-desktop scope so that system.css controls all styling for the
+ * /desktop route.
  *
- * Imported AFTER system.css in desktop.tsx.
+ * Imported AFTER system.css in desktop.tsx so these rules patch what
+ * Tailwind broke without overriding system.css's own declarations.
  */
 
 /* ------------------------------------------------------------------ */
-/* 1. Reset the global `* { border-border outline-ring/50 }` rule     */
-/*    from app.css @layer base so system.css borders render correctly  */
+/* 1. Undo app.css `@layer base { * { @apply border-border outline-ring/50 } }` */
+/*    border-color: currentcolor restores the CSS default so system.css's      */
+/*    own border declarations (which use currentcolor implicitly) work.         */
+/*    outline: revert restores UA-stylesheet outline behaviour.                */
+/*    NOTE: Do NOT reset border-style or border-width here — initial values    */
+/*    (none / medium) would destroy system.css borders.                        */
 /* ------------------------------------------------------------------ */
+.system7-desktop,
 .system7-desktop *,
 .system7-desktop *::before,
 .system7-desktop *::after {
-  border-color: initial;
-  border-style: initial;
-  border-width: initial;
-  outline: initial;
+  border-color: currentcolor;
+  outline: revert;
 }
 
 /* ------------------------------------------------------------------ */
-/* 2. Reset body-level overrides (bg-background, text-foreground,     */
-/*    font-family: system-ui) that leak from app.css @layer base      */
+/* 2. Undo Tailwind Preflight button resets                           */
+/*    Preflight: button { background-color: transparent; background-image: none } */
+/*    Revert restores the UA default (opaque background for buttons).          */
+/* ------------------------------------------------------------------ */
+.system7-desktop button {
+  background-color: revert;
+  background-image: revert;
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. Undo Tailwind Preflight list resets                             */
+/*    Preflight: ol, ul { list-style: none; margin: 0; padding: 0 }           */
+/*    system.css menu-bar uses ul[role] with its own overrides.                */
+/* ------------------------------------------------------------------ */
+.system7-desktop ul,
+.system7-desktop ol {
+  list-style: revert;
+  margin: revert;
+  padding: revert;
+}
+
+/* ------------------------------------------------------------------ */
+/* 4. Undo Tailwind Preflight img/svg block display                   */
+/*    Preflight: img, svg, … { display: block; vertical-align: middle }       */
+/* ------------------------------------------------------------------ */
+.system7-desktop img,
+.system7-desktop svg {
+  display: revert;
+  vertical-align: revert;
+}
+
+/* ------------------------------------------------------------------ */
+/* 5. Prevent body-level Tailwind/app.css styles from leaking in      */
+/*    app.css @layer base: body { bg-background text-foreground       */
+/*    font-family: system-ui }                                        */
 /* ------------------------------------------------------------------ */
 .system7-desktop {
-  font-family: Geneva_9, Geneva, Helvetica, sans-serif;
-  font-size: 12px;
   color: #000;
   background: transparent;
   line-height: normal;
-}
-
-/* ------------------------------------------------------------------ */
-/* 3. Restore browser defaults that Tailwind Preflight strips         */
-/* ------------------------------------------------------------------ */
-.system7-desktop strong {
-  font-weight: bold;
-}
-
-.system7-desktop img {
-  display: inline;
-}
-
-.system7-desktop h1,
-.system7-desktop h2,
-.system7-desktop h3 {
-  font-size: inherit;
-  font-weight: inherit;
-}
-
-.system7-desktop button {
-  background: transparent;
-  cursor: default;
 }
 
