@@ -316,7 +316,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       e.dataTransfer.types.includes("application/x-holocron-folder")
     ) {
       e.preventDefault();
-      e.dataTransfer.dropEffect = "link";
+      e.dataTransfer.dropEffect = "move";
     }
   }, []);
 
