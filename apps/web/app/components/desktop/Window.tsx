@@ -21,7 +21,7 @@ export function Window({
   title,
   children,
   defaultPosition = { x: 80, y: 60 },
-  defaultSize = { width: 500, height: 360 },
+  defaultSize = { width: 640, height: 360 },
   isActive,
   onFocus,
   onClose,
