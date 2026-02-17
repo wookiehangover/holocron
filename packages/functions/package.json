@@ -14,10 +14,12 @@
     "@holocron/core": "workspace:*",
     "ai": "^6.0.86",
     "image-size": "^2.0.2",
+    "jszip": "^3.10.1",
     "unpdf": "^1.4.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.160"
+    "@types/aws-lambda": "^8.10.160",
+    "@types/jszip": "^3.4.1"
   }
 }
