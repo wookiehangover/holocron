@@ -1,8 +1,5 @@
 /**
- * DynamoDB single-table and API key secret.
- *
- * All entities (Files,
- * ShareLinks) live in one DynamoDB table using composite keys.
+ * Database secrets and API key secrets.
  */
 
 /**
@@ -18,31 +15,8 @@ export const holocronApiKey = new sst.Secret("HolocronApiKey");
 export const vercelAiGatewayApiKey = new sst.Secret("VercelAIGatewayApiKey");
 
 /**
- * Single-table DynamoDB table for Holocron.
- *
- * Primary key: pk (S) + sk (S)
- *
- * GSI1 — listing & grouping:
- *   File listing:    gsi1pk = "FILES",                gsi1sk = "<createdAt>#<id>"
- *   Shares by file:  gsi1pk = "FILE_SHARES#<fileId>", gsi1sk = "SHARE#<id>"
- *
- * GSI2 — unique lookups:
- *   File by path:    gsi2pk = "PATH#<path>",  gsi2sk = "FILE#<id>"
- *   Share by URL:    gsi2pk = "URL#<url>",    gsi2sk = "SHARE#<id>"
+ * SST secret for the PlanetScale PostgreSQL connection string.
+ * Set via: `sst secret set DatabaseUrl <value>`
  */
-export const table = new sst.aws.Dynamo("Holocron", {
-  fields: {
-    pk: "string",
-    sk: "string",
-    gsi1pk: "string",
-    gsi1sk: "string",
-    gsi2pk: "string",
-    gsi2sk: "string",
-  },
-  primaryIndex: { hashKey: "pk", rangeKey: "sk" },
-  globalIndexes: {
-    gsi1: { hashKey: "gsi1pk", rangeKey: "gsi1sk" },
-    gsi2: { hashKey: "gsi2pk", rangeKey: "gsi2sk" },
-  },
-});
+export const databaseUrl = new sst.Secret("DatabaseUrl");
 
