@@ -123,9 +123,9 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         syncNowMenuItem.target = self
         menu.addItem(syncNowMenuItem)
 
-        // Open Vault Folder
+        // Open sync folder
         let openVaultItem = NSMenuItem(
-            title: "Open Vault Folder",
+            title: "Open sync folder",
             action: #selector(openVaultFolder),
             keyEquivalent: "o"
         )
