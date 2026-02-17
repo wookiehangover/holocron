@@ -30,7 +30,7 @@ vi.mock("../db/schema.js", () => {
         // This is the sql(values) helper for bulk inserts — just return a marker
         return { __bulkInsert: true, values: strings };
       }
-      callLog.push({ strings: [...strings], values });
+      callLog.push({ strings: [...strings] as string[], values });
       return Promise.resolve(mockResults.shift() ?? []);
     };
 

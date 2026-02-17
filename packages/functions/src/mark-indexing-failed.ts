@@ -2,7 +2,7 @@
  * Lambda handler invoked by the Step Functions FailureHandler state.
  *
  * When any step in the indexing pipeline fails, the Catch block routes here
- * so we can mark the file as "failed" in DynamoDB — preventing the file from
+ * so we can mark the file as "failed" in PostgreSQL — preventing the file from
  * being stuck in an intermediate indexing status forever.
  */
 
