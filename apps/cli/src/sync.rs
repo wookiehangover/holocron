@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use crate::api::{ApiClient, RemoteFile};
 use crate::config::Config;
@@ -20,6 +21,15 @@ pub struct ManifestEntry {
 }
 
 type Manifest = HashMap<String, ManifestEntry>;
+
+/// Wrapper around the manifest that includes a device identifier.
+/// When persisted, this ensures the manifest is tied to a specific machine.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistedManifest {
+    device_id: String,
+    files: Manifest,
+}
 
 #[derive(Debug)]
 struct LocalFile {
@@ -39,25 +49,123 @@ fn manifest_path() -> PathBuf {
         .join("sync-state.json")
 }
 
-fn load_manifest() -> Manifest {
-    let path = manifest_path();
-    if !path.exists() {
+fn device_id_path() -> PathBuf {
+    dirs::home_dir()
+        .expect("could not determine home directory")
+        .join(".config")
+        .join("holocron")
+        .join("device-id")
+}
+
+/// Read or create a device identifier at the given path.
+/// The device ID is a UUID generated once per machine to identify the
+/// origin of a sync manifest.
+fn get_or_create_device_id(path: &Path) -> String {
+    if let Ok(contents) = std::fs::read_to_string(path) {
+        let id = contents.trim().to_string();
+        if !id.is_empty() {
+            return id;
+        }
+    }
+    let id = Uuid::new_v4().to_string();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(path, &id);
+    id
+}
+
+/// Load a manifest from `manifest_path`, checking the device ID against
+/// `current_device_id`. Returns an empty manifest if:
+/// - The file doesn't exist
+/// - The file is in the old (unwrapped) format with no device ID
+/// - The stored device ID doesn't match the current device
+fn load_manifest_from(manifest_path: &Path, current_device_id: &str) -> Manifest {
+    if !manifest_path.exists() {
         return HashMap::new();
     }
-    match std::fs::read_to_string(&path) {
-        Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
+    match std::fs::read_to_string(manifest_path) {
+        Ok(data) => {
+            // Try the new format (PersistedManifest with device_id)
+            if let Ok(persisted) = serde_json::from_str::<PersistedManifest>(&data) {
+                if persisted.device_id == current_device_id {
+                    return persisted.files;
+                }
+                eprintln!(
+                    "warning: sync manifest was created on a different device \
+                     (expected {current_device_id}, found {}); treating as fresh sync",
+                    persisted.device_id
+                );
+                return HashMap::new();
+            }
+            // Old format (raw HashMap) — no device ID, treat as stale
+            // to be safe. On the same machine the files are still on disk,
+            // so they'll reconcile cleanly as (None, Some, Some).
+            eprintln!(
+                "warning: sync manifest has no device ID (legacy format); \
+                 treating as fresh sync"
+            );
+            HashMap::new()
+        }
         Err(_) => HashMap::new(),
     }
 }
 
-fn save_manifest(manifest: &Manifest) -> Result<(), Box<dyn std::error::Error>> {
-    let path = manifest_path();
-    if let Some(parent) = path.parent() {
+fn load_manifest() -> Manifest {
+    let device_id = get_or_create_device_id(&device_id_path());
+    load_manifest_from(&manifest_path(), &device_id)
+}
+
+fn save_manifest_to(
+    manifest: &Manifest,
+    manifest_path: &Path,
+    device_id: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(parent) = manifest_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let json = serde_json::to_string_pretty(manifest)?;
-    std::fs::write(path, json)?;
+    let persisted = PersistedManifest {
+        device_id: device_id.to_string(),
+        files: manifest.clone(),
+    };
+    let json = serde_json::to_string_pretty(&persisted)?;
+    std::fs::write(manifest_path, json)?;
     Ok(())
+}
+
+fn save_manifest(manifest: &Manifest) -> Result<(), Box<dyn std::error::Error>> {
+    let device_id = get_or_create_device_id(&device_id_path());
+    save_manifest_to(manifest, &manifest_path(), &device_id)
+}
+
+// ---------------------------------------------------------------------------
+// Safety net
+// ---------------------------------------------------------------------------
+
+/// Returns an error message if the sync would cause dangerous mass deletion.
+/// Triggers when >50% of remote files would be deleted AND the local vault has
+/// fewer files than the manifest (suggesting a stale manifest rather than
+/// intentional bulk deletion).
+fn check_mass_deletion_safety(
+    pending_remote_deletions: usize,
+    remote_count: usize,
+    local_count: usize,
+    manifest_count: usize,
+) -> Option<String> {
+    if remote_count > 0
+        && pending_remote_deletions > remote_count / 2
+        && local_count < manifest_count
+    {
+        Some(format!(
+            "aborting sync: would delete {pending_remote_deletions} of {remote_count} \
+             remote files, but local vault has only {local_count} files \
+             (manifest expects {manifest_count}). This looks like a stale manifest \
+             from another device. Delete the sync manifest at {} to force a fresh sync.",
+            manifest_path().display()
+        ))
+    } else {
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +354,28 @@ pub async fn run_sync(config: &Config) -> Result<(), Box<dyn std::error::Error>>
     }
     for key in local_map.keys() {
         all_paths.insert(key.clone());
+    }
+
+    // Safety net: pre-scan for potential mass deletion of remote files.
+    // This catches stale manifests that slipped past the device ID check
+    // (e.g. if the device-id file was also synced between machines).
+    let pending_remote_deletions = all_paths
+        .iter()
+        .filter(|p| {
+            matches!(
+                (manifest.get(*p), local_map.get(p.as_str()), remote_map.get(p.as_str())),
+                (Some(_), None, Some(_))
+            )
+        })
+        .count();
+
+    if let Some(msg) = check_mass_deletion_safety(
+        pending_remote_deletions,
+        clean_remote_files.len(),
+        local_files.len(),
+        manifest.len(),
+    ) {
+        return Err(msg.into());
     }
 
     let mut new_manifest = Manifest::new();
@@ -625,5 +755,200 @@ mod tests {
     #[test]
     fn normalize_handles_empty_string() {
         assert_eq!(normalize_path_separators(""), "");
+    }
+
+    // -----------------------------------------------------------------------
+    // Device ID
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn get_or_create_device_id_creates_new_id() {
+        let tmp = TempDir::new().unwrap();
+        let id_path = tmp.path().join("device-id");
+
+        let id = get_or_create_device_id(&id_path);
+        assert!(!id.is_empty());
+        assert!(id_path.exists());
+
+        // Second call returns the same ID
+        let id2 = get_or_create_device_id(&id_path);
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn get_or_create_device_id_reads_existing() {
+        let tmp = TempDir::new().unwrap();
+        let id_path = tmp.path().join("device-id");
+
+        fs::write(&id_path, "my-custom-id").unwrap();
+        let id = get_or_create_device_id(&id_path);
+        assert_eq!(id, "my-custom-id");
+    }
+
+    // -----------------------------------------------------------------------
+    // Manifest device ID checking
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn load_manifest_with_matching_device_id_returns_files() {
+        let tmp = TempDir::new().unwrap();
+        let mpath = tmp.path().join("sync-state.json");
+        let device_id = "test-device-123";
+
+        let mut files = HashMap::new();
+        files.insert(
+            "doc.md".to_string(),
+            ManifestEntry {
+                checksum: "abc123".to_string(),
+                file_id: "file-1".to_string(),
+            },
+        );
+        let persisted = PersistedManifest {
+            device_id: device_id.to_string(),
+            files,
+        };
+        let json = serde_json::to_string(&persisted).unwrap();
+        fs::write(&mpath, json).unwrap();
+
+        let result = load_manifest_from(&mpath, device_id);
+        assert_eq!(result.len(), 1);
+        assert!(result.contains_key("doc.md"));
+    }
+
+    #[test]
+    fn load_manifest_with_foreign_device_id_returns_empty() {
+        let tmp = TempDir::new().unwrap();
+        let mpath = tmp.path().join("sync-state.json");
+
+        let mut files = HashMap::new();
+        for i in 0..10 {
+            files.insert(
+                format!("file{i}.md"),
+                ManifestEntry {
+                    checksum: format!("checksum{i}"),
+                    file_id: format!("id-{i}"),
+                },
+            );
+        }
+        let persisted = PersistedManifest {
+            device_id: "old-device".to_string(),
+            files,
+        };
+        let json = serde_json::to_string(&persisted).unwrap();
+        fs::write(&mpath, json).unwrap();
+
+        let result = load_manifest_from(&mpath, "new-device");
+        assert!(
+            result.is_empty(),
+            "stale manifest from another device should be treated as empty"
+        );
+    }
+
+    #[test]
+    fn load_manifest_old_format_returns_empty() {
+        let tmp = TempDir::new().unwrap();
+        let mpath = tmp.path().join("sync-state.json");
+
+        // Write an old-format manifest (plain HashMap, no device_id wrapper)
+        let mut files: HashMap<String, ManifestEntry> = HashMap::new();
+        files.insert(
+            "doc.md".to_string(),
+            ManifestEntry {
+                checksum: "abc123".to_string(),
+                file_id: "file-1".to_string(),
+            },
+        );
+        let json = serde_json::to_string(&files).unwrap();
+        fs::write(&mpath, json).unwrap();
+
+        let result = load_manifest_from(&mpath, "any-device");
+        assert!(
+            result.is_empty(),
+            "old-format manifest without device ID should be treated as empty"
+        );
+    }
+
+    #[test]
+    fn load_manifest_missing_file_returns_empty() {
+        let tmp = TempDir::new().unwrap();
+        let mpath = tmp.path().join("does-not-exist.json");
+
+        let result = load_manifest_from(&mpath, "any-device");
+        assert!(result.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // Mass deletion safety net
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn safety_check_aborts_on_mass_deletion() {
+        // 10 remote files, 8 would be deleted, 0 local, 10 in manifest
+        let result = check_mass_deletion_safety(8, 10, 0, 10);
+        assert!(
+            result.is_some(),
+            "should abort when >50% of remote files would be deleted \
+             and local has fewer files than manifest"
+        );
+    }
+
+    #[test]
+    fn safety_check_allows_normal_single_deletion() {
+        // 10 remote files, 1 deletion, 9 local, 10 in manifest
+        let result = check_mass_deletion_safety(1, 10, 9, 10);
+        assert!(
+            result.is_none(),
+            "should allow deletion when only a small fraction would be deleted"
+        );
+    }
+
+    #[test]
+    fn safety_check_allows_when_local_matches_manifest() {
+        // Even with many deletions, if local >= manifest it's intentional
+        let result = check_mass_deletion_safety(8, 10, 10, 10);
+        assert!(
+            result.is_none(),
+            "should allow when local count >= manifest count (intentional deletion)"
+        );
+    }
+
+    #[test]
+    fn safety_check_allows_when_no_remote_files() {
+        // Edge case: no remote files at all
+        let result = check_mass_deletion_safety(0, 0, 0, 5);
+        assert!(
+            result.is_none(),
+            "should not trigger when there are no remote files"
+        );
+    }
+
+    #[test]
+    fn save_and_load_manifest_roundtrip() {
+        let tmp = TempDir::new().unwrap();
+        let mpath = tmp.path().join("sync-state.json");
+        let device_id = "roundtrip-device";
+
+        let mut files = HashMap::new();
+        files.insert(
+            "notes/hello.md".to_string(),
+            ManifestEntry {
+                checksum: "sha256abc".to_string(),
+                file_id: "f-001".to_string(),
+            },
+        );
+        files.insert(
+            "docs/readme.txt".to_string(),
+            ManifestEntry {
+                checksum: "sha256def".to_string(),
+                file_id: "f-002".to_string(),
+            },
+        );
+
+        save_manifest_to(&files, &mpath, device_id).unwrap();
+
+        let loaded = load_manifest_from(&mpath, device_id);
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded["notes/hello.md"].checksum, "sha256abc");
+        assert_eq!(loaded["docs/readme.txt"].file_id, "f-002");
     }
 }
