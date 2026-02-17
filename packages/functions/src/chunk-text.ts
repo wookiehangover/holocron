@@ -26,6 +26,10 @@ const MIN_WORDS_PER_CHUNK = 50;
 const MAX_WORDS_PER_CHUNK = 250;
 const MAX_CHARS_PER_CHUNK = 1000;
 
+// Gemini batch embedding API limit: at most 100 items per request
+const EMBEDDING_BATCH_SIZE = 100;
+const EMBEDDING_BATCH_DELAY_MS = 200;
+
 // ---------------------------------------------------------------------------
 // Chunking algorithm (ported from reference DumbChunker)
 // ---------------------------------------------------------------------------
@@ -226,15 +230,25 @@ export async function handler(event: {
     // Compute offsets for each chunk
     const offsets = computeOffsets(fullText, chunkTexts);
 
-    // Generate embeddings for all chunks
-    console.log(`File ${fileId}: generating embeddings for ${chunkTexts.length} chunks`);
-    const { embeddings } = await embedMany({
-      model: gateway.embeddingModel("google/gemini-embedding-001"),
-      values: chunkTexts,
-      providerOptions: {
-        google: { outputDimensionality: 768 },
-      },
-    });
+    // Generate embeddings in batches (Gemini API limit: 100 per request)
+    console.log(`File ${fileId}: generating embeddings for ${chunkTexts.length} chunks in batches of ${EMBEDDING_BATCH_SIZE}`);
+    const embeddings: number[][] = [];
+    for (let i = 0; i < chunkTexts.length; i += EMBEDDING_BATCH_SIZE) {
+      const batch = chunkTexts.slice(i, i + EMBEDDING_BATCH_SIZE);
+      const { embeddings: batchEmbeddings } = await embedMany({
+        model: gateway.embeddingModel("google/gemini-embedding-001"),
+        values: batch,
+        providerOptions: {
+          google: { outputDimensionality: 768 },
+        },
+      });
+      embeddings.push(...batchEmbeddings);
+
+      // Small delay between batches to avoid rate-limit pressure
+      if (i + EMBEDDING_BATCH_SIZE < chunkTexts.length) {
+        await new Promise((resolve) => setTimeout(resolve, EMBEDDING_BATCH_DELAY_MS));
+      }
+    }
 
     // Build FileChunk records with embeddings
     const now = new Date();

@@ -26,7 +26,7 @@ export const extractTextFn = new sst.aws.Function("ExtractText", {
 export const chunkTextFn = new sst.aws.Function("ChunkText", {
   handler: "packages/functions/src/chunk-text.handler",
   runtime: "nodejs22.x",
-  timeout: "120 seconds",
+  timeout: "300 seconds",
   memory: "512 MB",
   link: [bucket, databaseUrl, vercelAiGatewayApiKey],
   environment: {
