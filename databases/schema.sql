@@ -1,90 +1,92 @@
--- Holocron: DynamoDB Single-Table Design
+-- Holocron: PostgreSQL Schema
 --
--- This file documents the DynamoDB table design for the Holocron file vault.
--- The table is provisioned by SST in infra/database.ts. All entities (Files,
--- ShareLinks) share a single table using composite primary keys and two GSIs.
---
--- This is a DESIGN DOCUMENT, not an executable schema. The actual table is
--- created by SST's sst.aws.Dynamo construct at deploy time.
---
--- =============================================================================
--- Table: Holocron
--- =============================================================================
---
--- Primary key:  pk (S) + sk (S)
---
--- GSI1 (gsi1) — listing & grouping:
---   gsi1pk (S) + gsi1sk (S)
---
--- GSI2 (gsi2) — unique lookups:
---   gsi2pk (S) + gsi2sk (S)
---
--- =============================================================================
--- Entity: File  (maps to HolocronFile in @holocron/core)
--- =============================================================================
---
---   pk:     FILE#<id>
---   sk:     FILE#<id>
---   gsi1pk: FILES
---   gsi1sk: <createdAt>#<id>       (enables listing files by creation date)
---   gsi2pk: PATH#<path>
---   gsi2sk: FILE#<id>              (enables unique lookup by vault path)
---
---   Attributes: id, name, path, s3Key, size, mimeType, checksum,
---               createdAt (ISO 8601), updatedAt (ISO 8601)
---
--- Access patterns:
---   Get file by ID:     GetItem  pk=FILE#<id>, sk=FILE#<id>
---   Get file by path:   Query    GSI2  gsi2pk=PATH#<path>
---   List all files:     Query    GSI1  gsi1pk=FILES  (ScanIndexForward=false)
---   Insert/update file: PutItem  pk=FILE#<id>, sk=FILE#<id>
---   Delete file:        DeleteItem pk=FILE#<id>, sk=FILE#<id>
---
--- =============================================================================
--- Entity: ShareLink  (maps to ShareLink in @holocron/core)
--- =============================================================================
---
---   pk:     SHARE#<id>
---   sk:     SHARE#<id>
---   gsi1pk: FILE_SHARES#<fileId>
---   gsi1sk: SHARE#<id>             (enables listing shares for a file)
---   gsi2pk: URL#<url>
---   gsi2sk: SHARE#<id>             (enables unique lookup by public URL)
---
---   Attributes: id, fileId, url, expiresAt (ISO 8601 | null), createdAt (ISO 8601)
---
--- Access patterns:
---   Get share by URL:       Query GSI2  gsi2pk=URL#<url>
---   List shares for file:   Query GSI1  gsi1pk=FILE_SHARES#<fileId>
---   Insert share:           PutItem pk=SHARE#<id>, sk=SHARE#<id>
---   Delete share:           DeleteItem pk=SHARE#<id>, sk=SHARE#<id>
---   Delete all file shares: Query GSI1 then BatchWrite DeleteRequests
---
--- =============================================================================
--- Entity: FileChunk  (maps to FileChunk in @holocron/core)
--- =============================================================================
---
---   pk:     CHUNK#<id>
---   sk:     CHUNK#<id>
---   gsi1pk: FILE_CHUNKS#<fileId>
---   gsi1sk: CHUNK#<chunkIndex>       (enables listing chunks for a file in order)
---
---   Attributes: id, fileId, chunkIndex, text, page (optional), startOffset,
---               endOffset, createdAt (ISO 8601)
---
--- Access patterns:
---   Get chunk by ID:         GetItem   pk=CHUNK#<id>, sk=CHUNK#<id>
---   List chunks for file:    Query     GSI1  gsi1pk=FILE_CHUNKS#<fileId> (ScanIndexForward=true)
---   Insert chunks:           BatchWrite PutRequests
---   Delete all file chunks:  Query GSI1 then BatchWrite DeleteRequests
---   Search chunks by text:   Scan with FilterExpression begins_with(pk, "CHUNK#") AND contains(text, <query>)
---
--- =============================================================================
--- Extended File attributes (indexing)
--- =============================================================================
---
---   The File entity gains optional indexing-related attributes:
---   - indexingStatus (S): "pending" | "extracting" | "chunking" | "indexing" | "indexed" | "failed"
---   - metadata (M):      LLM-generated metadata map (summary, title, keywords, topics, language, etc.)
---   - fullTextS3Key (S): S3 object key for the extracted full text
+-- Executable DDL for the Holocron file vault backed by PostgreSQL + pgvector.
+-- Replaces the previous DynamoDB single-table design.
 
+-- =============================================================================
+-- Extensions
+-- =============================================================================
+
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- =============================================================================
+-- Table: files  (maps to HolocronFile in @holocron/core)
+-- =============================================================================
+
+CREATE TABLE files (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            TEXT        NOT NULL,
+  path            TEXT        NOT NULL UNIQUE,
+  s3_key          TEXT,
+  size            BIGINT      NOT NULL,
+  mime_type       TEXT        NOT NULL,
+  checksum        TEXT        NOT NULL DEFAULT '',
+  indexing_status TEXT,
+  metadata        JSONB,
+  full_text_s3_key TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_files_created_at ON files (created_at DESC);
+
+-- =============================================================================
+-- Table: share_links  (maps to ShareLink in @holocron/core)
+-- =============================================================================
+
+CREATE TABLE share_links (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_id     UUID        NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  url         TEXT        NOT NULL UNIQUE,
+  expires_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_share_links_file_id ON share_links (file_id);
+
+-- =============================================================================
+-- Table: file_chunks  (maps to FileChunk in @holocron/core)
+-- =============================================================================
+
+CREATE TABLE file_chunks (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  file_id       UUID        NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+  chunk_index   INTEGER     NOT NULL,
+  text          TEXT        NOT NULL,
+  page          INTEGER,
+  start_offset  INTEGER     NOT NULL,
+  end_offset    INTEGER     NOT NULL,
+  embedding     vector(768),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_file_chunks_file_id_chunk_index ON file_chunks (file_id, chunk_index);
+CREATE INDEX idx_file_chunks_embedding ON file_chunks USING hnsw (embedding vector_cosine_ops);
+
+-- =============================================================================
+-- Table: vault_version  (singleton row for vault metadata)
+-- =============================================================================
+
+CREATE TABLE vault_version (
+  id            INTEGER     PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  version       INTEGER     NOT NULL DEFAULT 0,
+  file_count    INTEGER     NOT NULL DEFAULT 0,
+  last_modified TIMESTAMPTZ
+);
+
+-- =============================================================================
+-- Trigger: auto-update updated_at on files
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_files_updated_at
+  BEFORE UPDATE ON files
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
