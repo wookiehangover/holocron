@@ -274,12 +274,19 @@ export async function insertChunks(
 }
 
 /** List all chunks for a file, ordered by chunk_index. */
-export async function getChunksByFileId(fileId: string): Promise<FileChunk[]> {
-  const rows = await sql`
-    SELECT * FROM file_chunks
-    WHERE file_id = ${fileId}
-    ORDER BY chunk_index ASC
-  `;
+export async function getChunksByFileId(fileId: string, limit?: number): Promise<FileChunk[]> {
+  const rows = limit
+    ? await sql`
+        SELECT * FROM file_chunks
+        WHERE file_id = ${fileId}
+        ORDER BY chunk_index ASC
+        LIMIT ${limit}
+      `
+    : await sql`
+        SELECT * FROM file_chunks
+        WHERE file_id = ${fileId}
+        ORDER BY chunk_index ASC
+      `;
   return rows.map(rowToChunk);
 }
 

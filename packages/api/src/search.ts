@@ -233,8 +233,8 @@ export async function hybridSearch(
   try {
     const chunkArrays = await Promise.all(
       metadataFiles.map(async (mf) => {
-        const chunks = await getChunksByFileId(mf.fileId);
-        return chunks.slice(0, 3).map((c) => ({
+        const chunks = await getChunksByFileId(mf.fileId, 3);
+        return chunks.map((c) => ({
           id: c.id,
           fileId: c.fileId,
           fileName: mf.fileName,
