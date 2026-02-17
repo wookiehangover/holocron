@@ -7,6 +7,7 @@ import { gateway } from "@ai-sdk/gateway";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, updateFilePath, searchChunks, searchChunksByEmbedding, getChunksByFileId } from "./db.js";
+import { hybridSearch } from "./search.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -102,6 +103,22 @@ app.get("/files/search", async (c) => {
     }));
 
   return c.json({ results, query, total: results.length });
+});
+
+// ---------------------------------------------------------------------------
+// Hybrid Search (full-text + vector + reranking)
+// ---------------------------------------------------------------------------
+
+app.post("/search", async (c) => {
+  const body = await c.req.json<{ query: string; limit?: number }>();
+  if (!body.query) {
+    return c.json({ error: "Missing required field: query" }, 400);
+  }
+
+  const limit = Math.min(Math.max(body.limit ?? 20, 1), 100);
+  const results = await hybridSearch(body.query, limit);
+
+  return c.json({ results, query: body.query, total: results.length });
 });
 
 // ---------------------------------------------------------------------------
