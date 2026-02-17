@@ -10,6 +10,9 @@ import { gateway } from "@ai-sdk/gateway";
 import {
   searchChunksByFullText,
   searchChunksByEmbedding,
+  searchChunks,
+  searchFilesByMetadata,
+  getChunksByFileId,
   getFileById,
 } from "./db.js";
 
@@ -56,7 +59,7 @@ const RRF_K = 60;
 const RERANK_LIMIT = 30;
 
 /** Minimum relevance score (1-10) to keep a chunk. */
-const MIN_RELEVANCE_SCORE = 3;
+const MIN_RELEVANCE_SCORE = 1;
 
 const RERANK_SYSTEM_PROMPT = `Score how well this text chunk answers the given query on a scale of 1-10.
 10: Perfectly answers the query
@@ -71,12 +74,11 @@ Return only a single integer (1-10).`;
 // ---------------------------------------------------------------------------
 
 /**
- * Reciprocal Rank Fusion: merge two ranked lists by chunk ID.
+ * Reciprocal Rank Fusion: merge multiple ranked lists by chunk ID.
  * Score = Σ 1/(k + rank) where rank is 1-based position.
  */
 function reciprocalRankFusion(
-  fullTextResults: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>,
-  vectorResults: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>,
+  ...resultLists: Array<Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>>
 ): FusedChunk[] {
   const scoreMap = new Map<string, FusedChunk>();
 
@@ -104,8 +106,9 @@ function reciprocalRankFusion(
     }
   };
 
-  addScores(fullTextResults);
-  addScores(vectorResults);
+  for (const list of resultLists) {
+    addScores(list);
+  }
 
   return [...scoreMap.values()].sort((a, b) => b.rrfScore - a.rrfScore);
 }
@@ -151,7 +154,7 @@ function rrfFallbackScores(
   const range = maxRrf - minRrf || 1;
   return chunks.map((chunk) => ({
     ...chunk,
-    relevanceScore: Math.round(((chunk.rrfScore - minRrf) / range) * 9 + 1),
+    relevanceScore: Math.round(((chunk.rrfScore - minRrf) / range) * 7 + 3),
   }));
 }
 
@@ -178,21 +181,95 @@ export async function hybridSearch(
     },
   });
 
-  // 2. Parallel retrieval
-  const [fullTextHits, vectorHits] = await Promise.all([
-    searchChunksByFullText(query, 50),
-    searchChunksByEmbedding(embedding, 50),
+  // 2. Parallel retrieval — each leg wrapped in try/catch
+  let fullTextHits: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
+  let vectorHits: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
+  let metadataFiles: Array<{ fileId: string; fileName: string }> = [];
+
+  const [ftsResult, vectorResult, metadataResult] = await Promise.all([
+    searchChunksByFullText(query, 50).catch((err) => {
+      console.log(`[search] FTS error: ${err}`);
+      return [] as typeof fullTextHits;
+    }),
+    searchChunksByEmbedding(embedding, 50).catch((err) => {
+      console.log(`[search] Vector search error: ${err}`);
+      return [] as typeof vectorHits;
+    }),
+    searchFilesByMetadata(query).catch((err) => {
+      console.log(`[search] Metadata search error: ${err}`);
+      return [] as typeof metadataFiles;
+    }),
   ]);
 
-  // 3. Reciprocal Rank Fusion
-  const fused = reciprocalRankFusion(fullTextHits, vectorHits);
+  fullTextHits = ftsResult;
+  vectorHits = vectorResult;
+  metadataFiles = metadataResult;
+
+  console.log(`[search] FTS returned ${fullTextHits.length} chunks for query "${query}"`);
+  console.log(`[search] Vector search returned ${vectorHits.length} chunks`);
+  console.log(`[search] Metadata search matched ${metadataFiles.length} files`);
+
+  // 2b. ILIKE fallback if FTS returned < 5 results
+  let ilikeHits: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
+  if (fullTextHits.length < 5) {
+    try {
+      const ilikeResults = await searchChunks(query, 30);
+      ilikeHits = ilikeResults.map((c) => ({
+        id: c.id,
+        fileId: c.fileId,
+        fileName: c.fileName,
+        text: c.text,
+        page: c.page,
+        chunkIndex: c.chunkIndex,
+      }));
+      console.log(`[search] ILIKE fallback returned ${ilikeHits.length} chunks`);
+    } catch (err) {
+      console.log(`[search] ILIKE fallback error: ${err}`);
+    }
+  }
+
+  // 2c. Metadata leg — fetch first 3 chunks per matching file
+  let metadataChunks: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
+  try {
+    const chunkArrays = await Promise.all(
+      metadataFiles.map(async (mf) => {
+        const chunks = await getChunksByFileId(mf.fileId);
+        return chunks.slice(0, 3).map((c) => ({
+          id: c.id,
+          fileId: c.fileId,
+          fileName: mf.fileName,
+          text: c.text,
+          page: c.page,
+          chunkIndex: c.chunkIndex,
+        }));
+      }),
+    );
+    metadataChunks = chunkArrays.flat();
+  } catch (err) {
+    console.log(`[search] Metadata chunk fetch error: ${err}`);
+  }
+
+  // 3. Reciprocal Rank Fusion — merge all legs
+  const rrfLists: Array<Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>> = [
+    fullTextHits,
+    vectorHits,
+  ];
+  if (ilikeHits.length > 0) rrfLists.push(ilikeHits);
+  if (metadataChunks.length > 0) rrfLists.push(metadataChunks);
+
+  const fused = reciprocalRankFusion(...rrfLists);
+  console.log(`[search] RRF fusion produced ${fused.length} candidates`);
 
   // 4. Rerank top-N
   const topN = fused.slice(0, RERANK_LIMIT);
   const reranked = await rerankChunks(query, topN);
 
+  const scores = reranked.map((c) => c.relevanceScore);
+  console.log(`[search] Reranking scores: ${JSON.stringify(scores)}`);
+
   // 5. Filter & group by file
   const kept = reranked.filter((c) => c.relevanceScore >= MIN_RELEVANCE_SCORE);
+  console.log(`[search] Kept ${kept.length} chunks after filtering (min score: ${MIN_RELEVANCE_SCORE})`);
 
   // Group by fileId
   const fileGroups = new Map<
@@ -245,5 +322,6 @@ export async function hybridSearch(
     });
   }
 
+  console.log(`[search] Returning ${results.length} file results`);
   return results;
 }

@@ -338,7 +338,10 @@ export async function searchChunks(
 }
 
 /**
- * Search chunks using PostgreSQL full-text search with `plainto_tsquery`.
+ * Search chunks using PostgreSQL full-text search with OR logic.
+ *
+ * Splits the query into words and joins with ` | ` to create an OR tsquery,
+ * so any word matching is sufficient. Falls back to `plainto_tsquery` on error.
  *
  * Joins with the files table to include the file name in results.
  * Results are ordered by `ts_rank` (highest relevance first).
@@ -347,21 +350,46 @@ export async function searchChunksByFullText(
   query: string,
   limit = 50,
 ): Promise<Array<FileChunk & { fileName: string; tsRank: number }>> {
-  const rows = await sql`
-    SELECT c.*, f.name AS file_name,
-           ts_rank(c.tsv, plainto_tsquery('english', ${query})) AS ts_rank
-    FROM file_chunks c
-    JOIN files f ON f.id = c.file_id
-    WHERE c.tsv @@ plainto_tsquery('english', ${query})
-    ORDER BY ts_rank DESC
-    LIMIT ${limit}
-  `;
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  const orQuery = words
+    .map((w) => w.replace(/[^a-zA-Z0-9]/g, ""))
+    .filter(Boolean)
+    .join(" | ");
 
-  return rows.map((row) => ({
-    ...rowToChunk(row),
-    fileName: row.file_name as string,
-    tsRank: Number(row.ts_rank),
-  }));
+  try {
+    const rows = await sql`
+      SELECT c.*, f.name AS file_name,
+             ts_rank(c.tsv, to_tsquery('english', ${orQuery})) AS ts_rank
+      FROM file_chunks c
+      JOIN files f ON f.id = c.file_id
+      WHERE c.tsv @@ to_tsquery('english', ${orQuery})
+      ORDER BY ts_rank DESC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((row) => ({
+      ...rowToChunk(row),
+      fileName: row.file_name as string,
+      tsRank: Number(row.ts_rank),
+    }));
+  } catch {
+    // Fallback to plainto_tsquery if the OR query fails
+    const rows = await sql`
+      SELECT c.*, f.name AS file_name,
+             ts_rank(c.tsv, plainto_tsquery('english', ${query})) AS ts_rank
+      FROM file_chunks c
+      JOIN files f ON f.id = c.file_id
+      WHERE c.tsv @@ plainto_tsquery('english', ${query})
+      ORDER BY ts_rank DESC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((row) => ({
+      ...rowToChunk(row),
+      fileName: row.file_name as string,
+      tsRank: Number(row.ts_rank),
+    }));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -428,3 +456,40 @@ export async function insertChunksWithEmbeddings(
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// Metadata search helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Search files by metadata fields (title, keywords, topics) using ILIKE.
+ *
+ * Returns matching file IDs and names for use in the hybrid search pipeline.
+ */
+export async function searchFilesByMetadata(
+  query: string,
+  limit = 20,
+): Promise<Array<{ fileId: string; fileName: string }>> {
+  const pattern = `%${query}%`;
+  const rows = await sql`
+    SELECT id, name
+    FROM files
+    WHERE metadata IS NOT NULL AND (
+      metadata->>'title' ILIKE ${pattern}
+      OR EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(metadata->'keywords') kw
+        WHERE kw ILIKE ${pattern}
+      )
+      OR EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(metadata->'topics') tp
+        WHERE tp ILIKE ${pattern}
+      )
+    )
+    LIMIT ${limit}
+  `;
+
+  return rows.map((row) => ({
+    fileId: row.id as string,
+    fileName: row.name as string,
+  }));
+}
