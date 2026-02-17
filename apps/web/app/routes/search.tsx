@@ -1,11 +1,12 @@
+import { useState, useEffect, useRef } from "react";
 import { Form, Link, useLoaderData, useNavigation } from "react-router";
 import type { Route } from "./+types/search";
-import { hybridSearch, type HybridSearchResult } from "../lib/api";
+import { hybridSearch, rerankSearch, type HybridSearchResult } from "../lib/api";
 import { Layout } from "~/components/layout";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
 import { Skeleton } from "~/components/ui/skeleton";
-import { Search, X, FileText } from "lucide-react";
+import { Search, X, FileText, Sparkles } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Loader — run search server-side when ?q= is present
@@ -62,11 +63,57 @@ function truncate(text: string, max = 200): string {
 // ---------------------------------------------------------------------------
 
 export default function SearchPage() {
-  const { results, query, total } = useLoaderData<typeof loader>();
+  const loaderData = useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const isSearching =
     navigation.state === "loading" &&
     new URLSearchParams(navigation.location?.search).has("q");
+
+  // Two-phase render: start with fast RRF results, then refine with LLM reranking
+  const [displayResults, setDisplayResults] = useState<HybridSearchResult[] | null>(loaderData.results);
+  const [isReranking, setIsReranking] = useState(false);
+  const rerankAbortRef = useRef<AbortController | null>(null);
+
+  // Sync displayResults when loader data changes (new search or navigation)
+  useEffect(() => {
+    setDisplayResults(loaderData.results);
+  }, [loaderData.results]);
+
+  // Client-side reranking effect
+  useEffect(() => {
+    // Abort any in-flight rerank request
+    rerankAbortRef.current?.abort();
+
+    if (!loaderData.results || loaderData.results.length === 0 || !loaderData.query) {
+      setIsReranking(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+    rerankAbortRef.current = abortController;
+    setIsReranking(true);
+
+    rerankSearch(loaderData.query, loaderData.results)
+      .then((data) => {
+        if (!abortController.signal.aborted) {
+          setDisplayResults(data.results);
+          setIsReranking(false);
+        }
+      })
+      .catch(() => {
+        // Graceful degradation — keep original RRF results
+        if (!abortController.signal.aborted) {
+          setIsReranking(false);
+        }
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [loaderData.results, loaderData.query]);
+
+  const query = loaderData.query;
+  const total = displayResults?.length ?? loaderData.total;
 
   return (
     <Layout>
@@ -96,20 +143,28 @@ export default function SearchPage() {
         {isSearching && <SearchSkeleton />}
 
         {/* No query yet */}
-        {!isSearching && results === null && <EmptyPrompt />}
+        {!isSearching && displayResults === null && <EmptyPrompt />}
 
         {/* Query with no results */}
-        {!isSearching && results !== null && results.length === 0 && (
+        {!isSearching && displayResults !== null && displayResults.length === 0 && (
           <NoResults query={query} />
         )}
 
         {/* Results */}
-        {!isSearching && results !== null && results.length > 0 && (
+        {!isSearching && displayResults !== null && displayResults.length > 0 && (
           <div className="space-y-6">
-            <p className="text-xs text-muted-foreground">
-              {total} {total === 1 ? "result" : "results"} for &ldquo;{query}&rdquo;
-            </p>
-            {results.map((result) => (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                {total} {total === 1 ? "result" : "results"} for &ldquo;{query}&rdquo;
+              </p>
+              {isReranking && (
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground animate-pulse">
+                  <Sparkles className="size-3" />
+                  Refining results…
+                </span>
+              )}
+            </div>
+            {displayResults.map((result) => (
               <ResultItem key={result.file.id} result={result} query={query} />
             ))}
           </div>

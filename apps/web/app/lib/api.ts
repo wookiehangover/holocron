@@ -231,7 +231,7 @@ export interface HybridSearchResponse {
   total: number;
 }
 
-/** Hybrid search: keyword + vector + LLM reranking. */
+/** Hybrid search: keyword + vector + RRF scoring (fast path, no LLM reranking). */
 export async function hybridSearch(
   query: string,
   limit = 20,
@@ -242,6 +242,20 @@ export async function hybridSearch(
     body: JSON.stringify({ query, limit }),
   });
   if (!res.ok) throw new Error(`hybridSearch failed: ${res.status}`);
+  return res.json();
+}
+
+/** Rerank search results using LLM (Gemini 3 Flash). Enhancement path — call after hybridSearch. */
+export async function rerankSearch(
+  query: string,
+  results: HybridSearchResult[],
+): Promise<HybridSearchResponse> {
+  const res = await fetch(`${baseUrl()}/search/rerank`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ query, results }),
+  });
+  if (!res.ok) throw new Error(`rerankSearch failed: ${res.status}`);
   return res.json();
 }
 

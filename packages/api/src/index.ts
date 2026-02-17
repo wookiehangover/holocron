@@ -7,7 +7,8 @@ import { gateway } from "@ai-sdk/gateway";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
 import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, updateFilePath, searchChunks, searchChunksByEmbedding, getChunksByFileId } from "./db.js";
-import { hybridSearch } from "./search.js";
+import { hybridSearch, rerankResults } from "./search.js";
+import type { HybridSearchResult } from "./search.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -119,6 +120,20 @@ app.post("/search", async (c) => {
   const results = await hybridSearch(body.query, limit);
 
   return c.json({ results, query: body.query, total: results.length });
+});
+
+// ---------------------------------------------------------------------------
+// Rerank (LLM-based re-scoring of search results)
+// ---------------------------------------------------------------------------
+
+app.post("/search/rerank", async (c) => {
+  const body = await c.req.json<{ query: string; results: HybridSearchResult[] }>();
+  if (!body.query || !body.results) {
+    return c.json({ error: "Missing query or results" }, 400);
+  }
+
+  const reranked = await rerankResults(body.query, body.results);
+  return c.json({ results: reranked, query: body.query, total: reranked.length });
 });
 
 // ---------------------------------------------------------------------------

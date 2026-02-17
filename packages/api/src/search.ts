@@ -275,14 +275,12 @@ export async function hybridSearch(
   console.log(`[search] RRF fusion produced ${fused.length} candidates`);
   console.log(`[search] Metadata + RRF: ${Date.now() - t0}ms`);
 
-  // 4. Rerank top-N
-  const tRerank = Date.now();
+  // 4. Score top-N using RRF fallback (no LLM call — reranking is a separate endpoint)
   const topN = fused.slice(0, RERANK_LIMIT);
-  const reranked = await rerankChunks(query, topN);
+  const reranked = rrfFallbackScores(topN);
 
   const scores = reranked.map((c) => c.relevanceScore);
-  console.log(`[search] Reranking scores: ${JSON.stringify(scores)}`);
-  console.log(`[search] Reranking: ${Date.now() - tRerank}ms`);
+  console.log(`[search] RRF fallback scores: ${JSON.stringify(scores)}`);
 
   // 5. Filter & group by file
   const kept = reranked.filter((c) => c.relevanceScore >= MIN_RELEVANCE_SCORE);
@@ -343,4 +341,91 @@ export async function hybridSearch(
   console.log(`[search] Returning ${results.length} file results`);
   console.log(`[search] Total: ${Date.now() - t0}ms`);
   return results;
+}
+
+
+// ---------------------------------------------------------------------------
+// Rerank results (separate from search for latency reasons)
+// ---------------------------------------------------------------------------
+
+/**
+ * Rerank a set of hybrid search results using LLM (Gemini 3 Flash).
+ *
+ * Takes the fast RRF-scored results from `hybridSearch` and rescores them
+ * via the `rerankChunks` helper. If the LLM call fails, returns the
+ * original results unchanged (graceful degradation).
+ */
+export async function rerankResults(
+  query: string,
+  results: HybridSearchResult[],
+): Promise<HybridSearchResult[]> {
+  if (results.length === 0) return results;
+
+  const t0 = Date.now();
+
+  // Flatten all chunks from all results into FusedChunk shape for rerankChunks
+  const allChunks: FusedChunk[] = results.flatMap((r) =>
+    r.chunks.map((c) => ({
+      id: c.id,
+      fileId: r.file.id,
+      fileName: r.file.name,
+      text: c.text,
+      page: c.page,
+      chunkIndex: c.chunkIndex,
+      rrfScore: c.relevanceScore, // Use existing score as base
+    })),
+  );
+
+  // Rerank via LLM (falls back to RRF mapping internally on error)
+  const reranked = await rerankChunks(query, allChunks);
+
+  // Regroup by file
+  const fileGroups = new Map<
+    string,
+    { file: HybridSearchResult["file"]; chunks: Array<typeof reranked[number]> }
+  >();
+
+  // Build a lookup for file metadata from original results
+  const fileMeta = new Map(results.map((r) => [r.file.id, r.file]));
+
+  for (const chunk of reranked) {
+    const existing = fileGroups.get(chunk.fileId);
+    if (existing) {
+      existing.chunks.push(chunk);
+    } else {
+      fileGroups.set(chunk.fileId, {
+        file: fileMeta.get(chunk.fileId) ?? {
+          id: chunk.fileId,
+          name: chunk.fileName,
+          path: "",
+          mimeType: "",
+        },
+        chunks: [chunk],
+      });
+    }
+  }
+
+  // Sort files by best chunk score, then sort chunks within each file
+  const rerankedResults: HybridSearchResult[] = [...fileGroups.entries()]
+    .sort((a, b) => {
+      const bestA = Math.max(...a[1].chunks.map((c) => c.relevanceScore));
+      const bestB = Math.max(...b[1].chunks.map((c) => c.relevanceScore));
+      return bestB - bestA;
+    })
+    .map(([fileId, group]) => ({
+      file: group.file,
+      chunks: group.chunks
+        .sort((a, b) => b.relevanceScore - a.relevanceScore)
+        .map((c) => ({
+          id: c.id,
+          text: c.text,
+          page: c.page,
+          chunkIndex: c.chunkIndex,
+          relevanceScore: c.relevanceScore,
+        })),
+      topScore: Math.max(...group.chunks.map((c) => c.relevanceScore)),
+    }));
+
+  console.log(`[rerank] Reranked ${allChunks.length} chunks across ${rerankedResults.length} files in ${Date.now() - t0}ms`);
+  return rerankedResults;
 }
