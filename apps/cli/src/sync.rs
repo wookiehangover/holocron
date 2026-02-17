@@ -72,6 +72,15 @@ fn compute_checksum(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     Ok(hex::encode(result))
 }
 
+/// Normalize path separators to forward slashes (`/`).
+///
+/// On Windows, `Path::to_string_lossy()` produces backslash-separated paths
+/// (e.g. `folder\file.txt`).  The server always expects forward slashes, so we
+/// normalise here to avoid mismatched entries in the database.
+fn normalize_path_separators(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
 /// Remove empty parent directories from `start` up to (but not including) `vault_root`.
 /// Stops at the first non-empty directory or on any error.
 fn remove_empty_parents(start: &Path, vault_root: &Path) {
@@ -119,7 +128,7 @@ fn walk_dir(root: &Path, current: &Path, files: &mut Vec<LocalFile>) {
             walk_dir(root, &path, files);
         } else {
             let rel = path.strip_prefix(root).unwrap_or(&path);
-            let relative_path = rel.to_string_lossy().to_string();
+            let relative_path = normalize_path_separators(&rel.to_string_lossy());
             // Skip conflict files
             if relative_path.contains(".conflict-") {
                 continue;
@@ -576,5 +585,45 @@ mod tests {
         assert_eq!(c1, c2);
         // SHA-256 hex is 64 chars
         assert_eq!(c1.len(), 64);
+    }
+
+    // -----------------------------------------------------------------------
+    // normalize_path_separators
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn normalizes_backslashes_to_forward_slashes() {
+        assert_eq!(normalize_path_separators(r"folder\file.txt"), "folder/file.txt");
+        assert_eq!(
+            normalize_path_separators(r"a\b\c\d.txt"),
+            "a/b/c/d.txt"
+        );
+    }
+
+    #[test]
+    fn normalize_leaves_forward_slashes_unchanged() {
+        assert_eq!(normalize_path_separators("folder/file.txt"), "folder/file.txt");
+        assert_eq!(
+            normalize_path_separators("a/b/c/d.txt"),
+            "a/b/c/d.txt"
+        );
+    }
+
+    #[test]
+    fn normalize_handles_mixed_separators() {
+        assert_eq!(
+            normalize_path_separators(r"a/b\c/d\e.txt"),
+            "a/b/c/d/e.txt"
+        );
+    }
+
+    #[test]
+    fn normalize_handles_plain_filename() {
+        assert_eq!(normalize_path_separators("file.txt"), "file.txt");
+    }
+
+    #[test]
+    fn normalize_handles_empty_string() {
+        assert_eq!(normalize_path_separators(""), "");
     }
 }
