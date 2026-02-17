@@ -1,22 +1,10 @@
 /**
- * DynamoDB data access layer for Holocron.
+ * PostgreSQL data access layer for Holocron.
  *
- * Uses a single-table design with two GSIs. Table is provisioned by
- * SST in infra/database.ts; the table name is injected via the
- * HOLOCRON_TABLE_NAME environment variable.
+ * Uses Postgres.js for all database operations. The connection is
+ * configured in ./db/schema.ts via the DATABASE_URL environment variable.
  */
 
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  BatchWriteCommand,
-  DeleteCommand,
-  DynamoDBDocumentClient,
-  GetCommand,
-  PutCommand,
-  QueryCommand,
-  ScanCommand,
-  UpdateCommand,
-} from "@aws-sdk/lib-dynamodb";
 import type {
   HolocronFile,
   ShareLink,
@@ -24,61 +12,52 @@ import type {
   FileMetadata,
   IndexingStatus,
 } from "@holocron/core/types";
-import { TABLE_NAME, GSI1_NAME, GSI2_NAME, PREFIX } from "./db/schema.js";
+import { sql } from "./db/schema.js";
 
 // ---------------------------------------------------------------------------
-// DynamoDB client (singleton)
+// Row ↔ type mapping helpers  (snake_case → camelCase)
 // ---------------------------------------------------------------------------
 
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
-
-// ---------------------------------------------------------------------------
-// Item ↔ type mapping helpers
-// ---------------------------------------------------------------------------
-
-/** Map a DynamoDB item to a HolocronFile. */
-function itemToFile(item: Record<string, unknown>): HolocronFile {
+/** Map a PostgreSQL row to a HolocronFile. */
+function rowToFile(row: Record<string, unknown>): HolocronFile {
   return {
-    id: item.id as string,
-    name: item.name as string,
-    path: item.path as string,
-    s3Key: item.s3Key as string,
-    size: item.size as number,
-    mimeType: item.mimeType as string,
-    checksum: item.checksum as string,
-    createdAt: new Date(item.createdAt as string),
-    updatedAt: new Date(item.updatedAt as string),
-    indexingStatus: item.indexingStatus as IndexingStatus | undefined,
-    metadata: item.metadata as FileMetadata | undefined,
-    fullTextS3Key: item.fullTextS3Key as string | undefined,
+    id: row.id as string,
+    name: row.name as string,
+    path: row.path as string,
+    s3Key: (row.s3_key as string) ?? undefined,
+    size: Number(row.size),
+    mimeType: row.mime_type as string,
+    checksum: row.checksum as string,
+    createdAt: new Date(row.created_at as string),
+    updatedAt: new Date(row.updated_at as string),
+    indexingStatus: (row.indexing_status as IndexingStatus) ?? undefined,
+    metadata: (row.metadata as FileMetadata) ?? undefined,
+    fullTextS3Key: (row.full_text_s3_key as string) ?? undefined,
   };
 }
 
-/** Map a DynamoDB item to a FileChunk. */
-function itemToChunk(item: Record<string, unknown>): FileChunk {
+/** Map a PostgreSQL row to a FileChunk. */
+function rowToChunk(row: Record<string, unknown>): FileChunk {
   return {
-    id: item.id as string,
-    fileId: item.fileId as string,
-    chunkIndex: item.chunkIndex as number,
-    text: item.text as string,
-    page: item.page as number | undefined,
-    startOffset: item.startOffset as number,
-    endOffset: item.endOffset as number,
-    createdAt: new Date(item.createdAt as string),
+    id: row.id as string,
+    fileId: row.file_id as string,
+    chunkIndex: Number(row.chunk_index),
+    text: row.text as string,
+    page: row.page != null ? Number(row.page) : undefined,
+    startOffset: Number(row.start_offset),
+    endOffset: Number(row.end_offset),
+    createdAt: new Date(row.created_at as string),
   };
 }
 
-/** Map a DynamoDB item to a ShareLink. */
-function itemToShareLink(item: Record<string, unknown>): ShareLink {
+/** Map a PostgreSQL row to a ShareLink. */
+function rowToShareLink(row: Record<string, unknown>): ShareLink {
   return {
-    id: item.id as string,
-    fileId: item.fileId as string,
-    url: item.url as string,
-    expiresAt: item.expiresAt ? new Date(item.expiresAt as string) : null,
-    createdAt: new Date(item.createdAt as string),
+    id: row.id as string,
+    fileId: row.file_id as string,
+    url: row.url as string,
+    expiresAt: row.expires_at ? new Date(row.expires_at as string) : null,
+    createdAt: new Date(row.created_at as string),
   };
 }
 
@@ -89,57 +68,48 @@ function itemToShareLink(item: Record<string, unknown>): ShareLink {
 /**
  * Atomically bump the vault version counter.
  *
- * Uses DynamoDB `ADD` to increment `version` by 1 and adjust `fileCount` by
- * the given delta (+1 on insert, -1 on delete, 0 on update). `lastModified`
- * is always set to the current timestamp.
+ * Uses INSERT ... ON CONFLICT to upsert the singleton row, incrementing
+ * `version` by 1 and adjusting `file_count` by the given delta.
  */
 async function bumpVaultVersion(fileCountDelta: number): Promise<void> {
-  await docClient.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        pk: PREFIX.VAULT_VERSION,
-        sk: PREFIX.VAULT_VERSION,
-      },
-      UpdateExpression:
-        "ADD version :one, fileCount :delta SET lastModified = :now",
-      ExpressionAttributeValues: {
-        ":one": 1,
-        ":delta": fileCountDelta,
-        ":now": new Date().toISOString(),
-      },
-    }),
-  );
+  await sql`
+    INSERT INTO vault_version (id, version, file_count, last_modified)
+    VALUES (1, 1, GREATEST(0, ${fileCountDelta}), now())
+    ON CONFLICT (id) DO UPDATE SET
+      version = vault_version.version + 1,
+      file_count = GREATEST(0, vault_version.file_count + ${fileCountDelta}),
+      last_modified = now()
+  `;
 }
 
 // ---------------------------------------------------------------------------
 // File helpers
 // ---------------------------------------------------------------------------
 
-/** Insert or update a file record (PutItem — overwrites by pk/sk). */
+/** Insert or update a file record (upsert by id). */
 export async function insertFile(file: HolocronFile): Promise<void> {
-  await docClient.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: `${PREFIX.FILE}${file.id}`,
-        sk: `${PREFIX.FILE}${file.id}`,
-        gsi1pk: PREFIX.FILES,
-        gsi1sk: `${file.createdAt.toISOString()}#${file.id}`,
-        gsi2pk: `${PREFIX.PATH}${file.path}`,
-        gsi2sk: `${PREFIX.FILE}${file.id}`,
-        id: file.id,
-        name: file.name,
-        path: file.path,
-        s3Key: file.s3Key ?? file.path,
-        size: file.size,
-        mimeType: file.mimeType,
-        checksum: file.checksum,
-        createdAt: file.createdAt.toISOString(),
-        updatedAt: file.updatedAt.toISOString(),
-      },
-    }),
-  );
+  await sql`
+    INSERT INTO files (id, name, path, s3_key, size, mime_type, checksum, created_at, updated_at)
+    VALUES (
+      ${file.id},
+      ${file.name},
+      ${file.path},
+      ${file.s3Key ?? file.path},
+      ${file.size},
+      ${file.mimeType},
+      ${file.checksum},
+      ${file.createdAt.toISOString()},
+      ${file.updatedAt.toISOString()}
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      name = EXCLUDED.name,
+      path = EXCLUDED.path,
+      s3_key = EXCLUDED.s3_key,
+      size = EXCLUDED.size,
+      mime_type = EXCLUDED.mime_type,
+      checksum = EXCLUDED.checksum,
+      updated_at = EXCLUDED.updated_at
+  `;
   await bumpVaultVersion(1);
 }
 
@@ -148,21 +118,15 @@ export async function updateFileChecksum(
   id: string,
   checksum: string,
 ): Promise<void> {
-  await docClient.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
-      UpdateExpression: "SET checksum = :c, updatedAt = :u",
-      ExpressionAttributeValues: {
-        ":c": checksum,
-        ":u": new Date().toISOString(),
-      },
-    }),
-  );
+  await sql`
+    UPDATE files
+    SET checksum = ${checksum}, updated_at = now()
+    WHERE id = ${id}
+  `;
   await bumpVaultVersion(0);
 }
 
-/** Update the path (and GSI2 key, name, updatedAt) for an existing file. */
+/** Update the path (and name, updated_at) for an existing file. */
 export async function updateFilePath(
   id: string,
   newPath: string,
@@ -171,76 +135,32 @@ export async function updateFilePath(
     ? newPath.slice(newPath.lastIndexOf("/") + 1)
     : newPath;
 
-  await docClient.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
-      UpdateExpression:
-        "SET #p = :p, #n = :n, gsi2pk = :gsi2pk, updatedAt = :u",
-      ExpressionAttributeNames: {
-        "#p": "path",
-        "#n": "name",
-      },
-      ExpressionAttributeValues: {
-        ":p": newPath,
-        ":n": newName,
-        ":gsi2pk": `${PREFIX.PATH}${newPath}`,
-        ":u": new Date().toISOString(),
-      },
-    }),
-  );
+  await sql`
+    UPDATE files
+    SET path = ${newPath}, name = ${newName}, updated_at = now()
+    WHERE id = ${id}
+  `;
   await bumpVaultVersion(0);
 }
 
 /** Fetch a single file by its primary key. */
 export async function getFileById(id: string): Promise<HolocronFile | null> {
-  const result = await docClient.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
-    }),
-  );
-  return result.Item ? itemToFile(result.Item) : null;
+  const rows = await sql`SELECT * FROM files WHERE id = ${id} LIMIT 1`;
+  return rows.length > 0 ? rowToFile(rows[0]) : null;
 }
 
-/** Fetch a single file by its unique path (via GSI2). */
+/** Fetch a single file by its unique path. */
 export async function getFileByPath(
   path: string,
 ): Promise<HolocronFile | null> {
-  const result = await docClient.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      IndexName: GSI2_NAME,
-      KeyConditionExpression: "gsi2pk = :pk",
-      ExpressionAttributeValues: { ":pk": `${PREFIX.PATH}${path}` },
-      Limit: 1,
-    }),
-  );
-  const item = result.Items?.[0];
-  return item ? itemToFile(item) : null;
+  const rows = await sql`SELECT * FROM files WHERE path = ${path} LIMIT 1`;
+  return rows.length > 0 ? rowToFile(rows[0]) : null;
 }
 
-/** List all files, most recent first (via GSI1, ScanIndexForward=false). */
+/** List all files, most recent first. */
 export async function listFiles(): Promise<HolocronFile[]> {
-  const items: Record<string, unknown>[] = [];
-  let lastKey: Record<string, unknown> | undefined;
-
-  do {
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: GSI1_NAME,
-        KeyConditionExpression: "gsi1pk = :pk",
-        ExpressionAttributeValues: { ":pk": PREFIX.FILES },
-        ScanIndexForward: false,
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    if (result.Items) items.push(...result.Items);
-    lastKey = result.LastEvaluatedKey;
-  } while (lastKey);
-
-  return items.map(itemToFile);
+  const rows = await sql`SELECT * FROM files ORDER BY created_at DESC`;
+  return rows.map(rowToFile);
 }
 
 /** Return the latest vault version info (latest change timestamp + file count). */
@@ -248,74 +168,38 @@ export async function getVaultVersion(): Promise<{
   latestChange: string | null;
   fileCount: number;
 }> {
-  // Fast path: read the dedicated counter item.
-  const counterResult = await docClient.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        pk: PREFIX.VAULT_VERSION,
-        sk: PREFIX.VAULT_VERSION,
-      },
-    }),
-  );
+  const rows = await sql`SELECT * FROM vault_version WHERE id = 1 LIMIT 1`;
 
-  if (counterResult.Item) {
+  if (rows.length > 0) {
+    const row = rows[0];
     return {
-      latestChange: (counterResult.Item.lastModified as string) ?? null,
-      fileCount: Math.max(0, (counterResult.Item.fileCount as number) ?? 0),
+      latestChange: row.last_modified
+        ? new Date(row.last_modified as string).toISOString()
+        : null,
+      fileCount: Math.max(0, Number(row.file_count) ?? 0),
     };
   }
 
-  // ------------------------------------------------------------------
-  // Fallback: counter item doesn't exist yet (fresh deploy / migration).
-  // Run the legacy scan, then seed the counter so subsequent calls are fast.
-  // ------------------------------------------------------------------
-  const items: Record<string, unknown>[] = [];
-  let lastKey: Record<string, unknown> | undefined;
+  // Fallback: vault_version row doesn't exist yet (fresh deploy / migration).
+  // Seed it from the files table.
+  const countResult = await sql`
+    SELECT COUNT(*)::int AS cnt, MAX(updated_at) AS latest
+    FROM files
+  `;
+  const fileCount = Number(countResult[0].cnt) || 0;
+  const latest = countResult[0].latest
+    ? new Date(countResult[0].latest as string).toISOString()
+    : null;
 
-  do {
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: GSI1_NAME,
-        KeyConditionExpression: "gsi1pk = :pk",
-        ExpressionAttributeValues: { ":pk": PREFIX.FILES },
-        ScanIndexForward: false,
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    if (result.Items) items.push(...result.Items);
-    lastKey = result.LastEvaluatedKey;
-  } while (lastKey);
-
-  if (items.length === 0) {
-    return { latestChange: null, fileCount: 0 };
+  if (fileCount > 0) {
+    await sql`
+      INSERT INTO vault_version (id, version, file_count, last_modified)
+      VALUES (1, 1, ${fileCount}, ${latest})
+      ON CONFLICT (id) DO NOTHING
+    `;
   }
 
-  // Find the maximum updatedAt across all items
-  let latestChange: string | null = null;
-  for (const item of items) {
-    const updatedAt = item.updatedAt as string;
-    if (!latestChange || updatedAt > latestChange) {
-      latestChange = updatedAt;
-    }
-  }
-
-  // Seed the counter item so future reads are a single GetItem.
-  await docClient.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: PREFIX.VAULT_VERSION,
-        sk: PREFIX.VAULT_VERSION,
-        version: 1,
-        fileCount: items.length,
-        lastModified: latestChange,
-      },
-    }),
-  );
-
-  return { latestChange, fileCount: items.length };
+  return { latestChange: latest, fileCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -324,96 +208,40 @@ export async function getVaultVersion(): Promise<{
 
 /** Insert a new share link record. */
 export async function insertShareLink(link: ShareLink): Promise<void> {
-  await docClient.send(
-    new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: `${PREFIX.SHARE}${link.id}`,
-        sk: `${PREFIX.SHARE}${link.id}`,
-        gsi1pk: `${PREFIX.FILE_SHARES}${link.fileId}`,
-        gsi1sk: `${PREFIX.SHARE}${link.id}`,
-        gsi2pk: `${PREFIX.URL}${link.url}`,
-        gsi2sk: `${PREFIX.SHARE}${link.id}`,
-        id: link.id,
-        fileId: link.fileId,
-        url: link.url,
-        expiresAt: link.expiresAt ? link.expiresAt.toISOString() : null,
-        createdAt: link.createdAt.toISOString(),
-      },
-    }),
-  );
+  await sql`
+    INSERT INTO share_links (id, file_id, url, expires_at, created_at)
+    VALUES (
+      ${link.id},
+      ${link.fileId},
+      ${link.url},
+      ${link.expiresAt ? link.expiresAt.toISOString() : null},
+      ${link.createdAt.toISOString()}
+    )
+  `;
 }
 
-/** Fetch a share link by its unique URL (via GSI2). */
+/** Fetch a share link by its unique URL. */
 export async function getShareLinkByUrl(
   url: string,
 ): Promise<ShareLink | null> {
-  const result = await docClient.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      IndexName: GSI2_NAME,
-      KeyConditionExpression: "gsi2pk = :pk",
-      ExpressionAttributeValues: { ":pk": `${PREFIX.URL}${url}` },
-      Limit: 1,
-    }),
-  );
-  const item = result.Items?.[0];
-  return item ? itemToShareLink(item) : null;
+  const rows = await sql`
+    SELECT * FROM share_links WHERE url = ${url} LIMIT 1
+  `;
+  return rows.length > 0 ? rowToShareLink(rows[0]) : null;
 }
 
-/** Delete all share links associated with a file (query GSI1 then batch delete). */
+/** Delete all share links associated with a file. */
 export async function deleteShareLinksByFileId(fileId: string): Promise<void> {
-  // 1. Query all share links for this file via GSI1
-  const items: Record<string, unknown>[] = [];
-  let lastKey: Record<string, unknown> | undefined;
-
-  do {
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: GSI1_NAME,
-        KeyConditionExpression: "gsi1pk = :pk",
-        ExpressionAttributeValues: {
-          ":pk": `${PREFIX.FILE_SHARES}${fileId}`,
-        },
-      }),
-    );
-    if (result.Items) items.push(...result.Items);
-    lastKey = result.LastEvaluatedKey;
-  } while (lastKey);
-
-  if (items.length === 0) return;
-
-  // 2. Batch delete in chunks of 25 (DynamoDB limit)
-  const BATCH_SIZE = 25;
-  for (let i = 0; i < items.length; i += BATCH_SIZE) {
-    const batch = items.slice(i, i + BATCH_SIZE);
-    await docClient.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: batch.map((item) => ({
-            DeleteRequest: {
-              Key: { pk: item.pk as string, sk: item.sk as string },
-            },
-          })),
-        },
-      }),
-    );
-  }
+  await sql`DELETE FROM share_links WHERE file_id = ${fileId}`;
 }
 
 // ---------------------------------------------------------------------------
 // File deletion
 // ---------------------------------------------------------------------------
 
-/** Delete a file record by its primary key. */
+/** Delete a file record by its primary key. Cascades to chunks and share links. */
 export async function deleteFile(id: string): Promise<void> {
-  await docClient.send(
-    new DeleteCommand({
-      TableName: TABLE_NAME,
-      Key: { pk: `${PREFIX.FILE}${id}`, sk: `${PREFIX.FILE}${id}` },
-    }),
-  );
+  await sql`DELETE FROM files WHERE id = ${id}`;
   await bumpVaultVersion(-1);
 }
 
@@ -421,105 +249,43 @@ export async function deleteFile(id: string): Promise<void> {
 // Chunk helpers
 // ---------------------------------------------------------------------------
 
-/** Batch-write chunks for a file. Chunks are written in batches of 25. */
+/** Insert chunks for a file using a single multi-row INSERT. */
 export async function insertChunks(
   fileId: string,
   chunks: FileChunk[],
 ): Promise<void> {
-  const BATCH_SIZE = 25;
-  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-    const batch = chunks.slice(i, i + BATCH_SIZE);
-    await docClient.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: batch.map((chunk) => ({
-            PutRequest: {
-              Item: {
-                pk: `${PREFIX.CHUNK}${chunk.id}`,
-                sk: `${PREFIX.CHUNK}${chunk.id}`,
-                gsi1pk: `${PREFIX.FILE_CHUNKS}${fileId}`,
-                gsi1sk: `${PREFIX.CHUNK}${chunk.chunkIndex}`,
-                id: chunk.id,
-                fileId: chunk.fileId,
-                chunkIndex: chunk.chunkIndex,
-                text: chunk.text,
-                textLower: chunk.text.toLowerCase(),
-                page: chunk.page,
-                startOffset: chunk.startOffset,
-                endOffset: chunk.endOffset,
-                createdAt: chunk.createdAt.toISOString(),
-              },
-            },
-          })),
-        },
-      }),
-    );
-  }
+  if (chunks.length === 0) return;
+
+  // Postgres.js supports bulk inserts natively
+  const values = chunks.map((chunk) => ({
+    id: chunk.id,
+    file_id: fileId,
+    chunk_index: chunk.chunkIndex,
+    text: chunk.text,
+    page: chunk.page ?? null,
+    start_offset: chunk.startOffset,
+    end_offset: chunk.endOffset,
+    created_at: chunk.createdAt.toISOString(),
+  }));
+
+  await sql`
+    INSERT INTO file_chunks ${sql(values)}
+  `;
 }
 
-/** List all chunks for a file, ordered by chunkIndex (via GSI1). */
+/** List all chunks for a file, ordered by chunk_index. */
 export async function getChunksByFileId(fileId: string): Promise<FileChunk[]> {
-  const items: Record<string, unknown>[] = [];
-  let lastKey: Record<string, unknown> | undefined;
-
-  do {
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: GSI1_NAME,
-        KeyConditionExpression: "gsi1pk = :pk",
-        ExpressionAttributeValues: {
-          ":pk": `${PREFIX.FILE_CHUNKS}${fileId}`,
-        },
-        ScanIndexForward: true,
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    if (result.Items) items.push(...result.Items);
-    lastKey = result.LastEvaluatedKey;
-  } while (lastKey);
-
-  return items.map(itemToChunk);
+  const rows = await sql`
+    SELECT * FROM file_chunks
+    WHERE file_id = ${fileId}
+    ORDER BY chunk_index ASC
+  `;
+  return rows.map(rowToChunk);
 }
 
-/** Delete all chunks for a file (query GSI1 then batch delete). */
+/** Delete all chunks for a file. */
 export async function deleteChunksByFileId(fileId: string): Promise<void> {
-  const items: Record<string, unknown>[] = [];
-  let lastKey: Record<string, unknown> | undefined;
-
-  do {
-    const result = await docClient.send(
-      new QueryCommand({
-        TableName: TABLE_NAME,
-        IndexName: GSI1_NAME,
-        KeyConditionExpression: "gsi1pk = :pk",
-        ExpressionAttributeValues: {
-          ":pk": `${PREFIX.FILE_CHUNKS}${fileId}`,
-        },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    if (result.Items) items.push(...result.Items);
-    lastKey = result.LastEvaluatedKey;
-  } while (lastKey);
-
-  if (items.length === 0) return;
-
-  const BATCH_SIZE = 25;
-  for (let i = 0; i < items.length; i += BATCH_SIZE) {
-    const batch = items.slice(i, i + BATCH_SIZE);
-    await docClient.send(
-      new BatchWriteCommand({
-        RequestItems: {
-          [TABLE_NAME]: batch.map((item) => ({
-            DeleteRequest: {
-              Key: { pk: item.pk as string, sk: item.sk as string },
-            },
-          })),
-        },
-      }),
-    );
-  }
+  await sql`DELETE FROM file_chunks WHERE file_id = ${fileId}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -533,80 +299,103 @@ export async function updateFileIndexingStatus(
   metadata?: FileMetadata,
   fullTextS3Key?: string,
 ): Promise<void> {
-  let updateExpr = "SET indexingStatus = :s, updatedAt = :u";
-  const exprValues: Record<string, unknown> = {
-    ":s": status,
-    ":u": new Date().toISOString(),
-  };
-
-  if (metadata !== undefined) {
-    updateExpr += ", metadata = :m";
-    exprValues[":m"] = metadata;
-  }
-  if (fullTextS3Key !== undefined) {
-    updateExpr += ", fullTextS3Key = :fk";
-    exprValues[":fk"] = fullTextS3Key;
-  }
-
-  await docClient.send(
-    new UpdateCommand({
-      TableName: TABLE_NAME,
-      Key: {
-        pk: `${PREFIX.FILE}${fileId}`,
-        sk: `${PREFIX.FILE}${fileId}`,
-      },
-      UpdateExpression: updateExpr,
-      ExpressionAttributeValues: exprValues,
-    }),
-  );
+  await sql`
+    UPDATE files
+    SET
+      indexing_status = ${status},
+      updated_at = now()
+      ${metadata !== undefined ? sql`, metadata = ${sql.json(JSON.parse(JSON.stringify(metadata)))}` : sql``}
+      ${fullTextS3Key !== undefined ? sql`, full_text_s3_key = ${fullTextS3Key}` : sql``}
+    WHERE id = ${fileId}
+  `;
   await bumpVaultVersion(0);
 }
 
 /**
- * Scan chunks for text matches (case-insensitive contains).
+ * Search chunks for text matches (case-insensitive) using ILIKE.
  *
- * Uses a DynamoDB Scan with a filter expression. Acceptable for a single-user
- * vault with moderate chunk counts; not suitable for large-scale search.
+ * Joins with the files table to include the file name in results.
  */
 export async function searchChunks(
   query: string,
   limit = 50,
 ): Promise<Array<FileChunk & { fileName: string }>> {
-  const items: Record<string, unknown>[] = [];
-  let lastKey: Record<string, unknown> | undefined;
+  const pattern = `%${query}%`;
+  const rows = await sql`
+    SELECT c.*, f.name AS file_name
+    FROM file_chunks c
+    JOIN files f ON f.id = c.file_id
+    WHERE c.text ILIKE ${pattern}
+    LIMIT ${limit}
+  `;
 
-  do {
-    const result = await docClient.send(
-      new ScanCommand({
-        TableName: TABLE_NAME,
-        FilterExpression:
-          "begins_with(pk, :prefix) AND contains(#tl, :q)",
-        ExpressionAttributeNames: { "#tl": "textLower" },
-        ExpressionAttributeValues: {
-          ":prefix": PREFIX.CHUNK,
-          ":q": query.toLowerCase(),
-        },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-    if (result.Items) items.push(...result.Items);
-    lastKey = result.LastEvaluatedKey;
-  } while (lastKey && items.length < limit);
-
-  // Trim to limit
-  const trimmed = items.slice(0, limit);
-
-  // Resolve file names for each unique fileId
-  const fileIds = [...new Set(trimmed.map((i) => i.fileId as string))];
-  const fileMap = new Map<string, string>();
-  for (const fid of fileIds) {
-    const file = await getFileById(fid);
-    fileMap.set(fid, file?.name ?? "unknown");
-  }
-
-  return trimmed.map((item) => ({
-    ...itemToChunk(item),
-    fileName: fileMap.get(item.fileId as string) ?? "unknown",
+  return rows.map((row) => ({
+    ...rowToChunk(row),
+    fileName: row.file_name as string,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Vector search helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Search chunks by vector embedding similarity using pgvector cosine distance.
+ * Returns chunks ordered by similarity (highest first).
+ */
+export async function searchChunksByEmbedding(
+  embedding: number[],
+  limit = 10,
+): Promise<Array<FileChunk & { fileName: string; similarity: number }>> {
+  const vectorStr = `[${embedding.join(",")}]`;
+  const rows = await sql`
+    SELECT c.*, f.name AS file_name,
+           1 - (c.embedding <=> ${vectorStr}::vector) AS similarity
+    FROM file_chunks c
+    JOIN files f ON f.id = c.file_id
+    WHERE c.embedding IS NOT NULL
+    ORDER BY c.embedding <=> ${vectorStr}::vector
+    LIMIT ${limit}
+  `;
+
+  return rows.map((row) => ({
+    ...rowToChunk(row),
+    fileName: row.file_name as string,
+    similarity: Number(row.similarity),
+  }));
+}
+
+/**
+ * Batch insert chunks with their embedding vectors.
+ */
+export async function insertChunksWithEmbeddings(
+  fileId: string,
+  chunks: Array<FileChunk & { embedding: number[] }>,
+): Promise<void> {
+  if (chunks.length === 0) return;
+
+  // Use a transaction for atomicity.
+  // Note: TransactionSql loses call signatures due to Omit<> in postgres.js types,
+  // so we cast to preserve the tagged template call signature.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await sql.begin(async (tx: any) => {
+    for (const chunk of chunks) {
+      const vectorStr = `[${chunk.embedding.join(",")}]`;
+      await tx`
+        INSERT INTO file_chunks (id, file_id, chunk_index, text, page, start_offset, end_offset, embedding, created_at)
+        VALUES (
+          ${chunk.id},
+          ${fileId},
+          ${chunk.chunkIndex},
+          ${chunk.text},
+          ${chunk.page ?? null},
+          ${chunk.startOffset},
+          ${chunk.endOffset},
+          ${vectorStr}::vector,
+          ${chunk.createdAt.toISOString()}
+        )
+      `;
+    }
+  });
 }
 
