@@ -125,6 +125,14 @@ export const processingStateMachine = new aws.sfn.StateMachine(
               Type: "Task",
               Resource: extractArn,
               Next: "ParallelProcessing",
+              Retry: [
+                {
+                  ErrorEquals: ["States.ALL"],
+                  IntervalSeconds: 2,
+                  MaxAttempts: 3,
+                  BackoffRate: 2.0,
+                },
+              ],
               Catch: [
                 {
                   ErrorEquals: ["States.ALL"],
@@ -142,6 +150,14 @@ export const processingStateMachine = new aws.sfn.StateMachine(
                     ChunkText: {
                       Type: "Task",
                       Resource: chunkArn,
+                      Retry: [
+                        {
+                          ErrorEquals: ["States.ALL"],
+                          IntervalSeconds: 2,
+                          MaxAttempts: 3,
+                          BackoffRate: 2.0,
+                        },
+                      ],
                       End: true,
                     },
                   },
@@ -152,6 +168,14 @@ export const processingStateMachine = new aws.sfn.StateMachine(
                     ExtractMetadata: {
                       Type: "Task",
                       Resource: metadataArn,
+                      Retry: [
+                        {
+                          ErrorEquals: ["States.ALL"],
+                          IntervalSeconds: 2,
+                          MaxAttempts: 3,
+                          BackoffRate: 2.0,
+                        },
+                      ],
                       End: true,
                     },
                   },

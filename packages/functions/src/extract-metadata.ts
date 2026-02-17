@@ -80,18 +80,34 @@ export async function handler(
       imageHeight: extractionMeta.imageHeight,
     };
 
-    // 3. Call LLM for rich metadata
+    // 3. Call LLM for rich metadata (with retry + exponential backoff)
     let llmMetadata: z.infer<typeof metadataSchema> | null = null;
-    try {
-      const textForLlm = fullText.slice(0, MAX_TEXT_LENGTH);
-      const { object } = await generateObject({
-        model: gateway("google/gemini-3-flash"),
-        schema: metadataSchema,
-        prompt: `${METADATA_PROMPT}\n\nInput:\n${textForLlm}`,
-      });
-      llmMetadata = object;
-    } catch (llmError) {
-      console.error("LLM metadata extraction failed, using extraction-only metadata:", llmError);
+    const textForLlm = fullText.slice(0, MAX_TEXT_LENGTH);
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const { object } = await generateObject({
+          model: gateway("google/gemini-3-flash"),
+          schema: metadataSchema,
+          prompt: `${METADATA_PROMPT}\n\nInput:\n${textForLlm}`,
+        });
+        llmMetadata = object;
+        break;
+      } catch (llmError) {
+        if (attempt < maxRetries) {
+          const delayMs = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+          console.warn(
+            `LLM metadata extraction attempt ${attempt}/${maxRetries} failed, retrying in ${delayMs}ms:`,
+            llmError,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        } else {
+          console.error(
+            `LLM metadata extraction failed after ${maxRetries} attempts, using extraction-only metadata:`,
+            llmError,
+          );
+        }
+      }
     }
 
     // 4. Merge LLM metadata with extraction metadata
