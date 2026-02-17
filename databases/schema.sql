@@ -57,11 +57,13 @@ CREATE TABLE file_chunks (
   start_offset  INTEGER     NOT NULL,
   end_offset    INTEGER     NOT NULL,
   embedding     vector(768),
+  tsv           TSVECTOR    GENERATED ALWAYS AS (to_tsvector('english', text)) STORED,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_file_chunks_file_id_chunk_index ON file_chunks (file_id, chunk_index);
 CREATE INDEX idx_file_chunks_embedding ON file_chunks USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_file_chunks_tsv ON file_chunks USING gin (tsv);
 
 -- =============================================================================
 -- Table: vault_version  (singleton row for vault metadata)

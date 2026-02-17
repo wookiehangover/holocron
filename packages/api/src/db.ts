@@ -315,6 +315,8 @@ export async function updateFileIndexingStatus(
  * Search chunks for text matches (case-insensitive) using ILIKE.
  *
  * Joins with the files table to include the file name in results.
+ *
+ * @deprecated Use {@link searchChunksByFullText} for better relevance via PostgreSQL full-text search.
  */
 export async function searchChunks(
   query: string,
@@ -332,6 +334,33 @@ export async function searchChunks(
   return rows.map((row) => ({
     ...rowToChunk(row),
     fileName: row.file_name as string,
+  }));
+}
+
+/**
+ * Search chunks using PostgreSQL full-text search with `plainto_tsquery`.
+ *
+ * Joins with the files table to include the file name in results.
+ * Results are ordered by `ts_rank` (highest relevance first).
+ */
+export async function searchChunksByFullText(
+  query: string,
+  limit = 50,
+): Promise<Array<FileChunk & { fileName: string; tsRank: number }>> {
+  const rows = await sql`
+    SELECT c.*, f.name AS file_name,
+           ts_rank(c.tsv, plainto_tsquery('english', ${query})) AS ts_rank
+    FROM file_chunks c
+    JOIN files f ON f.id = c.file_id
+    WHERE c.tsv @@ plainto_tsquery('english', ${query})
+    ORDER BY ts_rank DESC
+    LIMIT ${limit}
+  `;
+
+  return rows.map((row) => ({
+    ...rowToChunk(row),
+    fileName: row.file_name as string,
+    tsRank: Number(row.ts_rank),
   }));
 }
 
