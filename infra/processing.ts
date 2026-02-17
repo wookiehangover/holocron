@@ -28,9 +28,10 @@ export const chunkTextFn = new sst.aws.Function("ChunkText", {
   runtime: "nodejs22.x",
   timeout: "120 seconds",
   memory: "512 MB",
-  link: [bucket, databaseUrl],
+  link: [bucket, databaseUrl, vercelAiGatewayApiKey],
   environment: {
     DATABASE_URL: databaseUrl.value,
+    AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
 
