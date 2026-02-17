@@ -92,6 +92,32 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+#  Prompt for PlanetScale database URL
+# ---------------------------------------------------------------------------
+
+info "Enter your PlanetScale database connection string (get one at https://app.planetscale.com → Databases → Connection Strings)"
+read -r DATABASE_URL
+
+DATABASE_STATUS="skipped"
+if [[ -z "$DATABASE_URL" ]]; then
+  warn "Skipped — file indexing pipeline will not work without this key. You can set it later with: npx sst secret set DatabaseUrl <key>"
+else
+  info "Storing PlanetScale database connection string as SST secret 'DatabaseUrl'…"
+
+  DB_CMD=(npx sst secret set DatabaseUrl "$DATABASE_URL")
+  if [[ -n "$STAGE" ]]; then
+    DB_CMD+=(--stage "$STAGE")
+  fi
+
+  if "${DB_CMD[@]}"; then
+    ok "SST secret 'DatabaseUrl' set successfully."
+    DATABASE_STATUS="set"
+  else
+    warn "Failed to set DatabaseUrl. You can retry later with: npx sst secret set DatabaseUrl <key>"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Write / update local client configuration
 # ---------------------------------------------------------------------------
 
@@ -145,6 +171,7 @@ echo "    • SST secret 'HolocronApiKey' (server-side)"
 echo "    • ${CONFIG_FILE} (client-side)"
 echo ""
 echo "  AI Gateway key: ${AI_GATEWAY_STATUS}"
+echo "  PlanetScale database URL: ${DATABASE_STATUS}"
 echo ""
 echo "  Next steps:"
 echo "    1. Deploy the backend:  npx sst deploy${STAGE:+ --stage $STAGE}"
