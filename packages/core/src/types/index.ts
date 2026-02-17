@@ -98,6 +98,8 @@ export interface FileChunk {
   startOffset: number;
   /** End offset in the full extracted text. */
   endOffset: number;
+  /** Vector embedding for similarity search (768 dimensions). */
+  embedding?: number[];
   /** Timestamp when the chunk was created. */
   createdAt: Date;
 }

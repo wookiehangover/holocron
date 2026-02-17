@@ -5,7 +5,7 @@
  */
 
 import { bucket } from "./storage.js";
-import { table, vercelAiGatewayApiKey } from "./database.js";
+import { databaseUrl, vercelAiGatewayApiKey } from "./database.js";
 
 // ---------------------------------------------------------------------------
 // Lambda functions
@@ -16,9 +16,9 @@ export const extractTextFn = new sst.aws.Function("ExtractText", {
   runtime: "nodejs22.x",
   timeout: "300 seconds",
   memory: "1024 MB",
-  link: [bucket, table, vercelAiGatewayApiKey],
+  link: [bucket, databaseUrl, vercelAiGatewayApiKey],
   environment: {
-    HOLOCRON_TABLE_NAME: table.name,
+    DATABASE_URL: databaseUrl.value,
     AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
@@ -28,9 +28,10 @@ export const chunkTextFn = new sst.aws.Function("ChunkText", {
   runtime: "nodejs22.x",
   timeout: "120 seconds",
   memory: "512 MB",
-  link: [bucket, table],
+  link: [bucket, databaseUrl, vercelAiGatewayApiKey],
   environment: {
-    HOLOCRON_TABLE_NAME: table.name,
+    DATABASE_URL: databaseUrl.value,
+    AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
 
@@ -39,9 +40,9 @@ export const extractMetadataFn = new sst.aws.Function("ExtractMetadata", {
   runtime: "nodejs22.x",
   timeout: "120 seconds",
   memory: "512 MB",
-  link: [bucket, table, vercelAiGatewayApiKey],
+  link: [bucket, databaseUrl, vercelAiGatewayApiKey],
   environment: {
-    HOLOCRON_TABLE_NAME: table.name,
+    DATABASE_URL: databaseUrl.value,
     AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
   },
 });
@@ -51,9 +52,9 @@ export const markIndexingFailedFn = new sst.aws.Function("MarkIndexingFailed", {
   runtime: "nodejs22.x",
   timeout: "30 seconds",
   memory: "256 MB",
-  link: [table],
+  link: [databaseUrl],
   environment: {
-    HOLOCRON_TABLE_NAME: table.name,
+    DATABASE_URL: databaseUrl.value,
   },
 });
 

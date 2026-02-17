@@ -1,27 +1,18 @@
 /**
- * DynamoDB single-table constants.
+ * PostgreSQL connection setup for Holocron.
  *
- * Key prefixes and index names used by the data access layer in db.ts.
- * Table is provisioned by SST in infra/database.ts.
+ * Uses Postgres.js (`postgres` npm package) for fast, lightweight
+ * PostgreSQL access optimised for serverless (Lambda) environments.
+ * The connection string is injected via the DATABASE_URL environment variable.
  */
 
-/** Table name — injected at runtime via SST resource linking. */
-export const TABLE_NAME = process.env.HOLOCRON_TABLE_NAME ?? "Holocron";
+import postgres from "postgres";
 
-/** GSI names (must match infra/database.ts definitions). */
-export const GSI1_NAME = "gsi1";
-export const GSI2_NAME = "gsi2";
-
-/** Key prefixes for the single-table design. */
-export const PREFIX = {
-  FILE: "FILE#",
-  FILES: "FILES",
-  PATH: "PATH#",
-  SHARE: "SHARE#",
-  FILE_SHARES: "FILE_SHARES#",
-  URL: "URL#",
-  VAULT_VERSION: "VAULT#VERSION",
-  CHUNK: "CHUNK#",
-  FILE_CHUNKS: "FILE_CHUNKS#",
-} as const;
+/** Singleton SQL connection — shared across all queries in a Lambda invocation. */
+export const sql = postgres(process.env.DATABASE_URL!, {
+  ssl: "require",
+  max: 1,
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
 

@@ -230,11 +230,9 @@
 /* --- Hide button text in inactive title bars ---------------------- */
 /* system.css clips .title-bar button span but has no equivalent for */
 /* .inactive-title-bar, so the "Close"/"Resize" text leaks through. */
-.system7-desktop .inactive-title-bar button span {
-  clip: rect(1px, 1px, 1px, 1px);
-  position: absolute !important;
+.system7-desktop .inactive-title-bar button {
+  visibility: hidden;
 }
-
 
 /* --- Video preview ------------------------------------------------- */
 .system7-desktop .s7-video-preview {

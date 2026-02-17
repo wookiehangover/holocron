@@ -2,9 +2,11 @@ import { Hono } from "hono";
 import { handle } from "hono/aws-lambda";
 import { cors } from "hono/cors";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
+import { embed } from "ai";
+import { gateway } from "@ai-sdk/gateway";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, updateFilePath, searchChunks, getChunksByFileId } from "./db.js";
+import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, updateFilePath, searchChunks, searchChunksByEmbedding, getChunksByFileId } from "./db.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
 
 const app = new Hono();
@@ -100,6 +102,49 @@ app.get("/files/search", async (c) => {
     }));
 
   return c.json({ results, query, total: results.length });
+});
+
+// ---------------------------------------------------------------------------
+// Semantic Search (vector similarity)
+// ---------------------------------------------------------------------------
+
+app.post("/search/semantic", async (c) => {
+  const body = await c.req.json<{ query: string; limit?: number }>();
+  if (!body.query) {
+    return c.json({ error: "Missing required field: query" }, 400);
+  }
+
+  const limit = Math.min(Math.max(body.limit ?? 10, 1), 100);
+
+  // Generate embedding for the query
+  const { embedding } = await embed({
+    model: gateway.embeddingModel("google/gemini-embedding-001"),
+    value: body.query,
+    providerOptions: {
+      google: { outputDimensionality: 768 },
+    },
+  });
+
+  // Search by vector similarity
+  const chunks = await searchChunksByEmbedding(embedding, limit);
+
+  const results = chunks.map((chunk) => ({
+    file: {
+      id: chunk.fileId,
+      name: chunk.fileName,
+    },
+    chunk: {
+      id: chunk.id,
+      text: chunk.text,
+      page: chunk.page,
+      chunkIndex: chunk.chunkIndex,
+      startOffset: chunk.startOffset,
+      endOffset: chunk.endOffset,
+    },
+    similarity: chunk.similarity,
+  }));
+
+  return c.json({ results, query: body.query, total: results.length });
 });
 
 app.post("/files/upload", async (c) => {

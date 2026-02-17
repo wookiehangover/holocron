@@ -3,16 +3,17 @@
  */
 
 import { bucket } from "./storage.js";
-import { table, holocronApiKey } from "./database.js";
+import { databaseUrl, holocronApiKey, vercelAiGatewayApiKey } from "./database.js";
 import { processingStateMachine } from "./processing.js";
 
 const honoFn = new sst.aws.Function("HolocronApi", {
   handler: "packages/api/src/index.handler",
   runtime: "nodejs22.x",
-  link: [bucket, table, holocronApiKey],
+  link: [bucket, databaseUrl, holocronApiKey, vercelAiGatewayApiKey],
   environment: {
-    HOLOCRON_TABLE_NAME: table.name,
+    DATABASE_URL: databaseUrl.value,
     HOLOCRON_API_KEY: holocronApiKey.value,
+    AI_GATEWAY_API_KEY: vercelAiGatewayApiKey.value,
     BUCKET_NAME: bucket.name,
     PROCESSING_STATE_MACHINE_ARN: processingStateMachine.arn,
   },

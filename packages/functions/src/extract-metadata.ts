@@ -3,7 +3,7 @@
  *
  * Reads extracted full text from S3, uses Vercel AI SDK with Gemini 3.0 Flash
  * to generate rich metadata (summary, keywords, topics, title), and stores it
- * on the file record via DynamoDB.
+ * on the file record via PostgreSQL.
  */
 
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";

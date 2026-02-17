@@ -2,14 +2,16 @@
  * Lambda handler for splitting extracted text into chunks.
  *
  * Reads the full text from S3, splits it into chunks using a paragraph-based
- * algorithm (ported from the reference DumbChunker), and stores the chunks
- * in DynamoDB.
+ * algorithm (ported from the reference DumbChunker), generates vector
+ * embeddings via Gemini, and stores the chunks with embeddings in PostgreSQL.
  */
 
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { embedMany } from "ai";
+import { gateway } from "@ai-sdk/gateway";
 import type { FileChunk } from "@holocron/core/types";
 import {
-  insertChunks,
+  insertChunksWithEmbeddings,
   deleteChunksByFileId,
   updateFileIndexingStatus,
 } from "@holocron/api/db";
@@ -224,9 +226,19 @@ export async function handler(event: {
     // Compute offsets for each chunk
     const offsets = computeOffsets(fullText, chunkTexts);
 
-    // Build FileChunk records
+    // Generate embeddings for all chunks
+    console.log(`File ${fileId}: generating embeddings for ${chunkTexts.length} chunks`);
+    const { embeddings } = await embedMany({
+      model: gateway.embeddingModel("google/gemini-embedding-001"),
+      values: chunkTexts,
+      providerOptions: {
+        google: { outputDimensionality: 768 },
+      },
+    });
+
+    // Build FileChunk records with embeddings
     const now = new Date();
-    const chunks: FileChunk[] = chunkTexts.map((text, index) => ({
+    const chunks: Array<FileChunk & { embedding: number[] }> = chunkTexts.map((text, index) => ({
       id: crypto.randomUUID(),
       fileId,
       chunkIndex: index,
@@ -234,14 +246,15 @@ export async function handler(event: {
       page: extractionMeta.pageCount != null ? getPageNumber(fullText, offsets[index].startOffset) : undefined,
       startOffset: offsets[index].startOffset,
       endOffset: offsets[index].endOffset,
+      embedding: embeddings[index],
       createdAt: now,
     }));
 
     // Delete existing chunks (re-indexing support) then insert new ones
     await deleteChunksByFileId(fileId);
-    await insertChunks(fileId, chunks);
+    await insertChunksWithEmbeddings(fileId, chunks);
 
-    console.log(`File ${fileId}: created ${chunks.length} chunks`);
+    console.log(`File ${fileId}: created ${chunks.length} chunks with embeddings`);
 
     return { fileId, chunkCount: chunks.length, status: "success" };
   } catch (error) {

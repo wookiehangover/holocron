@@ -56,8 +56,8 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
         "kind": "store"
       },
       {
-        "id": "dynamodb",
-        "label": "DynamoDB\n(single-table)",
+        "id": "postgresql",
+        "label": "PostgreSQL\n(PlanetScale + pgvector)",
         "kind": "store"
       },
       {
@@ -99,8 +99,8 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
       {
         "id": "e5",
         "from": "hono",
-        "to": "dynamodb",
-        "label": "DynamoDB SDK"
+        "to": "postgresql",
+        "label": "Postgres.js"
       },
       {
         "id": "e6",
@@ -137,7 +137,7 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
       {
         "id": "e11",
         "from": "indexing",
-        "to": "dynamodb",
+        "to": "postgresql",
         "label": "status + metadata + chunks"
       }
     ]
@@ -153,7 +153,7 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
   "states": [
     {
       "id": "overview",
-      "narrative": "Full system: three clients (desktop app, web app, Rust CLI) talk to the API, which coordinates S3 storage and DynamoDB metadata. A Step Functions pipeline processes uploads asynchronously.",
+      "narrative": "Full system: three clients (desktop app, web app, Rust CLI) talk to the API, which coordinates S3 storage and PostgreSQL metadata. A Step Functions pipeline processes uploads asynchronously.",
       "highlightedNodes": [],
       "highlightedEdges": []
     },
@@ -166,7 +166,7 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
         "s3",
         "sfn",
         "indexing",
-        "dynamodb"
+        "postgresql"
       ],
       "highlightedEdges": [
         "e1",
@@ -180,10 +180,10 @@ Holocron is a personal file vault and self-hosted Dropbox replacement. Users sto
     },
     {
       "id": "metadata-flow",
-      "narrative": "Metadata flow: the API reads and writes file metadata to DynamoDB (single-table design). Clients never talk to the database directly.",
+      "narrative": "Metadata flow: the API reads and writes file metadata to PostgreSQL (PlanetScale). Clients never talk to the database directly.",
       "highlightedNodes": [
         "hono",
-        "dynamodb"
+        "postgresql"
       ],
       "highlightedEdges": [
         "e5"
@@ -449,7 +449,7 @@ All infrastructure is defined in `infra/` and wired together in `sst.config.ts`.
 | Resource | SST / Pulumi type | Defined in | Purpose |
 | --- | --- | --- | --- |
 | HolocronBucket | sst.aws.Bucket | infra/storage.ts | Private S3 bucket for file blobs |
-| Holocron | sst.aws.Dynamo | infra/database.ts | DynamoDB single-table for metadata (files, share links) |
+| DatabaseUrl | sst.Secret | infra/database.ts | PlanetScale PostgreSQL connection string (files, share links, chunks, embeddings) |
 | HolocronApiKey | sst.Secret | infra/database.ts | Self-generated API key, provisioned via `scripts/setup.sh` |
 | HolocronApi | sst.aws.Function | infra/api.ts | Hono API Lambda (Node 24) |
 | HolocronGateway | sst.aws.ApiGatewayV2 | infra/api.ts | HTTP API fronting the Lambda |
@@ -463,10 +463,10 @@ All infrastructure is defined in `infra/` and wired together in `sst.config.ts`.
 
 SST's `link` mechanism injects environment variables and IAM permissions at deploy time:
 
-- `HolocronApi` is linked to `HolocronBucket` (S3 access), `Holocron` DynamoDB table (metadata read/write), and `HolocronApiKey` (auth)
-- `ExtractText` is linked to `HolocronBucket` (S3 read), `Holocron` table (status updates), and `VercelAIGatewayApiKey` (Gemini API via AI Gateway)
-- `ChunkText` is linked to `HolocronBucket` (S3 read) and `Holocron` table (chunk storage)
-- `ExtractMetadata` is linked to `HolocronBucket` (S3 read), `Holocron` table (metadata updates), and `VercelAIGatewayApiKey` (Gemini API via AI Gateway)
+- `HolocronApi` is linked to `HolocronBucket` (S3 access), `DatabaseUrl` (PostgreSQL read/write), and `HolocronApiKey` (auth)
+- `ExtractText` is linked to `HolocronBucket` (S3 read), `DatabaseUrl` (status updates), and `VercelAIGatewayApiKey` (Gemini API via AI Gateway)
+- `ChunkText` is linked to `HolocronBucket` (S3 read) and `DatabaseUrl` (chunk storage)
+- `ExtractMetadata` is linked to `HolocronBucket` (S3 read), `DatabaseUrl` (metadata updates), and `VercelAIGatewayApiKey` (Gemini API via AI Gateway)
 
 ### Stage management
 
@@ -501,13 +501,14 @@ API key authentication is implemented via the `apiKeyAuth` middleware (`packages
 
 ### Database access
 
-`packages/api/src/db.ts` provides a DynamoDB data access layer using the AWS SDK v3 (`@aws-sdk/client-dynamodb` and `@aws-sdk/lib-dynamodb`). A singleton `DynamoDBDocumentClient` connects to the `Holocron` table (name injected via `HOLOCRON_TABLE_NAME` environment variable). The single-table design uses composite keys and two GSIs — see `packages/api/src/db/schema.ts` for key prefixes and index names. No connection pooling or VPC is required.
+`packages/api/src/db.ts` provides a PostgreSQL data access layer using Postgres.js (`postgres` npm package). A singleton `sql` client (from `packages/api/src/db/schema.ts`) connects to PlanetScale PostgreSQL via the `DATABASE_URL` environment variable (injected from the `DatabaseUrl` SST secret). Tables: `files`, `share_links`, `chunks`, `vault_version`. The `pgvector` extension enables vector similarity search on chunk embeddings (768-dimensional `gemini-embedding-001` vectors).
 
 ### Key design decisions
 
 - **Presigned URLs for upload/download** — clients upload directly to S3, never stream through Lambda. This keeps Lambda lightweight and avoids payload size limits.
 - **Single catch-all route** — API Gateway's `$default` route sends everything to one Lambda. Hono handles routing internally. Simpler than per-route Lambda functions.
 - **API key auth** — a single shared key (`X-Api-Key` header) protects all mutating endpoints. Sufficient for single-user self-hosted deployment.
+- **PostgreSQL + pgvector** — PlanetScale PostgreSQL with the `pgvector` extension provides relational metadata storage and native vector similarity search for semantic queries. Postgres.js tagged template literals prevent SQL injection. Connection via `DATABASE_URL` secret.
 
 ## 7. File processing pipeline
 
@@ -618,8 +619,8 @@ API key authentication is implemented via the `apiKeyAuth` middleware (`packages
 The pipeline is a three-step Step Functions state machine: `ExtractText → Parallel(ChunkText, ExtractMetadata) → End`. Error catching at the top level sets the file's indexing status to `"failed"`.
 
 - **ExtractText** — Routes by MIME type: PDF via `pdf-parse`, `text/*` direct read, `image/*` via Gemini OCR. Sets indexing status to `"processing"` and stores the extracted plain text in S3.
-- **ChunkText** — Paragraph-based chunking using the DumbChunker algorithm (50–250 word chunks). Stores chunks as DynamoDB items linked to the parent file.
-- **ExtractMetadata** — Uses Gemini 2.0 Flash via Vercel AI Gateway (`@ai-sdk/gateway`) to generate structured metadata (summary, keywords, topics, title) with Zod schema validation. Writes metadata back to the file's DynamoDB record.
+- **ChunkText** — Paragraph-based chunking using the DumbChunker algorithm (50–250 word chunks). Stores chunks as PostgreSQL rows linked to the parent file.
+- **ExtractMetadata** — Uses Gemini 2.0 Flash via Vercel AI Gateway (`@ai-sdk/gateway`) to generate structured metadata (summary, keywords, topics, title) with Zod schema validation. Writes metadata back to the file's database record.
 
 All LLM calls route through **Vercel AI Gateway** for easy model swapping — the `@ai-sdk/gateway` SDK resolves the `VercelAIGatewayApiKey` secret at runtime.
 
