@@ -149,6 +149,18 @@ export async function getFileById(id: string): Promise<HolocronFile | null> {
   return rows.length > 0 ? rowToFile(rows[0]) : null;
 }
 
+/** Fetch multiple files by their IDs in a single query. */
+export async function getFilesByIds(ids: string[]): Promise<Map<string, HolocronFile>> {
+  if (ids.length === 0) return new Map();
+  const rows = await sql`SELECT * FROM files WHERE id = ANY(${ids})`;
+  const map = new Map<string, HolocronFile>();
+  for (const row of rows) {
+    const file = rowToFile(row);
+    map.set(file.id, file);
+  }
+  return map;
+}
+
 /** Fetch a single file by its unique path. */
 export async function getFileByPath(
   path: string,
@@ -288,6 +300,31 @@ export async function getChunksByFileId(fileId: string, limit?: number): Promise
         ORDER BY chunk_index ASC
       `;
   return rows.map(rowToChunk);
+}
+
+/** Fetch the top N chunks per file for multiple file IDs in a single query. */
+export async function getTopChunksByFileIds(
+  fileIds: string[],
+  chunksPerFile = 3,
+): Promise<Map<string, FileChunk[]>> {
+  if (fileIds.length === 0) return new Map();
+  const rows = await sql`
+    SELECT * FROM (
+      SELECT c.*, ROW_NUMBER() OVER (PARTITION BY c.file_id ORDER BY c.chunk_index ASC) AS rn
+      FROM file_chunks c
+      WHERE c.file_id = ANY(${fileIds})
+    ) sub
+    WHERE rn <= ${chunksPerFile}
+    ORDER BY file_id, chunk_index
+  `;
+  const map = new Map<string, FileChunk[]>();
+  for (const row of rows) {
+    const chunk = rowToChunk(row);
+    const existing = map.get(chunk.fileId);
+    if (existing) existing.push(chunk);
+    else map.set(chunk.fileId, [chunk]);
+  }
+  return map;
 }
 
 /** Delete all chunks for a file. */

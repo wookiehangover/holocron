@@ -12,8 +12,8 @@ import {
   searchChunksByEmbedding,
   searchChunks,
   searchFilesByMetadata,
-  getChunksByFileId,
-  getFileById,
+  getFilesByIds,
+  getTopChunksByFileIds,
 } from "./db.js";
 
 // ---------------------------------------------------------------------------
@@ -61,14 +61,6 @@ const RERANK_LIMIT = 30;
 /** Minimum relevance score (1-10) to keep a chunk. */
 const MIN_RELEVANCE_SCORE = 1;
 
-const RERANK_SYSTEM_PROMPT = `Score how well this text chunk answers the given query on a scale of 1-10.
-10: Perfectly answers the query
-7-9: Contains most needed information
-5-6: Contains some relevant information
-3-4: Minimal relevance
-1-2: No relevance
-Return only a single integer (1-10).`;
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -114,28 +106,42 @@ function reciprocalRankFusion(
 }
 
 /**
- * Rerank chunks using Gemini 3 Flash. Returns relevance scores (1-10).
+ * Rerank chunks using a single Gemini 3 Flash call that scores all chunks at once.
  * Falls back to mapping RRF scores to 1-10 range if the LLM call fails.
  */
 async function rerankChunks(
   query: string,
   chunks: FusedChunk[],
 ): Promise<Array<FusedChunk & { relevanceScore: number }>> {
+  if (chunks.length === 0) return [];
+
   try {
-    const scores = await Promise.all(
-      chunks.map(async (chunk) => {
-        const { text } = await generateText({
-          model: gateway("google/gemini-3-flash"),
-          system: RERANK_SYSTEM_PROMPT,
-          prompt: `Query: ${query}\n\nText chunk:\n${chunk.text}`,
-        });
-        const parsed = parseInt(text.trim(), 10);
-        return Number.isFinite(parsed) && parsed >= 1 && parsed <= 10
-          ? parsed
-          : 5;
-      }),
-    );
-    return chunks.map((chunk, i) => ({ ...chunk, relevanceScore: scores[i] }));
+    // Build a single prompt with all chunks numbered
+    const chunksText = chunks
+      .map((c, i) => `Chunk ${i + 1}:\n${c.text}`)
+      .join("\n\n");
+
+    const { text } = await generateText({
+      model: gateway("google/gemini-3-flash"),
+      system: `Score each text chunk on relevance to the query (1-10).
+10: Perfectly answers the query
+7-9: Contains most needed information
+5-6: Contains some relevant information
+3-4: Minimal relevance
+1-2: No relevance
+Return ONLY a JSON array of integers, one per chunk, in the same order. Example for 3 chunks: [8, 3, 6]`,
+      prompt: `Query: ${query}\n\n${chunksText}`,
+    });
+
+    // Parse the JSON array from response
+    const match = text.match(/\[[\d\s,]+\]/);
+    if (!match) throw new Error("No JSON array in response");
+    const scores: number[] = JSON.parse(match[0]);
+
+    return chunks.map((chunk, i) => ({
+      ...chunk,
+      relevanceScore: (scores[i] != null && scores[i] >= 1 && scores[i] <= 10) ? scores[i] : 5,
+    }));
   } catch {
     // Fallback: map RRF scores to 1-10 range
     return rrfFallbackScores(chunks);
@@ -172,8 +178,13 @@ export async function hybridSearch(
   query: string,
   limit = 20,
 ): Promise<HybridSearchResult[]> {
-  // 1. Embed the query
-  const { embedding } = await embed({
+  const t0 = Date.now();
+
+  // Type alias for chunk hit shape used across retrieval legs
+  type ChunkHit = { id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number };
+
+  // 1. Start everything in parallel — only vector search needs the embedding
+  const embeddingPromise = embed({
     model: gateway.embeddingModel("google/gemini-embedding-001"),
     value: query,
     providerOptions: {
@@ -181,59 +192,63 @@ export async function hybridSearch(
     },
   });
 
-  // 2. Parallel retrieval — each leg wrapped in try/catch
-  let fullTextHits: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
-  let vectorHits: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
-  let metadataFiles: Array<{ fileId: string; fileName: string }> = [];
+  const ftsPromise = searchChunksByFullText(query, 50).catch((err) => {
+    console.log(`[search] FTS error: ${err}`);
+    return [] as ChunkHit[];
+  });
 
-  const [ftsResult, vectorResult, metadataResult] = await Promise.all([
-    searchChunksByFullText(query, 50).catch((err) => {
-      console.log(`[search] FTS error: ${err}`);
-      return [] as typeof fullTextHits;
-    }),
-    searchChunksByEmbedding(embedding, 50).catch((err) => {
+  const metadataPromise = searchFilesByMetadata(query).catch((err) => {
+    console.log(`[search] Metadata search error: ${err}`);
+    return [] as Array<{ fileId: string; fileName: string }>;
+  });
+
+  const ilikePromise = searchChunks(query, 30).catch((err) => {
+    console.log(`[search] ILIKE error: ${err}`);
+    return [] as Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>;
+  });
+
+  // Vector search chains off the embedding — starts as soon as embedding completes
+  const vectorPromise = embeddingPromise
+    .then(({ embedding }) => searchChunksByEmbedding(embedding, 50))
+    .catch((err) => {
       console.log(`[search] Vector search error: ${err}`);
-      return [] as typeof vectorHits;
-    }),
-    searchFilesByMetadata(query).catch((err) => {
-      console.log(`[search] Metadata search error: ${err}`);
-      return [] as typeof metadataFiles;
-    }),
+      return [] as ChunkHit[];
+    });
+
+  // Wait for all legs
+  const [ftsResult, vectorResult, metadataResult, ilikeResult] = await Promise.all([
+    ftsPromise, vectorPromise, metadataPromise, ilikePromise,
   ]);
 
-  fullTextHits = ftsResult;
-  vectorHits = vectorResult;
-  metadataFiles = metadataResult;
+  const fullTextHits: ChunkHit[] = ftsResult;
+  const vectorHits: ChunkHit[] = vectorResult;
+  const metadataFiles = metadataResult;
 
   console.log(`[search] FTS returned ${fullTextHits.length} chunks for query "${query}"`);
   console.log(`[search] Vector search returned ${vectorHits.length} chunks`);
   console.log(`[search] Metadata search matched ${metadataFiles.length} files`);
 
-  // 2b. ILIKE fallback if FTS returned < 5 results
-  let ilikeHits: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
-  if (fullTextHits.length < 5) {
-    try {
-      const ilikeResults = await searchChunks(query, 30);
-      ilikeHits = ilikeResults.map((c) => ({
-        id: c.id,
-        fileId: c.fileId,
-        fileName: c.fileName,
-        text: c.text,
-        page: c.page,
-        chunkIndex: c.chunkIndex,
-      }));
-      console.log(`[search] ILIKE fallback returned ${ilikeHits.length} chunks`);
-    } catch (err) {
-      console.log(`[search] ILIKE fallback error: ${err}`);
-    }
+  // Map ILIKE results to ChunkHit shape
+  const ilikeHits: ChunkHit[] = ilikeResult.map((c) => ({
+    id: c.id,
+    fileId: c.fileId,
+    fileName: c.fileName,
+    text: c.text,
+    page: c.page,
+    chunkIndex: c.chunkIndex,
+  }));
+  if (ilikeHits.length > 0) {
+    console.log(`[search] ILIKE returned ${ilikeHits.length} chunks`);
   }
 
-  // 2c. Metadata leg — fetch first 3 chunks per matching file
-  let metadataChunks: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }> = [];
-  try {
-    const chunkArrays = await Promise.all(
-      metadataFiles.map(async (mf) => {
-        const chunks = await getChunksByFileId(mf.fileId, 3);
+  // 2. Metadata leg — batch fetch top 3 chunks for all matching files
+  let metadataChunks: ChunkHit[] = [];
+  if (metadataFiles.length > 0) {
+    try {
+      const metaFileIds = metadataFiles.map((mf) => mf.fileId);
+      const chunkMap = await getTopChunksByFileIds(metaFileIds, 3);
+      metadataChunks = metadataFiles.flatMap((mf) => {
+        const chunks = chunkMap.get(mf.fileId) ?? [];
         return chunks.map((c) => ({
           id: c.id,
           fileId: c.fileId,
@@ -242,30 +257,32 @@ export async function hybridSearch(
           page: c.page,
           chunkIndex: c.chunkIndex,
         }));
-      }),
-    );
-    metadataChunks = chunkArrays.flat();
-  } catch (err) {
-    console.log(`[search] Metadata chunk fetch error: ${err}`);
+      });
+    } catch (err) {
+      console.log(`[search] Metadata chunk fetch error: ${err}`);
+    }
   }
 
+  console.log(`[search] Retrieval phase: ${Date.now() - t0}ms`);
+
   // 3. Reciprocal Rank Fusion — merge all legs
-  const rrfLists: Array<Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>> = [
-    fullTextHits,
-    vectorHits,
-  ];
-  if (ilikeHits.length > 0) rrfLists.push(ilikeHits);
+  const rrfLists: ChunkHit[][] = [fullTextHits, vectorHits];
+  // Only include ILIKE in RRF if FTS returned < 5 results
+  if (ftsResult.length < 5 && ilikeHits.length > 0) rrfLists.push(ilikeHits);
   if (metadataChunks.length > 0) rrfLists.push(metadataChunks);
 
   const fused = reciprocalRankFusion(...rrfLists);
   console.log(`[search] RRF fusion produced ${fused.length} candidates`);
+  console.log(`[search] Metadata + RRF: ${Date.now() - t0}ms`);
 
   // 4. Rerank top-N
+  const tRerank = Date.now();
   const topN = fused.slice(0, RERANK_LIMIT);
   const reranked = await rerankChunks(query, topN);
 
   const scores = reranked.map((c) => c.relevanceScore);
   console.log(`[search] Reranking scores: ${JSON.stringify(scores)}`);
+  console.log(`[search] Reranking: ${Date.now() - tRerank}ms`);
 
   // 5. Filter & group by file
   const kept = reranked.filter((c) => c.relevanceScore >= MIN_RELEVANCE_SCORE);
@@ -296,12 +313,13 @@ export async function hybridSearch(
     return bestB - bestA;
   });
 
-  // Build results with full file records
-  const results: HybridSearchResult[] = [];
+  // 6. Batch-fetch full file records
+  const fileIds = sortedGroups.slice(0, limit).map(([id]) => id);
+  const fileMap = await getFilesByIds(fileIds);
 
-  for (const [fileId, group] of sortedGroups.slice(0, limit)) {
-    const file = await getFileById(fileId);
-    results.push({
+  const results: HybridSearchResult[] = sortedGroups.slice(0, limit).map(([fileId, group]) => {
+    const file = fileMap.get(fileId);
+    return {
       file: {
         id: fileId,
         name: file?.name ?? group.fileName,
@@ -319,9 +337,10 @@ export async function hybridSearch(
           relevanceScore: c.relevanceScore,
         })),
       topScore: Math.max(...group.chunks.map((c) => c.relevanceScore)),
-    });
-  }
+    };
+  });
 
   console.log(`[search] Returning ${results.length} file results`);
+  console.log(`[search] Total: ${Date.now() - t0}ms`);
   return results;
 }
