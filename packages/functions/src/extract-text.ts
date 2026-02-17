@@ -12,6 +12,7 @@ import { gateway } from "@ai-sdk/gateway";
 import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 import { imageSize } from "image-size";
 import { updateFileIndexingStatus } from "@holocron/api/db";
+import JSZip from "jszip";
 
 const s3 = new S3Client({});
 
@@ -134,6 +135,88 @@ async function extractImage(buffer: Buffer, mimeType: string): Promise<string> {
   return text;
 }
 
+/** Strip HTML/XML tags and collapse whitespace. */
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Extract text from an EPUB buffer by parsing the OPF spine and reading XHTML in order. */
+async function extractEpub(buffer: Buffer): Promise<{ text: string; chapterCount: number }> {
+  const zip = await JSZip.loadAsync(buffer);
+
+  // 1. Read container.xml to locate the OPF rootfile
+  const containerXml = await zip.file("META-INF/container.xml")?.async("string");
+  if (!containerXml) {
+    throw new Error("EPUB missing META-INF/container.xml");
+  }
+
+  const rootfileMatch = containerXml.match(/<rootfile[^>]+full-path="([^"]+)"/);
+  if (!rootfileMatch) {
+    throw new Error("EPUB container.xml missing rootfile full-path");
+  }
+  const opfPath = rootfileMatch[1];
+  const opfDir = opfPath.includes("/") ? opfPath.substring(0, opfPath.lastIndexOf("/") + 1) : "";
+
+  // 2. Read and parse the OPF file
+  const opfXml = await zip.file(opfPath)?.async("string");
+  if (!opfXml) {
+    throw new Error(`EPUB OPF file not found at ${opfPath}`);
+  }
+
+  // Build manifest map: id → href (only for XHTML content documents)
+  const manifestMap = new Map<string, string>();
+  const itemRegex = /<item\s[^>]*>/g;
+  let itemMatch;
+  while ((itemMatch = itemRegex.exec(opfXml)) !== null) {
+    const tag = itemMatch[0];
+    const idMatch = tag.match(/\bid="([^"]+)"/);
+    const hrefMatch = tag.match(/\bhref="([^"]+)"/);
+    const mediaMatch = tag.match(/\bmedia-type="([^"]+)"/);
+    if (idMatch && hrefMatch) {
+      const mediaType = mediaMatch?.[1] ?? "";
+      // Include XHTML and HTML content documents
+      if (mediaType.includes("html") || mediaType.includes("xml")) {
+        manifestMap.set(idMatch[1], hrefMatch[1]);
+      }
+    }
+  }
+
+  // Extract spine order (list of idrefs)
+  const spineMatch = opfXml.match(/<spine[^>]*>([\s\S]*?)<\/spine>/);
+  if (!spineMatch) {
+    throw new Error("EPUB OPF missing <spine> element");
+  }
+  const spineXml = spineMatch[1];
+  const idrefRegex = /<itemref\s[^>]*idref="([^"]+)"[^>]*/g;
+  const spineOrder: string[] = [];
+  let idrefMatch;
+  while ((idrefMatch = idrefRegex.exec(spineXml)) !== null) {
+    spineOrder.push(idrefMatch[1]);
+  }
+
+  // 3. Read each spine item in order and extract text
+  const textParts: string[] = [];
+  for (const idref of spineOrder) {
+    const href = manifestMap.get(idref);
+    if (!href) continue;
+
+    // Resolve href relative to OPF directory
+    const filePath = opfDir + decodeURIComponent(href);
+    const content = await zip.file(filePath)?.async("string");
+    if (!content) continue;
+
+    const text = stripHtml(content);
+    if (text) {
+      textParts.push(text);
+    }
+  }
+
+  return {
+    text: textParts.join("\n\n"),
+    chapterCount: textParts.length,
+  };
+}
+
 function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -169,6 +252,10 @@ export async function handler(event: ExtractTextEvent): Promise<ExtractTextResul
       mimeType === "application/xml"
     ) {
       fullText = extractTextContent(fileBuffer);
+    } else if (mimeType === "application/epub+zip") {
+      const result = await extractEpub(fileBuffer);
+      fullText = result.text;
+      pageCount = result.chapterCount;
     } else if (mimeType.startsWith("image/")) {
       // Extract image dimensions
       try {
