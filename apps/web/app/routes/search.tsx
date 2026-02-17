@@ -1,6 +1,6 @@
 import { Form, Link, useLoaderData, useNavigation } from "react-router";
 import type { Route } from "./+types/search";
-import { searchFiles, type SearchResult } from "../lib/api";
+import { hybridSearch, type HybridSearchResult } from "../lib/api";
 import { Layout } from "~/components/layout";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
@@ -16,7 +16,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const q = url.searchParams.get("q")?.trim() ?? "";
   if (!q) return { results: null, query: "", total: 0 };
   try {
-    const data = await searchFiles(q);
+    const data = await hybridSearch(q);
     return { results: data.results, query: data.query, total: data.total };
   } catch {
     return { results: [], query: q, total: 0 };
@@ -158,7 +158,7 @@ function SearchSkeleton() {
   );
 }
 
-function ResultItem({ result, query }: { result: SearchResult; query: string }) {
+function ResultItem({ result, query }: { result: HybridSearchResult; query: string }) {
   const displayType = result.file.mimeType.split("/").pop() ?? result.file.mimeType;
   const visibleChunks = result.chunks.slice(0, 3);
 
@@ -173,6 +173,9 @@ function ResultItem({ result, query }: { result: SearchResult; query: string }) 
         </Link>
         <Badge variant="secondary" className="text-[10px]">
           {displayType}
+        </Badge>
+        <Badge variant="outline" className="text-[10px]">
+          {result.topScore}/10
         </Badge>
         {result.chunks.length > 0 && (
           <span className="text-[10px] text-muted-foreground">
@@ -197,6 +200,9 @@ function ResultItem({ result, query }: { result: SearchResult; query: string }) 
                   p.{chunk.page}
                 </span>
               )}
+              <span className="mr-1.5 text-[10px] font-medium text-muted-foreground/60">
+                [{chunk.relevanceScore}/10]
+              </span>
               {highlightText(truncate(chunk.text), query)}
             </div>
           ))}

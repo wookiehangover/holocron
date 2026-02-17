@@ -193,7 +193,10 @@ export interface SearchResponse {
   total: number;
 }
 
-/** Full-text search across indexed file chunks. */
+/**
+ * Full-text search across indexed file chunks.
+ * @deprecated Use {@link hybridSearch} instead — it combines keyword, vector, and LLM reranking.
+ */
 export async function searchFiles(
   query: string,
   limit = 20,
@@ -203,6 +206,42 @@ export async function searchFiles(
     headers: headers(),
   });
   if (!res.ok) throw new Error(`searchFiles failed: ${res.status}`);
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Hybrid Search
+// ---------------------------------------------------------------------------
+
+export interface HybridSearchResult {
+  file: {
+    id: string;
+    name: string;
+    path: string;
+    mimeType: string;
+    metadata?: unknown;
+  };
+  chunks: Array<{ id: string; text: string; page?: number; chunkIndex: number; relevanceScore: number }>;
+  topScore: number;
+}
+
+export interface HybridSearchResponse {
+  results: HybridSearchResult[];
+  query: string;
+  total: number;
+}
+
+/** Hybrid search: keyword + vector + LLM reranking. */
+export async function hybridSearch(
+  query: string,
+  limit = 20,
+): Promise<HybridSearchResponse> {
+  const res = await fetch(`${baseUrl()}/search`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ query, limit }),
+  });
+  if (!res.ok) throw new Error(`hybridSearch failed: ${res.status}`);
   return res.json();
 }
 

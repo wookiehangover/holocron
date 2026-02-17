@@ -106,9 +106,11 @@ pub struct VaultVersion {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchChunk {
+    pub id: String,
     pub text: String,
     pub page: Option<u64>,
     pub chunk_index: u64,
+    pub relevance_score: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,7 +128,7 @@ pub struct SearchResultFile {
 pub struct SearchResult {
     pub file: SearchResultFile,
     pub chunks: Vec<SearchChunk>,
-    pub score: f64,
+    pub top_score: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,6 +163,13 @@ struct ShareRequest<'a> {
     file_id: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires_in: Option<u64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SearchRequest<'a> {
+    query: &'a str,
+    limit: u32,
 }
 
 // ---------------------------------------------------------------------------
@@ -327,11 +336,15 @@ impl ApiClient {
         Ok(())
     }
 
-    /// GET /files/search?q=...&limit=... — search indexed files.
+    /// POST /search — hybrid search (keyword + vector + LLM reranking).
     pub async fn search(&self, query: &str, limit: u32) -> Result<SearchResponse, ApiError> {
-        let encoded_query = urlencoding::encode(query);
-        let url = format!("{}/files/search?q={}&limit={}", self.base_url, encoded_query, limit);
-        let resp = self.client.get(&url).send().await?;
+        let body = SearchRequest { query, limit };
+        let resp = self
+            .client
+            .post(self.url("/search"))
+            .json(&body)
+            .send()
+            .await?;
         let resp = Self::check(resp).await?;
         Ok(resp.json().await?)
     }

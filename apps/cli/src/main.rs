@@ -217,7 +217,7 @@ async fn main() {
                                 })
                                 .unwrap_or_default();
                             println!("  {} ({})", result.file.name, result.file.path);
-                            println!("  Score: {:.0}  |  Type: {}", result.score, result.file.mime_type);
+                            println!("  Score: {:.0}/10  |  Type: {}", result.top_score, result.file.mime_type);
                             if !snippet.is_empty() {
                                 println!("  > {snippet}");
                             }
