@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { Upload } from "lucide-react";
 import { useLoaderData, useRevalidator } from "react-router";
 import type { Route } from "./+types/home";
 import type { HolocronFile } from "@holocron/core/types";
@@ -63,7 +64,7 @@ function formatDate(d: string | Date): string {
 type UploadState = "idle" | "uploading" | "done" | "error";
 
 export default function Home() {
-  const { files, error } = useLoaderData<typeof loader>();
+  const { files, error, sort, dir } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
 
   const [dragOver, setDragOver] = useState(false);
@@ -126,32 +127,55 @@ export default function Home() {
   const zoneState = dragOver ? "dragover" : uploadState;
 
   return (
-    <Layout>
-      <div className="space-y-6">
-        <UploadZone
-          uploadState={zoneState}
-          errorMessage={uploadError}
-          onUpload={handleUpload}
-          onDragOver={() => setDragOver(true)}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-        />
+    <div
+      className="relative min-h-screen"
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={(e) => {
+        // Only leave if exiting the wrapper (not entering a child)
+        if (e.currentTarget === e.target) setDragOver(false);
+      }}
+      onDrop={handleDrop}
+    >
+      {/* Full-page drop overlay */}
+      {dragOver && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
+          <Upload className="size-10 text-primary" />
+          <p className="text-lg font-medium text-primary">Drop files to upload</p>
+        </div>
+      )}
 
-        {error && (
-          <p className="text-xs text-destructive">
-            Failed to load files: {error}
-          </p>
-        )}
+      <Layout>
+        <div className="space-y-6">
+          <UploadZone
+            uploadState={zoneState}
+            errorMessage={uploadError}
+            onUpload={handleUpload}
+            onDragOver={() => setDragOver(true)}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+          />
 
-        <FileTable
-          files={files}
-          copiedFileId={copiedFileId}
-          onDownload={handleDownload}
-          onShare={handleShare}
-          formatBytes={formatBytes}
-          formatDate={formatDate}
-        />
-      </div>
-    </Layout>
+          {error && (
+            <p className="text-xs text-destructive">
+              Failed to load files: {error}
+            </p>
+          )}
+
+          <FileTable
+            files={files}
+            copiedFileId={copiedFileId}
+            onDownload={handleDownload}
+            onShare={handleShare}
+            formatBytes={formatBytes}
+            formatDate={formatDate}
+            sort={sort}
+            dir={dir}
+          />
+        </div>
+      </Layout>
+    </div>
   );
 }

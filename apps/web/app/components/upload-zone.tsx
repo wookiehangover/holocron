@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Upload, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Card } from "~/components/ui/card";
+import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 
 type UploadState = "idle" | "dragover" | "uploading" | "done" | "error";
@@ -47,7 +48,7 @@ export function UploadZone({
         className="hidden"
         onChange={(e) => onUpload(e.target.files)}
       />
-      <div className="flex flex-col items-center gap-2 text-center">
+      <div className="flex flex-col items-center gap-3 text-center">
         {uploadState === "uploading" && (
           <>
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -74,6 +75,18 @@ export function UploadZone({
             <p className="text-xs text-muted-foreground">
               Drop files here or click to upload
             </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+            >
+              <Upload className="size-3.5" />
+              Upload Files
+            </Button>
           </>
         )}
       </div>
