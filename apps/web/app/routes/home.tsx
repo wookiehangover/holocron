@@ -206,46 +206,48 @@ export default function Home() {
             </p>
           )}
 
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={uploadState === "uploading"}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {uploadState === "uploading" && (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Uploading…
-                </>
-              )}
-              {uploadState === "done" && (
-                <>
-                  <CheckCircle className="size-3.5 text-emerald-500" />
-                  <span className="text-emerald-600 dark:text-emerald-400">Uploaded!</span>
-                </>
-              )}
-              {uploadState === "error" && (
-                <>
-                  <AlertCircle className="size-3.5 text-destructive" />
-                  <span className="text-destructive">Failed</span>
-                </>
-              )}
-              {uploadState === "idle" && (
-                <>
-                  <Upload className="size-3.5" />
-                  Upload
-                </>
-              )}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => handleUpload(e.target.files)}
-            />
+          <div className="flex items-center justify-between gap-3">
             <FolderBreadcrumb folder={folder} />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploadState === "uploading"}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploadState === "uploading" && (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    Uploading…
+                  </>
+                )}
+                {uploadState === "done" && (
+                  <>
+                    <CheckCircle className="size-3.5 text-emerald-500" />
+                    <span className="text-emerald-600 dark:text-emerald-400">Uploaded!</span>
+                  </>
+                )}
+                {uploadState === "error" && (
+                  <>
+                    <AlertCircle className="size-3.5 text-destructive" />
+                    <span className="text-destructive">Failed</span>
+                  </>
+                )}
+                {uploadState === "idle" && (
+                  <>
+                    <Upload className="size-3.5" />
+                    Upload
+                  </>
+                )}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => handleUpload(e.target.files)}
+              />
+            </div>
           </div>
 
           <FileTable
