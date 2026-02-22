@@ -1,7 +1,6 @@
 import { useLoaderData } from "react-router";
 import { resolveShareLink } from "../lib/api";
 import type { Route } from "./+types/share.$token";
-import { Layout } from "~/components/layout";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
@@ -160,49 +159,44 @@ export default function SharePage() {
   const { file, downloadUrl } = data;
 
   return (
-    <Layout>
-      <div className="space-y-4">
-        {/* Branding — no back link since this is a public page */}
-        <h1 className="text-lg font-semibold">Holocron</h1>
+    <main className="mx-auto max-w-5xl px-4 py-6">
+      {/* 2-column grid */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:grid-rows-[auto_1fr]">
+        {/* LEFT — title + preview */}
+        <div className="min-w-0 space-y-4 lg:row-span-2 lg:grid lg:grid-rows-subgrid lg:gap-6">
+          <div className="flex items-center">
+            <h2 className="truncate text-lg font-medium">{file.name}</h2>
+          </div>
+          <PreviewSection mimeType={file.mimeType} downloadUrl={downloadUrl} fileName={file.name} />
+        </div>
 
-        {/* 2-column grid */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:grid-rows-[auto_1fr]">
-          {/* LEFT — title + preview */}
-          <div className="min-w-0 space-y-4 lg:row-span-2 lg:grid lg:grid-rows-subgrid lg:gap-6">
-            <div className="flex items-center">
-              <h2 className="truncate text-lg font-medium">{file.name}</h2>
-            </div>
-            <PreviewSection mimeType={file.mimeType} downloadUrl={downloadUrl} fileName={file.name} />
+        {/* RIGHT — actions + info */}
+        <aside className="space-y-4 lg:row-span-2 lg:grid lg:grid-rows-subgrid lg:gap-6">
+          <div className="flex items-center gap-2">
+            <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+              <Button size="sm">Download</Button>
+            </a>
           </div>
 
-          {/* RIGHT — actions + info */}
-          <aside className="space-y-4 lg:row-span-2 lg:grid lg:grid-rows-subgrid lg:gap-6">
-            <div className="flex items-center gap-2">
-              <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="sm">Download</Button>
-              </a>
-            </div>
-
-            <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-              <Card>
-                <CardContent className="space-y-3 pt-4">
-                  <div className="text-xs text-muted-foreground space-y-2">
-                    <div className="flex justify-between">
-                      <span>Size</span>
-                      <span className="text-foreground">{formatBytes(file.size)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Type</span>
-                      <Badge variant="secondary" className="text-xs">{file.mimeType}</Badge>
-                    </div>
+          <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            <Card>
+              <CardContent className="space-y-3 pt-4">
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <div className="flex justify-between">
+                    <span>Size</span>
+                    <span className="text-foreground">{formatBytes(file.size)}</span>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </aside>
-        </div>
+                  <div className="flex justify-between">
+                    <span>Type</span>
+                    <Badge variant="secondary" className="text-xs">{file.mimeType}</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </aside>
       </div>
-    </Layout>
+    </main>
   );
 }
 
