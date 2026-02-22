@@ -13,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import { Separator } from "~/components/ui/separator";
 import { ImagePreview } from "~/components/preview/image-preview";
 import { TextPreview } from "~/components/preview/text-preview";
 import { PdfPreview } from "~/components/preview/pdf-preview";
@@ -127,6 +126,20 @@ export function meta({ data }: Route.MetaArgs) {
 
 export default function FileDetail() {
   const data = useLoaderData<typeof loader>();
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(async (fileId: string) => {
+    try {
+      const { url } = await createShareLink(fileId);
+      const token = url.split("/").pop();
+      const shareUrl = `${window.location.origin}/share/${token}`;
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Silently fail — share is a non-critical action
+    }
+  }, []);
 
   if (!data.ok) {
     return (
@@ -154,8 +167,8 @@ export default function FileDetail() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Back link */}
+      <div className="space-y-4">
+        {/* Back link — full width, above grid */}
         <Link
           to="/"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -164,89 +177,96 @@ export default function FileDetail() {
           Back
         </Link>
 
-        {/* File header */}
-        <FileHeader file={file} downloadUrl={downloadUrl} />
+        {/* 2-column grid on desktop, single column on mobile */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          {/* LEFT COLUMN — content preview (wider) */}
+          <div className="min-w-0 space-y-4">
+            {/* File title at top of content area */}
+            <div>
+              <h1 className="truncate text-lg font-medium">{file.name}</h1>
+              {file.path !== file.name && (
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {file.path}
+                </p>
+              )}
+            </div>
 
-        <Separator className="my-1" />
+            {/* Preview */}
+            <PreviewSection
+              mimeType={file.mimeType}
+              downloadUrl={downloadUrl}
+              fileName={file.name}
+            />
+          </div>
 
-        {/* Metadata */}
-        {file.metadata && <MetadataSection file={file} />}
+          {/* RIGHT COLUMN — metadata sidebar (narrower, sticky) */}
+          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+            {/* Actions */}
+            <div className="flex gap-2">
+              <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm">Download</Button>
+              </a>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleShare(file.id)}
+              >
+                {copied ? "Copied!" : "Share"}
+              </Button>
+            </div>
 
-        {/* Preview */}
-        <PreviewSection
-          mimeType={file.mimeType}
-          downloadUrl={downloadUrl}
-          fileName={file.name}
-        />
-      </div>
-    </Layout>
-  );
-}
+            {/* File info card */}
+            <Card>
+              <CardContent className="space-y-3 pt-4">
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <div className="flex justify-between">
+                    <span>Size</span>
+                    <span className="text-foreground">
+                      {formatBytes(file.size)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Type</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {file.mimeType}
+                    </Badge>
+                  </div>
+                  {file.indexingStatus && (
+                    <div className="flex justify-between">
+                      <span>Status</span>
+                      <Badge
+                        variant="outline"
+                        className={indexingStatusColor(file.indexingStatus)}
+                      >
+                        {file.indexingStatus}
+                      </Badge>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Uploaded</span>
+                    <span className="text-foreground">
+                      {formatDate(file.createdAt)}
+                    </span>
+                  </div>
+                  {file.updatedAt &&
+                    file.updatedAt !== file.createdAt && (
+                      <div className="flex justify-between">
+                        <span>Updated</span>
+                        <span className="text-foreground">
+                          {formatDate(file.updatedAt)}
+                        </span>
+                      </div>
+                    )}
+                </div>
+              </CardContent>
+            </Card>
 
-// ---------------------------------------------------------------------------
-// FileHeader
-// ---------------------------------------------------------------------------
-
-function FileHeader({
-  file,
-  downloadUrl,
-}: {
-  file: HolocronFile;
-  downloadUrl: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const handleShare = useCallback(async () => {
-    try {
-      const { url } = await createShareLink(file.id);
-      const token = url.split("/").pop();
-      const shareUrl = `${window.location.origin}/share/${token}`;
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Silently fail — share is a non-critical action
-    }
-  }, [file.id]);
-
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="truncate text-lg font-medium">{file.name}</h1>
-        {file.path !== file.name && (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {file.path}
-          </p>
-        )}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            {formatBytes(file.size)}
-          </span>
-          <Badge variant="secondary" className="text-xs">
-            {file.mimeType}
-          </Badge>
-          {file.indexingStatus && (
-            <Badge
-              variant="outline"
-              className={`text-xs ${indexingStatusColor(file.indexingStatus)}`}
-            >
-              {file.indexingStatus}
-            </Badge>
-          )}
-          <span className="text-xs text-muted-foreground">
-            Uploaded {formatDate(file.createdAt)}
-          </span>
+            {/* Metadata card (keywords, topics, etc.) */}
+            {file.metadata && <MetadataSection file={file} />}
+          </aside>
         </div>
       </div>
-      <div className="flex shrink-0 gap-2">
-        <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-          <Button size="sm">Download</Button>
-        </a>
-        <Button variant="outline" size="sm" onClick={handleShare}>
-          {copied ? "Copied!" : "Share"}
-        </Button>
-      </div>
-    </div>
+    </Layout>
   );
 }
 
@@ -259,7 +279,7 @@ function MetadataSection({ file }: { file: HolocronFile }) {
   if (!meta) return null;
 
   return (
-    <Card className="mb-5">
+    <Card>
       <CardHeader>
         <CardTitle className="text-sm">
           {meta.title || "File Metadata"}
