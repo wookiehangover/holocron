@@ -20,6 +20,7 @@ struct FileBrowserView: View {
     @State private var showDeleteConfirm = false
     @State private var showShareSheet = false
     @State private var shareURL: URL?
+    @State private var isDownloading = false
 
     var body: some View {
         NavigationStack {
@@ -54,6 +55,13 @@ struct FileBrowserView: View {
                             Image(systemName: "plus")
                         }
                     }
+                }
+            }
+            .overlay {
+                if isDownloading {
+                    ProgressView("Opening file…")
+                        .padding()
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
                 }
             }
             .task {
@@ -142,8 +150,13 @@ struct FileBrowserView: View {
     }
 
     private func fileRow(for file: HolocronFile, currentPath: String) -> some View {
-        FileRowView(file: file)
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        Button {
+            Task { await viewFile(file) }
+        } label: {
+            FileRowView(file: file)
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 Button(role: .destructive) {
                     promptDelete(file)
                 } label: {
@@ -210,6 +223,8 @@ struct FileBrowserView: View {
     // MARK: - File Actions
 
     private func viewFile(_ file: HolocronFile) async {
+        isDownloading = true
+        defer { isDownloading = false }
         do {
             let client = makeClient()
             let (_, downloadURL) = try await client.getFile(id: file.id)
@@ -362,6 +377,7 @@ struct FolderContentView: View {
     @Binding var isUploading: Bool
     @EnvironmentObject var settingsStore: SettingsStore
     @State private var showDocumentPicker = false
+    @State private var isDownloading = false
 
     var body: some View {
         List {
@@ -389,6 +405,13 @@ struct FolderContentView: View {
                 }
             }
         }
+        .overlay {
+            if isDownloading {
+                ProgressView("Opening file…")
+                    .padding()
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            }
+        }
         .navigationTitle(folderName)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -411,8 +434,17 @@ struct FolderContentView: View {
     }
 
     private func folderFileRow(for file: HolocronFile) -> some View {
-        FileRowView(file: file)
-            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        Button {
+            Task {
+                isDownloading = true
+                defer { isDownloading = false }
+                await onView(file)
+            }
+        } label: {
+            FileRowView(file: file)
+        }
+        .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                 Button(role: .destructive) { onDelete(file) } label: {
                     Label("Delete", systemImage: "trash")
                 }
