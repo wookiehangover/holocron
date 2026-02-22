@@ -1,0 +1,280 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4A0B35C12D8A00000000C001 /* HolocronApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B001; };
+		4A0B35C12D8A00000000C002 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B002; };
+		4A0B35C12D8A00000000C003 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B003; };
+		4A0B35C12D8A00000000C004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B004; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		4A0B35C12D8A00000000B001 /* HolocronApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolocronApp.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B002 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B003 /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B004 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B005 /* Holocron.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Holocron.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4A0B35C12D8A00000000D002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4A0B35C12D8A00000000A002 = {
+			isa = PBXGroup;
+			children = (
+				4A0B35C12D8A00000000A004 /* Holocron */,
+				4A0B35C12D8A00000000A003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4A0B35C12D8A00000000A003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4A0B35C12D8A00000000B005 /* Holocron.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4A0B35C12D8A00000000A004 /* Holocron */ = {
+			isa = PBXGroup;
+			children = (
+				4A0B35C12D8A00000000B001 /* HolocronApp.swift */,
+				4A0B35C12D8A00000000A005 /* Models */,
+				4A0B35C12D8A00000000A006 /* Views */,
+				4A0B35C12D8A00000000A007 /* Services */,
+				4A0B35C12D8A00000000A008 /* Utilities */,
+			);
+			path = Holocron;
+			sourceTree = "<group>";
+		};
+		4A0B35C12D8A00000000A005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		4A0B35C12D8A00000000A006 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				4A0B35C12D8A00000000B002 /* SettingsView.swift */,
+				4A0B35C12D8A00000000B003 /* FileBrowserView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		4A0B35C12D8A00000000A007 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				4A0B35C12D8A00000000B004 /* SettingsStore.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		4A0B35C12D8A00000000A008 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4A0B35C12D8A00000000E001 /* Holocron */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4A0B35C12D8A00000000F011 /* Build configuration list for PBXNativeTarget "Holocron" */;
+			buildPhases = (
+				4A0B35C12D8A00000000D001 /* Sources */,
+				4A0B35C12D8A00000000D002 /* Frameworks */,
+				4A0B35C12D8A00000000D003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Holocron;
+			productName = Holocron;
+			productReference = 4A0B35C12D8A00000000B005 /* Holocron.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4A0B35C12D8A00000000A001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1630;
+				LastUpgradeCheck = 1630;
+			};
+			buildConfigurationList = 4A0B35C12D8A00000000F010 /* Build configuration list for PBXProject "Holocron" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 4A0B35C12D8A00000000A002;
+			productRefGroup = 4A0B35C12D8A00000000A003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4A0B35C12D8A00000000E001 /* Holocron */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4A0B35C12D8A00000000D003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4A0B35C12D8A00000000D001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4A0B35C12D8A00000000C001 /* HolocronApp.swift in Sources */,
+				4A0B35C12D8A00000000C002 /* SettingsView.swift in Sources */,
+				4A0B35C12D8A00000000C003 /* FileBrowserView.swift in Sources */,
+				4A0B35C12D8A00000000C004 /* SettingsStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		4A0B35C12D8A00000000F001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		4A0B35C12D8A00000000F002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		4A0B35C12D8A00000000F003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationAllButUpsideDown";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sambreed.Holocron.iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4A0B35C12D8A00000000F004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationAllButUpsideDown";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sambreed.Holocron.iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4A0B35C12D8A00000000F010 /* Build configuration list for PBXProject "Holocron" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A0B35C12D8A00000000F001 /* Debug */,
+				4A0B35C12D8A00000000F002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4A0B35C12D8A00000000F011 /* Build configuration list for PBXNativeTarget "Holocron" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4A0B35C12D8A00000000F003 /* Debug */,
+				4A0B35C12D8A00000000F004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 4A0B35C12D8A00000000A001 /* Project object */;
+}
+
