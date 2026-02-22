@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
 import { Upload } from "lucide-react";
-import { useLoaderData, useRevalidator } from "react-router";
+import { Link, useLoaderData, useRevalidator } from "react-router";
 import type { Route } from "./+types/home";
 import type { HolocronFile } from "@holocron/core/types";
-import { listFiles } from "~/lib/db.server";
+import { listFilesInFolder } from "~/lib/db.server";
 import { getFile, uploadFile, createShareLink } from "../lib/api";
 import { Layout } from "~/components/layout";
 import { UploadZone } from "~/components/upload-zone";
@@ -18,10 +18,25 @@ export async function loader({ request }: Route.LoaderArgs) {
     const url = new URL(request.url);
     const sortBy = url.searchParams.get("sort") ?? undefined;
     const sortDir = (url.searchParams.get("dir") as "asc" | "desc") ?? undefined;
-    const files = await listFiles({ sortBy, sortDir });
-    return { files, error: null, sort: sortBy ?? null, dir: sortDir ?? null };
+    const folder = url.searchParams.get("folder") ?? undefined;
+    const { folders, files } = await listFilesInFolder({ sortBy, sortDir, folder });
+    return {
+      files,
+      folders,
+      folder: folder ?? null,
+      error: null,
+      sort: sortBy ?? null,
+      dir: sortDir ?? null,
+    };
   } catch (e) {
-    return { files: [] as HolocronFile[], error: (e as Error).message, sort: null, dir: null };
+    return {
+      files: [] as HolocronFile[],
+      folders: [],
+      folder: null,
+      error: (e as Error).message,
+      sort: null,
+      dir: null,
+    };
   }
 }
 
@@ -63,8 +78,45 @@ function formatDate(d: string | Date): string {
 
 type UploadState = "idle" | "uploading" | "done" | "error";
 
+// ---------------------------------------------------------------------------
+// Breadcrumb
+// ---------------------------------------------------------------------------
+
+function FolderBreadcrumb({ folder }: { folder: string | null }) {
+  if (!folder) return null;
+
+  const segments = folder.split("/").filter(Boolean);
+
+  return (
+    <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+      <Link to="/" className="hover:underline hover:text-foreground">
+        Home
+      </Link>
+      {segments.map((seg, i) => {
+        const path = segments.slice(0, i + 1).join("/");
+        const isLast = i === segments.length - 1;
+        return (
+          <span key={path} className="flex items-center gap-1">
+            <span>/</span>
+            {isLast ? (
+              <span className="text-foreground font-medium">{seg}</span>
+            ) : (
+              <Link
+                to={`/?folder=${encodeURIComponent(path)}`}
+                className="hover:underline hover:text-foreground"
+              >
+                {seg}
+              </Link>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 export default function Home() {
-  const { files, error, sort, dir } = useLoaderData<typeof loader>();
+  const { files, folders, folder, error, sort, dir } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
 
   const [dragOver, setDragOver] = useState(false);
@@ -164,8 +216,12 @@ export default function Home() {
             </p>
           )}
 
+          <FolderBreadcrumb folder={folder} />
+
           <FileTable
             files={files}
+            folders={folders}
+            currentFolder={folder}
             copiedFileId={copiedFileId}
             onDownload={handleDownload}
             onShare={handleShare}

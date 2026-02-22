@@ -8,6 +8,7 @@ import {
   XCircle,
   ChevronUp,
   ChevronDown,
+  Folder,
 } from "lucide-react";
 import type { HolocronFile, IndexingStatus } from "@holocron/core/types";
 import {
@@ -78,17 +79,6 @@ function IndexingStatusIcon({ status }: { status?: IndexingStatus }) {
 }
 
 // ---------------------------------------------------------------------------
-// Folder display helper
-// ---------------------------------------------------------------------------
-
-function getParentFolder(path: string, name: string): string | null {
-  if (path === name) return null;
-  const prefix = path.slice(0, path.length - name.length);
-  const parts = prefix.replace(/\/+$/, "").split("/");
-  return parts[parts.length - 1] || null;
-}
-
-// ---------------------------------------------------------------------------
 // Sortable header
 // ---------------------------------------------------------------------------
 
@@ -153,6 +143,8 @@ function SortableHead({
 
 interface FileTableProps {
   files: HolocronFile[];
+  folders?: { name: string; fileCount: number }[];
+  currentFolder?: string | null;
   copiedFileId: string | null;
   onDownload: (id: string) => void;
   onShare: (id: string) => void;
@@ -164,6 +156,8 @@ interface FileTableProps {
 
 export function FileTable({
   files,
+  folders = [],
+  currentFolder = null,
   copiedFileId,
   onDownload,
   onShare,
@@ -172,12 +166,23 @@ export function FileTable({
   sort = null,
   dir = null,
 }: FileTableProps) {
-  if (files.length === 0) {
+  const [searchParams] = useSearchParams();
+
+  if (files.length === 0 && folders.length === 0) {
     return (
       <p className="py-12 text-center text-xs text-muted-foreground">
         No files yet. Drop files above to upload.
       </p>
     );
+  }
+
+  function buildFolderUrl(folderName: string) {
+    const next = new URLSearchParams(searchParams);
+    const path = currentFolder
+      ? `${currentFolder}/${folderName}`
+      : folderName;
+    next.set("folder", path);
+    return `/?${next.toString()}`;
   }
 
   return (
@@ -198,71 +203,85 @@ export function FileTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {files.map((file) => {
-            const folder = getParentFolder(file.path, file.name);
-            return (
-              <TableRow
-                key={file.id}
-                className="hover:bg-muted/50 transition-colors"
-              >
-                <TableCell className="text-xs">
-                  <Link
-                    to={`/files/${file.id}`}
-                    className="hover:underline inline-flex items-center gap-1"
+          {folders.map((f) => (
+            <TableRow
+              key={`folder-${f.name}`}
+              className="hover:bg-muted/50 transition-colors"
+            >
+              <TableCell className="text-xs">
+                <Link
+                  to={buildFolderUrl(f.name)}
+                  className="hover:underline inline-flex items-center gap-1.5"
+                >
+                  <Folder className="size-4 text-muted-foreground" />
+                  {f.name}
+                </Link>
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                {f.fileCount} {f.fileCount === 1 ? "file" : "files"}
+              </TableCell>
+              <TableCell />
+              <TableCell />
+              <TableCell />
+            </TableRow>
+          ))}
+          {files.map((file) => (
+            <TableRow
+              key={file.id}
+              className="hover:bg-muted/50 transition-colors"
+            >
+              <TableCell className="text-xs">
+                <Link
+                  to={`/files/${file.id}`}
+                  className="hover:underline inline-flex items-center gap-1"
+                >
+                  {file.name}
+                </Link>
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                {formatBytes(file.size)}
+              </TableCell>
+              <TableCell className="text-xs">
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-normal"
+                >
+                  {file.mimeType}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                {formatDate(file.createdAt)}
+              </TableCell>
+              <TableCell className="text-xs">
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => onDownload(file.id)}
                   >
-                    {folder && (
-                      <span className="text-muted-foreground">
-                        📁 {folder} /
-                      </span>
-                    )}
-                    {file.name}
-                  </Link>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {formatBytes(file.size)}
-                </TableCell>
-                <TableCell className="text-xs">
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] font-normal"
+                    <Download className="size-3" />
+                    <span className="sr-only">Download</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => onShare(file.id)}
+                    className={
+                      copiedFileId === file.id
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : ""
+                    }
                   >
-                    {file.mimeType}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {formatDate(file.createdAt)}
-                </TableCell>
-                <TableCell className="text-xs">
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => onDownload(file.id)}
-                    >
-                      <Download className="size-3" />
-                      <span className="sr-only">Download</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => onShare(file.id)}
-                      className={
-                        copiedFileId === file.id
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : ""
-                      }
-                    >
-                      <Share2 className="size-3" />
-                      <span className="text-[10px]">
-                        {copiedFileId === file.id ? "Copied!" : "Share"}
-                      </span>
-                    </Button>
-                    <IndexingStatusIcon status={file.indexingStatus} />
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
+                    <Share2 className="size-3" />
+                    <span className="text-[10px]">
+                      {copiedFileId === file.id ? "Copied!" : "Share"}
+                    </span>
+                  </Button>
+                  <IndexingStatusIcon status={file.indexingStatus} />
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
     </TooltipProvider>
