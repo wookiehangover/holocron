@@ -17,6 +17,8 @@
 		4A0B35C12D8A00000000C008 /* APIResponses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B009; };
 		4A0B35C12D8A00000000C101 /* FileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B101; };
 		4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B102; };
+		4A0B35C12D8A00000000C201 /* FilePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B201; };
+		4A0B35C12D8A00000000C202 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B202; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +33,8 @@
 		4A0B35C12D8A00000000B009 /* APIResponses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponses.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B101 /* FileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNode.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B102 /* FileRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRowView.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B201 /* FilePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewView.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B202 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,6 +93,8 @@
 				4A0B35C12D8A00000000B002 /* SettingsView.swift */,
 				4A0B35C12D8A00000000B003 /* FileBrowserView.swift */,
 				4A0B35C12D8A00000000B102 /* FileRowView.swift */,
+				4A0B35C12D8A00000000B201 /* FilePreviewView.swift */,
+				4A0B35C12D8A00000000B202 /* DocumentPickerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -182,6 +188,8 @@
 				4A0B35C12D8A00000000C008 /* APIResponses.swift in Sources */,
 				4A0B35C12D8A00000000C101 /* FileNode.swift in Sources */,
 				4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */,
+				4A0B35C12D8A00000000C201 /* FilePreviewView.swift in Sources */,
+				4A0B35C12D8A00000000C202 /* DocumentPickerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
