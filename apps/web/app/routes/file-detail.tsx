@@ -178,17 +178,20 @@ export default function FileDetail() {
         </Link>
 
         {/* 2-column grid on desktop, single column on mobile */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        {/* Subgrid keeps the header row (title / actions) equal height */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px] lg:grid-rows-[auto_1fr]">
           {/* LEFT COLUMN — content preview (wider) */}
-          <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-4 lg:row-span-2 lg:grid lg:grid-rows-subgrid lg:gap-6">
             {/* File title at top of content area */}
-            <div>
-              <h1 className="truncate text-lg font-medium">{file.name}</h1>
-              {file.path !== file.name && (
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {file.path}
-                </p>
-              )}
+            <div className="flex items-center">
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-medium">{file.name}</h1>
+                {file.path !== file.name && (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {file.path}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Preview */}
@@ -200,9 +203,9 @@ export default function FileDetail() {
           </div>
 
           {/* RIGHT COLUMN — metadata sidebar (narrower, sticky) */}
-          <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-            {/* Actions */}
-            <div className="flex gap-2">
+          <aside className="space-y-4 lg:row-span-2 lg:grid lg:grid-rows-subgrid lg:gap-6">
+            {/* Actions — sits in the header row, aligned with the title */}
+            <div className="flex items-center gap-2">
               <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
                 <Button size="sm">Download</Button>
               </a>
@@ -215,54 +218,57 @@ export default function FileDetail() {
               </Button>
             </div>
 
-            {/* File info card */}
-            <Card>
-              <CardContent className="space-y-3 pt-4">
-                <div className="text-xs text-muted-foreground space-y-2">
-                  <div className="flex justify-between">
-                    <span>Size</span>
-                    <span className="text-foreground">
-                      {formatBytes(file.size)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Type</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {file.mimeType}
-                    </Badge>
-                  </div>
-                  {file.indexingStatus && (
+            {/* Sidebar content — sits in the content row */}
+            <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+              {/* File info card */}
+              <Card>
+                <CardContent className="space-y-3 pt-4">
+                  <div className="text-xs text-muted-foreground space-y-2">
                     <div className="flex justify-between">
-                      <span>Status</span>
-                      <Badge
-                        variant="outline"
-                        className={indexingStatusColor(file.indexingStatus)}
-                      >
-                        {file.indexingStatus}
+                      <span>Size</span>
+                      <span className="text-foreground">
+                        {formatBytes(file.size)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Type</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {file.mimeType}
                       </Badge>
                     </div>
-                  )}
-                  <div className="flex justify-between">
-                    <span>Uploaded</span>
-                    <span className="text-foreground">
-                      {formatDate(file.createdAt)}
-                    </span>
-                  </div>
-                  {file.updatedAt &&
-                    file.updatedAt !== file.createdAt && (
+                    {file.indexingStatus && (
                       <div className="flex justify-between">
-                        <span>Updated</span>
-                        <span className="text-foreground">
-                          {formatDate(file.updatedAt)}
-                        </span>
+                        <span>Status</span>
+                        <Badge
+                          variant="outline"
+                          className={indexingStatusColor(file.indexingStatus)}
+                        >
+                          {file.indexingStatus}
+                        </Badge>
                       </div>
                     )}
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="flex justify-between">
+                      <span>Uploaded</span>
+                      <span className="text-foreground">
+                        {formatDate(file.createdAt)}
+                      </span>
+                    </div>
+                    {file.updatedAt &&
+                      file.updatedAt !== file.createdAt && (
+                        <div className="flex justify-between">
+                          <span>Updated</span>
+                          <span className="text-foreground">
+                            {formatDate(file.updatedAt)}
+                          </span>
+                        </div>
+                      )}
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Metadata card (keywords, topics, etc.) */}
-            {file.metadata && <MetadataSection file={file} />}
+              {/* Metadata card (keywords, topics, etc.) */}
+              {file.metadata && <MetadataSection file={file} />}
+            </div>
           </aside>
         </div>
       </div>
