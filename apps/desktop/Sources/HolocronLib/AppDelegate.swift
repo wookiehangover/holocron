@@ -49,9 +49,20 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: PreferencesWindow.didSaveNotification,
             object: nil
         )
+
+        // Trigger a sync when the system wakes from sleep
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(handleSystemWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
     }
 
     public func applicationWillTerminate(_ notification: Notification) {
+        NSWorkspace.shared.notificationCenter.removeObserver(
+            self, name: NSWorkspace.didWakeNotification, object: nil
+        )
         stopServices()
         logger.notice("Holocron terminated")
     }
@@ -79,6 +90,11 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         fileWatcher = nil
         syncEngine?.stop()
         syncEngine = nil
+    }
+
+    @objc private func handleSystemWake(_ notification: Notification) {
+        logger.info("System woke from sleep, triggering sync")
+        Task { await syncEngine?.syncNow() }
     }
 
     @objc private func preferencesDidChange() {
