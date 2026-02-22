@@ -11,6 +11,12 @@
 		4A0B35C12D8A00000000C002 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B002; };
 		4A0B35C12D8A00000000C003 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B003; };
 		4A0B35C12D8A00000000C004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B004; };
+		4A0B35C12D8A00000000C005 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B006; };
+		4A0B35C12D8A00000000C006 /* HolocronFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B007; };
+		4A0B35C12D8A00000000C007 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B008; };
+		4A0B35C12D8A00000000C008 /* APIResponses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B009; };
+		4A0B35C12D8A00000000C101 /* FileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B101; };
+		4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B102; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,6 +25,12 @@
 		4A0B35C12D8A00000000B003 /* FileBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileBrowserView.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B004 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B005 /* Holocron.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Holocron.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4A0B35C12D8A00000000B006 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B007 /* HolocronFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolocronFile.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B008 /* APIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIError.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B009 /* APIResponses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponses.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B101 /* FileNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileNode.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B102 /* FileRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRowView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +75,10 @@
 		4A0B35C12D8A00000000A005 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				4A0B35C12D8A00000000B007 /* HolocronFile.swift */,
+				4A0B35C12D8A00000000B008 /* APIError.swift */,
+				4A0B35C12D8A00000000B009 /* APIResponses.swift */,
+				4A0B35C12D8A00000000B101 /* FileNode.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -72,6 +88,7 @@
 			children = (
 				4A0B35C12D8A00000000B002 /* SettingsView.swift */,
 				4A0B35C12D8A00000000B003 /* FileBrowserView.swift */,
+				4A0B35C12D8A00000000B102 /* FileRowView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -80,6 +97,7 @@
 			isa = PBXGroup;
 			children = (
 				4A0B35C12D8A00000000B004 /* SettingsStore.swift */,
+				4A0B35C12D8A00000000B006 /* APIClient.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -158,6 +176,12 @@
 				4A0B35C12D8A00000000C002 /* SettingsView.swift in Sources */,
 				4A0B35C12D8A00000000C003 /* FileBrowserView.swift in Sources */,
 				4A0B35C12D8A00000000C004 /* SettingsStore.swift in Sources */,
+				4A0B35C12D8A00000000C005 /* APIClient.swift in Sources */,
+				4A0B35C12D8A00000000C006 /* HolocronFile.swift in Sources */,
+				4A0B35C12D8A00000000C007 /* APIError.swift in Sources */,
+				4A0B35C12D8A00000000C008 /* APIResponses.swift in Sources */,
+				4A0B35C12D8A00000000C101 /* FileNode.swift in Sources */,
+				4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
