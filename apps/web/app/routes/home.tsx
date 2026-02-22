@@ -1,12 +1,12 @@
-import { useState, useCallback } from "react";
-import { Upload } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { Link, useLoaderData, useRevalidator } from "react-router";
 import type { Route } from "./+types/home";
 import type { HolocronFile } from "@holocron/core/types";
 import { listFilesInFolder } from "~/lib/db.server";
 import { getFile, uploadFile, createShareLink } from "../lib/api";
 import { Layout } from "~/components/layout";
-import { UploadZone } from "~/components/upload-zone";
+import { Button } from "~/components/ui/button";
 import { FileTable } from "~/components/file-table";
 
 // ---------------------------------------------------------------------------
@@ -175,8 +175,7 @@ export default function Home() {
     }
   }, []);
 
-  // Map internal state to upload zone state
-  const zoneState = dragOver ? "dragover" : uploadState;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div
@@ -201,22 +200,53 @@ export default function Home() {
 
       <Layout>
         <div className="space-y-6">
-          <UploadZone
-            uploadState={zoneState}
-            errorMessage={uploadError}
-            onUpload={handleUpload}
-            onDragOver={() => setDragOver(true)}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-          />
-
           {error && (
             <p className="text-xs text-destructive">
               Failed to load files: {error}
             </p>
           )}
 
-          <FolderBreadcrumb folder={folder} />
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={uploadState === "uploading"}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadState === "uploading" && (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Uploading…
+                </>
+              )}
+              {uploadState === "done" && (
+                <>
+                  <CheckCircle className="size-3.5 text-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400">Uploaded!</span>
+                </>
+              )}
+              {uploadState === "error" && (
+                <>
+                  <AlertCircle className="size-3.5 text-destructive" />
+                  <span className="text-destructive">Failed</span>
+                </>
+              )}
+              {uploadState === "idle" && (
+                <>
+                  <Upload className="size-3.5" />
+                  Upload
+                </>
+              )}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+            <FolderBreadcrumb folder={folder} />
+          </div>
 
           <FileTable
             files={files}
