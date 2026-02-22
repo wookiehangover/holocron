@@ -83,7 +83,13 @@ type UploadState = "idle" | "uploading" | "done" | "error";
 // ---------------------------------------------------------------------------
 
 function FolderBreadcrumb({ folder }: { folder: string | null }) {
-  if (!folder) return null;
+  if (!folder) {
+    return (
+      <nav className="flex items-center gap-1 text-sm">
+        <span className="text-foreground font-medium">Home</span>
+      </nav>
+    );
+  }
 
   const segments = folder.split("/").filter(Boolean);
 
