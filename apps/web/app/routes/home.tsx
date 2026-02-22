@@ -1,21 +1,26 @@
 import { useState, useCallback } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
+import type { Route } from "./+types/home";
 import type { HolocronFile } from "@holocron/core/types";
-import { listFiles, getFile, uploadFile, createShareLink } from "../lib/api";
+import { listFiles } from "~/lib/db.server";
+import { getFile, uploadFile, createShareLink } from "../lib/api";
 import { Layout } from "~/components/layout";
 import { UploadZone } from "~/components/upload-zone";
 import { FileTable } from "~/components/file-table";
 
 // ---------------------------------------------------------------------------
-// Loader — fetch file list server-side
+// Loader — fetch file list server-side (direct DB query)
 // ---------------------------------------------------------------------------
 
-export async function loader() {
+export async function loader({ request }: Route.LoaderArgs) {
   try {
-    const files = await listFiles();
-    return { files, error: null };
+    const url = new URL(request.url);
+    const sortBy = url.searchParams.get("sort") ?? undefined;
+    const sortDir = (url.searchParams.get("dir") as "asc" | "desc") ?? undefined;
+    const files = await listFiles({ sortBy, sortDir });
+    return { files, error: null, sort: sortBy ?? null, dir: sortDir ?? null };
   } catch (e) {
-    return { files: [] as HolocronFile[], error: (e as Error).message };
+    return { files: [] as HolocronFile[], error: (e as Error).message, sort: null, dir: null };
   }
 }
 
