@@ -2,6 +2,18 @@ import CryptoKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum ActiveSheet: Identifiable {
+    case documentPicker
+    case shareSheet(URL)
+
+    var id: Int {
+        switch self {
+        case .documentPicker: return 0
+        case .shareSheet: return 1
+        }
+    }
+}
+
 /// Main file browser view with virtual folder navigation and file operations.
 struct FileBrowserView: View {
     @EnvironmentObject var settingsStore: SettingsStore
@@ -10,7 +22,7 @@ struct FileBrowserView: View {
     @State private var errorMessage: String?
 
     // File operation state
-    @State private var showDocumentPicker = false
+    @State private var activeSheet: ActiveSheet?
     @State private var showPreview = false
     @State private var previewURL: URL?
     @State private var showRenameAlert = false
@@ -18,8 +30,6 @@ struct FileBrowserView: View {
     @State private var selectedFile: HolocronFile?
     @State private var isUploading = false
     @State private var showDeleteConfirm = false
-    @State private var showShareSheet = false
-    @State private var shareURL: URL?
     @State private var isDownloading = false
 
     var body: some View {
@@ -50,7 +60,7 @@ struct FileBrowserView: View {
                         ProgressView()
                     } else {
                         Button {
-                            showDocumentPicker = true
+                            activeSheet = .documentPicker
                         } label: {
                             Image(systemName: "plus")
                         }
@@ -67,22 +77,24 @@ struct FileBrowserView: View {
             .task {
                 await loadFiles()
             }
-            .sheet(isPresented: $showDocumentPicker) {
-                DocumentPickerView { url in
-                    Task { await uploadFile(from: url, toFolder: "") }
+            .sheet(item: $activeSheet) { sheet in
+                switch sheet {
+                case .documentPicker:
+                    DocumentPickerView { url in
+                        Task { await uploadFile(from: url, toFolder: "") }
+                    }
+                case .shareSheet(let url):
+                    ShareSheetView(items: [url])
                 }
             }
             .fullScreenCover(isPresented: $showPreview) {
                 if let previewURL {
-                    NavigationStack {
-                        FilePreviewView(fileURL: previewURL)
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .navigationBarLeading) {
-                                    Button("Done") { showPreview = false }
-                                }
-                            }
-                    }
+                    FilePreviewSheet(
+                        fileURL: previewURL,
+                        file: selectedFile,
+                        settingsStore: settingsStore,
+                        onDismiss: { showPreview = false }
+                    )
                 }
             }
             .alert("Rename File", isPresented: $showRenameAlert) {
@@ -108,11 +120,7 @@ struct FileBrowserView: View {
                     Text("Are you sure you want to delete \"\(file.name)\"? This cannot be undone.")
                 }
             }
-            .sheet(isPresented: $showShareSheet) {
-                if let shareURL {
-                    ShareSheetView(items: [shareURL])
-                }
-            }
+
         }
     }
 
@@ -232,6 +240,7 @@ struct FileBrowserView: View {
             let tempDir = FileManager.default.temporaryDirectory
             let tempFile = tempDir.appendingPathComponent(file.name)
             try data.write(to: tempFile)
+            selectedFile = file
             previewURL = tempFile
             showPreview = true
         } catch {
@@ -246,9 +255,9 @@ struct FileBrowserView: View {
             let baseURL = settingsStore.serverURL.hasSuffix("/")
                 ? settingsStore.serverURL
                 : settingsStore.serverURL + "/"
-            if let url = URL(string: baseURL + response.url) {
-                shareURL = url
-                showShareSheet = true
+            let sharePath = response.url.hasPrefix("/") ? String(response.url.dropFirst()) : response.url
+            if let url = URL(string: baseURL + sharePath) {
+                activeSheet = .shareSheet(url)
             }
         } catch {
             errorMessage = "Share failed: \(error.localizedDescription)"
@@ -346,6 +355,67 @@ struct FileBrowserView: View {
             return mime
         }
         return "application/octet-stream"
+    }
+}
+
+// MARK: - File Preview Sheet
+
+/// Wraps the file preview in a NavigationStack with Done and Share buttons.
+private struct FilePreviewSheet: View {
+    let fileURL: URL
+    let file: HolocronFile?
+    let settingsStore: SettingsStore
+    let onDismiss: () -> Void
+    @State private var shareItems: [Any]?
+    @State private var showShare = false
+    @State private var isSharing = false
+
+    var body: some View {
+        NavigationStack {
+            FilePreviewView(fileURL: fileURL)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button("Done") { onDismiss() }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        if isSharing {
+                            ProgressView()
+                        } else {
+                            Button {
+                                guard let file else { return }
+                                Task { await share(file) }
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                            }
+                        }
+                    }
+                }
+                .sheet(isPresented: $showShare) {
+                    if let shareItems {
+                        ShareSheetView(items: shareItems)
+                    }
+                }
+        }
+    }
+
+    private func share(_ file: HolocronFile) async {
+        isSharing = true
+        defer { isSharing = false }
+        do {
+            let client = APIClient(serverURL: settingsStore.serverURL, apiKey: settingsStore.apiKey)
+            let response = try await client.createShareLink(fileId: file.id)
+            let baseURL = settingsStore.serverURL.hasSuffix("/")
+                ? settingsStore.serverURL
+                : settingsStore.serverURL + "/"
+            let sharePath = response.url.hasPrefix("/") ? String(response.url.dropFirst()) : response.url
+            if let url = URL(string: baseURL + sharePath) {
+                shareItems = [url]
+                showShare = true
+            }
+        } catch {
+            // silently fail in preview
+        }
     }
 }
 
