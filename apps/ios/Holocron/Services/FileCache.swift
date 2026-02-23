@@ -1,8 +1,8 @@
 import Foundation
 
 /// Manages a local file cache in the app's Documents directory.
-/// Files are stored under `Documents/Files/` mirroring their server path,
-/// and a JSON manifest tracks checksums for cache invalidation.
+/// Files are stored directly under `Documents/` mirroring their server path,
+/// and a JSON manifest in Library/Application Support tracks checksums for cache invalidation.
 @MainActor
 final class FileCache {
     static let shared = FileCache()
@@ -11,14 +11,16 @@ final class FileCache {
 
     private var baseURL: URL {
         fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Files", isDirectory: true)
     }
 
     private var manifestURL: URL {
-        baseURL.appendingPathComponent(".cache-manifest.json")
+        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("holocron-cache-manifest.json")
     }
 
-    private init() {}
+    private init() {
+        migrateFromLegacyCacheDirectory()
+    }
 
     // MARK: - Public API
 
@@ -32,7 +34,7 @@ final class FileCache {
         return fileURL
     }
 
-    /// Write file data to Documents/Files/{path}, update manifest. Returns local URL.
+    /// Write file data to Documents/{path}, update manifest. Returns local URL.
     func cache(data: Data, for file: HolocronFile) throws -> URL {
         let relativePath = file.path.isEmpty ? file.name : file.path
         let fileURL = baseURL.appendingPathComponent(relativePath)
@@ -62,12 +64,19 @@ final class FileCache {
         guard let entry = manifest.removeValue(forKey: id) else { return }
         let fileURL = baseURL.appendingPathComponent(entry.localRelativePath)
         try? fileManager.removeItem(at: fileURL)
+        removeEmptyAncestorDirectories(from: fileURL.deletingLastPathComponent(), upTo: baseURL)
         saveManifest(manifest)
     }
 
     /// Remove all cached files.
     func clearCache() {
-        try? fileManager.removeItem(at: baseURL)
+        let manifest = loadManifest()
+        for entry in manifest.values {
+            let fileURL = baseURL.appendingPathComponent(entry.localRelativePath)
+            try? fileManager.removeItem(at: fileURL)
+            removeEmptyAncestorDirectories(from: fileURL.deletingLastPathComponent(), upTo: baseURL)
+        }
+        saveManifest([:])
     }
 
     // MARK: - Manifest
@@ -89,11 +98,34 @@ final class FileCache {
 
     private func saveManifest(_ manifest: [String: CacheEntry]) {
         do {
-            try fileManager.createDirectory(at: baseURL, withIntermediateDirectories: true)
+            let manifestDir = manifestURL.deletingLastPathComponent()
+            try fileManager.createDirectory(at: manifestDir, withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(manifest)
             try data.write(to: manifestURL, options: .atomic)
         } catch {
             // Best-effort — cache still works, just won't persist manifest
+        }
+    }
+
+    // MARK: - Private Helpers
+
+    /// Walk up from `directory` removing empty directories, stopping before `stopAt`.
+    private func removeEmptyAncestorDirectories(from directory: URL, upTo stopAt: URL) {
+        var current = directory.standardizedFileURL
+        let stop = stopAt.standardizedFileURL
+        while current != stop {
+            let contents = try? fileManager.contentsOfDirectory(atPath: current.path)
+            guard let items = contents, items.isEmpty else { break }
+            try? fileManager.removeItem(at: current)
+            current = current.deletingLastPathComponent().standardizedFileURL
+        }
+    }
+
+    /// Remove stale legacy cache directory (`Documents/Files/`) and its old manifest.
+    private func migrateFromLegacyCacheDirectory() {
+        let legacyDir = baseURL.appendingPathComponent("Files", isDirectory: true)
+        if fileManager.fileExists(atPath: legacyDir.path) {
+            try? fileManager.removeItem(at: legacyDir)
         }
     }
 }
