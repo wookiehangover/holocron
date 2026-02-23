@@ -11,6 +11,7 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // Menu items updated dynamically
     private var statusMenuItem: NSMenuItem!
     private var syncNowMenuItem: NSMenuItem!
+    private var launchAtLoginMenuItem: NSMenuItem!
 
     // Core services
     private var syncEngine: SyncEngine?
@@ -114,6 +115,7 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         logger.info("Preferences changed, restarting services")
         stopServices()
         startServices()
+        refreshLaunchAtLoginState()
     }
 
     // MARK: - Menu Construction
@@ -162,6 +164,17 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         openVaultItem.target = self
         menu.addItem(openVaultItem)
 
+        // Launch at Login
+        launchAtLoginMenuItem = NSMenuItem(
+            title: "Launch at Login",
+            action: #selector(toggleLaunchAtLogin),
+            keyEquivalent: ""
+        )
+        launchAtLoginMenuItem.target = self
+        menu.addItem(launchAtLoginMenuItem)
+
+        menu.addItem(.separator())
+
         // Preferences
         let prefsItem = NSMenuItem(
             title: "Preferences...",
@@ -187,6 +200,7 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     public func menuWillOpen(_ menu: NSMenu) {
         refreshStatus()
+        refreshLaunchAtLoginState()
     }
 
     // MARK: - Status
@@ -248,6 +262,34 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+    }
+
+    @objc private func toggleLaunchAtLogin() {
+        let service = SMAppService.mainApp
+        let isCurrentlyEnabled = service.status == .enabled
+
+        var config = Config.load()
+        config.launchAtLogin = !isCurrentlyEnabled
+        config.save()
+
+        do {
+            if isCurrentlyEnabled {
+                try service.unregister()
+                logger.info("Login item unregistered via menu")
+            } else {
+                try service.register()
+                logger.info("Login item registered via menu")
+            }
+        } catch {
+            logger.error("Failed to toggle login item: \(error.localizedDescription, privacy: .public)")
+        }
+
+        refreshLaunchAtLoginState()
+    }
+
+    private func refreshLaunchAtLoginState() {
+        let isEnabled = SMAppService.mainApp.status == .enabled
+        launchAtLoginMenuItem.state = isEnabled ? .on : .off
     }
 
     @objc private func openPreferences() {
