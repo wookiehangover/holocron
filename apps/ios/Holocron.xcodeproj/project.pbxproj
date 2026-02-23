@@ -20,6 +20,7 @@
 		4A0B35C12D8A00000000C201 /* FilePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B201 /* FilePreviewView.swift */; };
 		4A0B35C12D8A00000000C202 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B202 /* DocumentPickerView.swift */; };
 		4A0B35C12D8A00000000C301 /* FileCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B301 /* FileCache.swift */; };
+		A2E59CF32F4C1458009D13D7 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A2E59CF22F4C1458009D13D7 /* AppIcon.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +38,7 @@
 		4A0B35C12D8A00000000B201 /* FilePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewView.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B202 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B301 /* FileCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCache.swift; sourceTree = "<group>"; };
+		A2E59CF22F4C1458009D13D7 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,6 +55,7 @@
 		4A0B35C12D8A00000000A002 = {
 			isa = PBXGroup;
 			children = (
+				A2E59CF22F4C1458009D13D7 /* AppIcon.icon */,
 				4A0B35C12D8A00000000A004 /* Holocron */,
 				4A0B35C12D8A00000000A003 /* Products */,
 			);
@@ -171,6 +174,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A2E59CF32F4C1458009D13D7 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -249,17 +253,18 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MDBDE9P2RA;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationAllButUpsideDown;
-				INFOPLIST_KEY_UIFileSharingEnabled = YES;
-				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sambreed.Holocron.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -273,17 +278,18 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = MDBDE9P2RA;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationAllButUpsideDown;
-				INFOPLIST_KEY_UIFileSharingEnabled = YES;
-				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sambreed.Holocron.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
