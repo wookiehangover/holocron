@@ -52,7 +52,7 @@ struct FileBrowserView: View {
                     NavigationLink {
                         SettingsView()
                     } label: {
-                        Image(systemName: "gear")
+                        Image(systemName: "moon.dust")
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
