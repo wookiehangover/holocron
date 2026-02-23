@@ -13,6 +13,8 @@ bundle: build
 	@mkdir -p "$(APP_DIR)/Contents/MacOS"
 	@cp .build/release/$(BINARY_NAME) "$(APP_DIR)/Contents/MacOS/$(BINARY_NAME)"
 	@cp Sources/Holocron/Info.plist "$(APP_DIR)/Contents/Info.plist"
+	@mkdir -p "$(APP_DIR)/Contents/Resources"
+	@cp Resources/AppIcon.icns "$(APP_DIR)/Contents/Resources/AppIcon.icns"
 	@echo "Assembled $(APP_DIR)"
 
 run: bundle
