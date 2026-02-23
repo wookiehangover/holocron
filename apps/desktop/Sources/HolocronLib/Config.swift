@@ -8,6 +8,7 @@ public struct Config: Codable {
     public var apiURL: String?
     public var vaultPath: String?
     public var apiKey: String?
+    public var launchAtLogin: Bool?
 
     // MARK: - Defaults
 
@@ -35,6 +36,11 @@ public struct Config: Codable {
     /// API key from config, falling back to empty string.
     public var resolvedAPIKey: String {
         apiKey ?? ""
+    }
+
+    /// Whether to launch at login, falling back to false.
+    public var resolvedLaunchAtLogin: Bool {
+        launchAtLogin ?? false
     }
 
     // MARK: - File I/O

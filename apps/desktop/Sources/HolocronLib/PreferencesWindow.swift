@@ -1,5 +1,6 @@
 import AppKit
 import os
+import ServiceManagement
 
 /// A simple preferences window for configuring vault path and API key.
 public final class PreferencesWindow: NSWindowController {
@@ -11,10 +12,11 @@ public final class PreferencesWindow: NSWindowController {
     private var apiURLField: NSTextField!
     private var vaultPathField: NSTextField!
     private var apiKeyField: NSSecureTextField!
+    private var launchAtLoginCheckbox: NSButton!
 
     public convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 240),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 280),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -40,9 +42,10 @@ public final class PreferencesWindow: NSWindowController {
         let fieldHeight: CGFloat = 24
         let rowSpacing: CGFloat = 16
 
-        let row1Y: CGFloat = 180
+        let row1Y: CGFloat = 220
         let row2Y: CGFloat = row1Y - fieldHeight - rowSpacing
         let row3Y: CGFloat = row2Y - fieldHeight - rowSpacing
+        let row4Y: CGFloat = row3Y - fieldHeight - rowSpacing
         let fieldX: CGFloat = margin + labelWidth + 8
         let fieldWidth: CGFloat = 340
 
@@ -79,6 +82,11 @@ public final class PreferencesWindow: NSWindowController {
         apiKeyField.placeholderString = "Enter API key"
         contentView.addSubview(apiKeyField)
 
+        // --- Launch at Login ---
+        launchAtLoginCheckbox = NSButton(checkboxWithTitle: "Launch at Login", target: nil, action: nil)
+        launchAtLoginCheckbox.frame = NSRect(x: fieldX, y: row4Y, width: fieldWidth, height: fieldHeight)
+        contentView.addSubview(launchAtLoginCheckbox)
+
         // --- Buttons ---
         let saveButton = NSButton(title: "Save", target: self, action: #selector(savePreferences))
         saveButton.bezelStyle = .rounded
@@ -101,6 +109,11 @@ public final class PreferencesWindow: NSWindowController {
         if !config.resolvedAPIKey.isEmpty {
             apiKeyField.placeholderString = "••••••••  (saved)"
         }
+
+        // Prefer the live system status over the saved config value so the
+        // checkbox reflects changes made in System Settings.
+        let isEnabled = SMAppService.mainApp.status == .enabled
+        launchAtLoginCheckbox.state = isEnabled ? .on : .off
     }
 
     @objc private func savePreferences() {
@@ -121,8 +134,25 @@ public final class PreferencesWindow: NSWindowController {
             config.apiKey = apiKey
         }
 
+        let wantsLaunchAtLogin = launchAtLoginCheckbox.state == .on
+        config.launchAtLogin = wantsLaunchAtLogin
+
         config.save()
         Self.logger.info("Preferences saved to config file")
+
+        // Register / unregister the login item
+        let service = SMAppService.mainApp
+        do {
+            if wantsLaunchAtLogin {
+                try service.register()
+                Self.logger.info("Login item registered")
+            } else {
+                try service.unregister()
+                Self.logger.info("Login item unregistered")
+            }
+        } catch {
+            Self.logger.error("Failed to update login item: \(error.localizedDescription, privacy: .public)")
+        }
 
         NotificationCenter.default.post(name: Self.didSaveNotification, object: nil)
 

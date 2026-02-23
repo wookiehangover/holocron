@@ -1,5 +1,6 @@
 import AppKit
 import os
+import ServiceManagement
 
 public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let logger = Logger(subsystem: "com.sambreed.Holocron", category: "app")
@@ -41,6 +42,18 @@ public class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         startServices()
+
+        // Ensure the login item stays registered if config says so
+        // (handles the case where the app bundle was moved).
+        let config = Config.load()
+        if config.resolvedLaunchAtLogin {
+            do {
+                try SMAppService.mainApp.register()
+                logger.info("Login item re-registered on launch")
+            } catch {
+                logger.error("Failed to register login item on launch: \(error.localizedDescription, privacy: .public)")
+            }
+        }
 
         // Re-initialize services when preferences change
         NotificationCenter.default.addObserver(
