@@ -19,6 +19,7 @@
 		4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B102 /* FileRowView.swift */; };
 		4A0B35C12D8A00000000C201 /* FilePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B201 /* FilePreviewView.swift */; };
 		4A0B35C12D8A00000000C202 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B202 /* DocumentPickerView.swift */; };
+		4A0B35C12D8A00000000C301 /* FileCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B301 /* FileCache.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +36,7 @@
 		4A0B35C12D8A00000000B102 /* FileRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileRowView.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B201 /* FilePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewView.swift; sourceTree = "<group>"; };
 		4A0B35C12D8A00000000B202 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
+		4A0B35C12D8A00000000B301 /* FileCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileCache.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +106,7 @@
 			children = (
 				4A0B35C12D8A00000000B004 /* SettingsStore.swift */,
 				4A0B35C12D8A00000000B006 /* APIClient.swift */,
+				4A0B35C12D8A00000000B301 /* FileCache.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -190,6 +193,7 @@
 				4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */,
 				4A0B35C12D8A00000000C201 /* FilePreviewView.swift in Sources */,
 				4A0B35C12D8A00000000C202 /* DocumentPickerView.swift in Sources */,
+				4A0B35C12D8A00000000C301 /* FileCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -254,6 +258,8 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationAllButUpsideDown;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sambreed.Holocron.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -276,6 +282,8 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationAllButUpsideDown;
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sambreed.Holocron.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";

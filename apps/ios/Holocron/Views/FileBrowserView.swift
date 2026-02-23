@@ -234,14 +234,20 @@ struct FileBrowserView: View {
         isDownloading = true
         defer { isDownloading = false }
         do {
+            // Check cache first
+            if let cachedURL = FileCache.shared.cachedURL(for: file) {
+                selectedFile = file
+                previewURL = cachedURL
+                showPreview = true
+                return
+            }
+            // Cache miss — download and cache
             let client = makeClient()
             let (_, downloadURL) = try await client.getFile(id: file.id)
             let (data, _) = try await URLSession.shared.data(from: downloadURL)
-            let tempDir = FileManager.default.temporaryDirectory
-            let tempFile = tempDir.appendingPathComponent(file.name)
-            try data.write(to: tempFile)
+            let localURL = try FileCache.shared.cache(data: data, for: file)
             selectedFile = file
-            previewURL = tempFile
+            previewURL = localURL
             showPreview = true
         } catch {
             errorMessage = "Preview failed: \(error.localizedDescription)"
@@ -268,6 +274,7 @@ struct FileBrowserView: View {
         do {
             let client = makeClient()
             try await client.deleteFile(id: file.id)
+            FileCache.shared.removeCachedFile(id: file.id)
             await loadFiles()
         } catch {
             errorMessage = "Delete failed: \(error.localizedDescription)"
