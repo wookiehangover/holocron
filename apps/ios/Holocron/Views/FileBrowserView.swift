@@ -243,9 +243,9 @@ struct FileBrowserView: View {
             }
             // Cache miss — download and cache
             let client = makeClient()
-            let (_, downloadURL) = try await client.getFile(id: file.id)
+            let (serverFile, downloadURL) = try await client.getFile(id: file.id)
             let (data, _) = try await URLSession.shared.data(from: downloadURL)
-            let localURL = try FileCache.shared.cache(data: data, for: file)
+            let localURL = try FileCache.shared.cache(data: data, for: serverFile)
             selectedFile = file
             previewURL = localURL
             showPreview = true
