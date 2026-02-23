@@ -7,18 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4A0B35C12D8A00000000C001 /* HolocronApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B001; };
-		4A0B35C12D8A00000000C002 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B002; };
-		4A0B35C12D8A00000000C003 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B003; };
-		4A0B35C12D8A00000000C004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B004; };
-		4A0B35C12D8A00000000C005 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B006; };
-		4A0B35C12D8A00000000C006 /* HolocronFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B007; };
-		4A0B35C12D8A00000000C007 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B008; };
-		4A0B35C12D8A00000000C008 /* APIResponses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B009; };
-		4A0B35C12D8A00000000C101 /* FileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B101; };
-		4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B102; };
-		4A0B35C12D8A00000000C201 /* FilePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B201; };
-		4A0B35C12D8A00000000C202 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B202; };
+		4A0B35C12D8A00000000C001 /* HolocronApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B001 /* HolocronApp.swift */; };
+		4A0B35C12D8A00000000C002 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B002 /* SettingsView.swift */; };
+		4A0B35C12D8A00000000C003 /* FileBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B003 /* FileBrowserView.swift */; };
+		4A0B35C12D8A00000000C004 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B004 /* SettingsStore.swift */; };
+		4A0B35C12D8A00000000C005 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B006 /* APIClient.swift */; };
+		4A0B35C12D8A00000000C006 /* HolocronFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B007 /* HolocronFile.swift */; };
+		4A0B35C12D8A00000000C007 /* APIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B008 /* APIError.swift */; };
+		4A0B35C12D8A00000000C008 /* APIResponses.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B009 /* APIResponses.swift */; };
+		4A0B35C12D8A00000000C101 /* FileNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B101 /* FileNode.swift */; };
+		4A0B35C12D8A00000000C102 /* FileRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B102 /* FileRowView.swift */; };
+		4A0B35C12D8A00000000C201 /* FilePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B201 /* FilePreviewView.swift */; };
+		4A0B35C12D8A00000000C202 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B35C12D8A00000000B202 /* DocumentPickerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -247,14 +247,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = MDBDE9P2RA;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationAllButUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationAllButUpsideDown;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.sambreed.Holocron.iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = com.sambreed.Holocron.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -268,14 +269,15 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = MDBDE9P2RA;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationAllButUpsideDown";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationAllButUpsideDown;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.sambreed.Holocron.iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = com.sambreed.Holocron.iOS;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -305,8 +307,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
 	};
 	rootObject = 4A0B35C12D8A00000000A001 /* Project object */;
 }
-
