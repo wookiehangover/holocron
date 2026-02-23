@@ -17,6 +17,10 @@ pub struct Config {
     #[serde(rename = "apiURL")]
     pub api_url: Option<String>,
 
+    /// Whether to launch the app at login (desktop-only setting, preserved for round-tripping).
+    #[serde(rename = "launchAtLogin")]
+    pub launch_at_login: Option<bool>,
+
     /// Path to the local vault directory.
     #[serde(rename = "vaultPath")]
     pub vault_path: Option<String>,
