@@ -1,20 +1,9 @@
 import { data, Form, redirect, useActionData, useNavigation } from "react-router";
 import type { Route } from "./+types/login";
-import {
-  isAuthenticated,
-  isPasswordRequired,
-  checkPassword,
-  getAuthCookieHeader,
-} from "~/lib/auth.server";
+import { isAuthenticated, isPasswordRequired, checkPassword, getAuthCookieHeader } from "~/lib/auth.server";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 
 // ---------------------------------------------------------------------------
 // Loader — redirect to / if already authenticated or no password required
@@ -82,9 +71,7 @@ export default function LoginPage() {
                 data-1p-ignore
                 aria-invalid={!!actionData?.error}
               />
-              {actionData?.error && (
-                <p className="mt-2 text-sm text-destructive">{actionData.error}</p>
-              )}
+              {actionData?.error && <p className="mt-2 text-sm text-destructive">{actionData.error}</p>}
             </div>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Signing in…" : "Sign in"}
@@ -95,4 +82,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

@@ -10,4 +10,3 @@ export default [
   ]),
   route("share/:token", "routes/share.$token.tsx"),
 ] satisfies RouteConfig;
-

@@ -13,9 +13,7 @@ export function ImagePreview({ downloadUrl, fileName }: ImagePreviewProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center rounded-md border border-dashed bg-muted/50 p-12 text-center">
-        <p className="text-sm text-muted-foreground">
-          Failed to load image preview
-        </p>
+        <p className="text-sm text-muted-foreground">Failed to load image preview</p>
         <a
           href={downloadUrl}
           target="_blank"
@@ -30,15 +28,8 @@ export function ImagePreview({ downloadUrl, fileName }: ImagePreviewProps) {
 
   return (
     <div className="relative">
-      {loading && (
-        <Skeleton className="aspect-video w-full rounded-md" />
-      )}
-      <a
-        href={downloadUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block"
-      >
+      {loading && <Skeleton className="aspect-video w-full rounded-md" />}
+      <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="block">
         <img
           src={downloadUrl}
           alt={fileName}
@@ -50,12 +41,7 @@ export function ImagePreview({ downloadUrl, fileName }: ImagePreviewProps) {
           }}
         />
       </a>
-      {!loading && (
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          Click image to open full size
-        </p>
-      )}
+      {!loading && <p className="mt-1.5 text-xs text-muted-foreground">Click image to open full size</p>}
     </div>
   );
 }
-

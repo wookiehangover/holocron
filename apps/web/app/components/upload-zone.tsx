@@ -15,14 +15,7 @@ interface UploadZoneProps {
   onDrop: (e: React.DragEvent) => void;
 }
 
-export function UploadZone({
-  uploadState,
-  errorMessage,
-  onUpload,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-}: UploadZoneProps) {
+export function UploadZone({ uploadState, errorMessage, onUpload, onDragOver, onDragLeave, onDrop }: UploadZoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -31,7 +24,7 @@ export function UploadZone({
         "flex cursor-pointer items-center justify-center border-2 border-dashed py-8 transition-colors",
         uploadState === "dragover"
           ? "border-primary bg-accent"
-          : "border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-accent/50"
+          : "border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-accent/50",
       )}
       onDragOver={(e) => {
         e.preventDefault();
@@ -41,13 +34,7 @@ export function UploadZone({
       onDrop={onDrop}
       onClick={() => fileInputRef.current?.click()}
     >
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => onUpload(e.target.files)}
-      />
+      <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
       <div className="flex flex-col items-center gap-3 text-center">
         {uploadState === "uploading" && (
           <>
@@ -64,17 +51,13 @@ export function UploadZone({
         {uploadState === "error" && (
           <>
             <AlertCircle className="size-5 text-destructive" />
-            <p className="text-xs text-destructive">
-              Upload failed{errorMessage ? `: ${errorMessage}` : ""}
-            </p>
+            <p className="text-xs text-destructive">Upload failed{errorMessage ? `: ${errorMessage}` : ""}</p>
           </>
         )}
         {(uploadState === "idle" || uploadState === "dragover") && (
           <>
             <Upload className="size-5 text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">
-              Drop files here or click to upload
-            </p>
+            <p className="text-xs text-muted-foreground">Drop files here or click to upload</p>
             <Button
               variant="outline"
               size="sm"
@@ -93,4 +76,3 @@ export function UploadZone({
     </Card>
   );
 }
-

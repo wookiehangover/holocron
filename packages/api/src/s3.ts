@@ -72,11 +72,7 @@ export async function getPresignedPutUrl(
  * @param key       - Object key
  * @param expiresIn - URL validity in seconds (default: 3600 = 1 hour)
  */
-export async function getPresignedGetUrl(
-  bucket: string,
-  key: string,
-  expiresIn = 3600,
-): Promise<string> {
+export async function getPresignedGetUrl(bucket: string, key: string, expiresIn = 3600): Promise<string> {
   const client = getClient();
   const command = new GetObjectCommand({
     Bucket: bucket,
@@ -104,4 +100,3 @@ export async function deleteObject(bucket: string, key: string): Promise<void> {
   });
   await client.send(command);
 }
-

@@ -27,11 +27,11 @@ Config is stored at `~/.config/holocron/config.json` and shared with the desktop
 }
 ```
 
-| Key         | Default                  | Description                        |
-|-------------|--------------------------|------------------------------------|
-| `apiURL`    | `http://localhost:3000`  | Base URL for the Holocron API      |
-| `vaultPath` | `~/Holocron`             | Local directory for synced files   |
-| `apiKey`    | *(empty)*                | API key for authentication         |
+| Key         | Default                 | Description                      |
+| ----------- | ----------------------- | -------------------------------- |
+| `apiURL`    | `http://localhost:3000` | Base URL for the Holocron API    |
+| `vaultPath` | `~/Holocron`            | Local directory for synced files |
+| `apiKey`    | _(empty)_               | API key for authentication       |
 
 Manage config from the CLI:
 
@@ -114,15 +114,15 @@ Sync uses a three-way comparison between three sources of truth:
 
 For each file path the engine checks what changed since the last sync:
 
-| Manifest | Local | Remote | Action |
-|----------|-------|--------|--------|
-| yes | yes | yes | Compare checksums. Upload if only local changed, download if only remote changed, conflict if both changed. |
-| yes | yes | no | Remote was deleted — delete the local copy. |
-| yes | no | yes | Local was deleted — delete the remote copy. |
-| yes | no | no | Both deleted — remove from manifest. |
-| no | yes | yes | New to both sides. If checksums match, record in manifest. Otherwise treat as conflict. |
-| no | yes | no | New local file — upload. |
-| no | no | yes | New remote file — download. |
+| Manifest | Local | Remote | Action                                                                                                      |
+| -------- | ----- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| yes      | yes   | yes    | Compare checksums. Upload if only local changed, download if only remote changed, conflict if both changed. |
+| yes      | yes   | no     | Remote was deleted — delete the local copy.                                                                 |
+| yes      | no    | yes    | Local was deleted — delete the remote copy.                                                                 |
+| yes      | no    | no     | Both deleted — remove from manifest.                                                                        |
+| no       | yes   | yes    | New to both sides. If checksums match, record in manifest. Otherwise treat as conflict.                     |
+| no       | yes   | no     | New local file — upload.                                                                                    |
+| no       | no    | yes    | New remote file — download.                                                                                 |
 
 Hidden files/directories (names starting with `.`) and `.conflict-*` files are skipped during enumeration.
 
@@ -137,4 +137,3 @@ When both local and remote have changed, the local copy is renamed to `<path>.co
 `holocron daemon` runs an initial sync, then watches the vault directory using OS file-system notifications. When a file change is detected, events are debounced for 2 seconds before triggering a sync. This prevents redundant syncs during batch saves or editor write sequences.
 
 The daemon runs in the foreground and shuts down cleanly on `Ctrl-C`.
-

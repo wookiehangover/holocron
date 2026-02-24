@@ -19,4 +19,3 @@ export const vercelAiGatewayApiKey = new sst.Secret("VercelAIGatewayApiKey");
  * Set via: `sst secret set DatabaseUrl <value>`
  */
 export const databaseUrl = new sst.Secret("DatabaseUrl");
-

@@ -13,12 +13,7 @@ function ThemeToggle() {
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={cycle}
-      aria-label="Toggle theme"
-    >
+    <Button variant="ghost" size="icon-sm" onClick={cycle} aria-label="Toggle theme">
       {theme === "light" && <Sun className="size-3.5" />}
       {theme === "dark" && <Moon className="size-3.5" />}
       {theme === "system" && <Monitor className="size-3.5" />}
@@ -31,10 +26,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-foreground hover:text-foreground/80"
-          >
+          <Link to="/" className="flex items-center gap-2 text-foreground hover:text-foreground/80">
             <svg className="size-6" viewBox="0 0 26.543 23.4863">
               <g>
                 <rect height="23.4863" opacity="0" width="26.543" x="0" y="0" />

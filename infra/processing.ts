@@ -78,12 +78,7 @@ const sfnRole = new aws.iam.Role("ProcessingStateMachineRole", {
 new aws.iam.RolePolicy("ProcessingStateMachinePolicy", {
   role: sfnRole.id,
   policy: $util
-    .all([
-      extractTextFn.arn,
-      chunkTextFn.arn,
-      extractMetadataFn.arn,
-      markIndexingFailedFn.arn,
-    ])
+    .all([extractTextFn.arn, chunkTextFn.arn, extractMetadataFn.arn, markIndexingFailedFn.arn])
     .apply(([extractArn, chunkArn, metadataArn, markFailedArn]) =>
       JSON.stringify({
         Version: "2012-10-17",
@@ -105,99 +100,90 @@ new aws.iam.RolePolicy("ProcessingStateMachinePolicy", {
 // Any error → FailureHandler (log + set status to "failed")
 // ---------------------------------------------------------------------------
 
-export const processingStateMachine = new aws.sfn.StateMachine(
-  "HolocronProcessing",
-  {
-    roleArn: sfnRole.arn,
-    definition: $util
-      .all([
-        extractTextFn.arn,
-        chunkTextFn.arn,
-        extractMetadataFn.arn,
-        markIndexingFailedFn.arn,
-      ])
-      .apply(([extractArn, chunkArn, metadataArn, markFailedArn]) =>
-        JSON.stringify({
-          Comment: "Holocron file indexing pipeline",
-          StartAt: "ExtractText",
-          States: {
-            ExtractText: {
-              Type: "Task",
-              Resource: extractArn,
-              Next: "ParallelProcessing",
-              Retry: [
-                {
-                  ErrorEquals: ["States.ALL"],
-                  IntervalSeconds: 2,
-                  MaxAttempts: 3,
-                  BackoffRate: 2.0,
-                },
-              ],
-              Catch: [
-                {
-                  ErrorEquals: ["States.ALL"],
-                  Next: "FailureHandler",
-                  ResultPath: "$.error",
-                },
-              ],
-            },
-            ParallelProcessing: {
-              Type: "Parallel",
-              Branches: [
-                {
-                  StartAt: "ChunkText",
-                  States: {
-                    ChunkText: {
-                      Type: "Task",
-                      Resource: chunkArn,
-                      Retry: [
-                        {
-                          ErrorEquals: ["States.ALL"],
-                          IntervalSeconds: 2,
-                          MaxAttempts: 3,
-                          BackoffRate: 2.0,
-                        },
-                      ],
-                      End: true,
-                    },
-                  },
-                },
-                {
-                  StartAt: "ExtractMetadata",
-                  States: {
-                    ExtractMetadata: {
-                      Type: "Task",
-                      Resource: metadataArn,
-                      Retry: [
-                        {
-                          ErrorEquals: ["States.ALL"],
-                          IntervalSeconds: 2,
-                          MaxAttempts: 3,
-                          BackoffRate: 2.0,
-                        },
-                      ],
-                      End: true,
-                    },
-                  },
-                },
-              ],
-              End: true,
-              Catch: [
-                {
-                  ErrorEquals: ["States.ALL"],
-                  Next: "FailureHandler",
-                  ResultPath: "$.error",
-                },
-              ],
-            },
-            FailureHandler: {
-              Type: "Task",
-              Resource: markFailedArn,
-              End: true,
-            },
+export const processingStateMachine = new aws.sfn.StateMachine("HolocronProcessing", {
+  roleArn: sfnRole.arn,
+  definition: $util
+    .all([extractTextFn.arn, chunkTextFn.arn, extractMetadataFn.arn, markIndexingFailedFn.arn])
+    .apply(([extractArn, chunkArn, metadataArn, markFailedArn]) =>
+      JSON.stringify({
+        Comment: "Holocron file indexing pipeline",
+        StartAt: "ExtractText",
+        States: {
+          ExtractText: {
+            Type: "Task",
+            Resource: extractArn,
+            Next: "ParallelProcessing",
+            Retry: [
+              {
+                ErrorEquals: ["States.ALL"],
+                IntervalSeconds: 2,
+                MaxAttempts: 3,
+                BackoffRate: 2.0,
+              },
+            ],
+            Catch: [
+              {
+                ErrorEquals: ["States.ALL"],
+                Next: "FailureHandler",
+                ResultPath: "$.error",
+              },
+            ],
           },
-        }),
-      ),
-  },
-);
-
+          ParallelProcessing: {
+            Type: "Parallel",
+            Branches: [
+              {
+                StartAt: "ChunkText",
+                States: {
+                  ChunkText: {
+                    Type: "Task",
+                    Resource: chunkArn,
+                    Retry: [
+                      {
+                        ErrorEquals: ["States.ALL"],
+                        IntervalSeconds: 2,
+                        MaxAttempts: 3,
+                        BackoffRate: 2.0,
+                      },
+                    ],
+                    End: true,
+                  },
+                },
+              },
+              {
+                StartAt: "ExtractMetadata",
+                States: {
+                  ExtractMetadata: {
+                    Type: "Task",
+                    Resource: metadataArn,
+                    Retry: [
+                      {
+                        ErrorEquals: ["States.ALL"],
+                        IntervalSeconds: 2,
+                        MaxAttempts: 3,
+                        BackoffRate: 2.0,
+                      },
+                    ],
+                    End: true,
+                  },
+                },
+              },
+            ],
+            End: true,
+            Catch: [
+              {
+                ErrorEquals: ["States.ALL"],
+                Next: "FailureHandler",
+                ResultPath: "$.error",
+              },
+            ],
+          },
+          FailureHandler: {
+            Type: "Task",
+            Resource: markFailedArn,
+            End: true,
+          },
+        },
+      }),
+    ),
+});

@@ -22,13 +22,7 @@ export interface HolocronFile {
 /**
  * Represents the synchronization state of a file.
  */
-export type SyncState =
-  | "pending"
-  | "uploading"
-  | "downloading"
-  | "synced"
-  | "conflict"
-  | "error";
+export type SyncState = "pending" | "uploading" | "downloading" | "synced" | "conflict" | "error";
 
 /**
  * Represents a shareable link to a file.
@@ -44,13 +38,7 @@ export interface ShareLink {
 /**
  * Status of the file indexing pipeline.
  */
-export type IndexingStatus =
-  | "pending"
-  | "extracting"
-  | "chunking"
-  | "indexing"
-  | "indexed"
-  | "failed";
+export type IndexingStatus = "pending" | "extracting" | "chunking" | "indexing" | "indexed" | "failed";
 
 /**
  * LLM-generated metadata extracted during the indexing pipeline.
@@ -103,4 +91,3 @@ export interface FileChunk {
   /** Timestamp when the chunk was created. */
   createdAt: Date;
 }
-

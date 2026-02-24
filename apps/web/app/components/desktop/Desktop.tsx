@@ -25,11 +25,7 @@ import { FileListWindow } from "./FileListWindow";
 import { FilePreviewWindow } from "./FilePreviewWindow";
 import { GetInfoWindow } from "./GetInfoWindow";
 import { ConfirmDialog } from "./ConfirmDialog";
-import {
-  type DesktopShortcut,
-  loadShortcuts,
-  saveShortcuts,
-} from "~/lib/desktop-shortcuts";
+import { type DesktopShortcut, loadShortcuts, saveShortcuts } from "~/lib/desktop-shortcuts";
 
 interface DesktopProps {
   files: HolocronFile[];
@@ -147,11 +143,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
 
         // Compute initial window size from image metadata when available
         let size: { width: number; height: number } | undefined;
-        if (
-          file.mimeType?.startsWith("image/") &&
-          file.metadata?.imageWidth &&
-          file.metadata?.imageHeight
-        ) {
+        if (file.mimeType?.startsWith("image/") && file.metadata?.imageWidth && file.metadata?.imageHeight) {
           const CHROME_W = 24;
           const CHROME_H = 56;
           const maxW = Math.min(800, window.innerWidth * 0.8);
@@ -187,10 +179,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       setTrashHighlight(false);
       const fileId = e.dataTransfer.getData("application/x-holocron-file-id");
       if (!fileId) return;
-      const fileName =
-        e.dataTransfer.getData("text/plain") ||
-        files.find((f) => f.id === fileId)?.name ||
-        "this file";
+      const fileName = e.dataTransfer.getData("text/plain") || files.find((f) => f.id === fileId)?.name || "this file";
       setPendingDelete({ fileId, fileName });
     },
     [files],
@@ -203,15 +192,9 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       // Remove from local state
       setFiles((prev) => prev.filter((f) => f.id !== pendingDelete.fileId));
       // Close any preview windows for this file
-      setWindows((prev) =>
-        prev.filter(
-          (w) => !(w.kind === "preview" && w.file.id === pendingDelete.fileId),
-        ),
-      );
+      setWindows((prev) => prev.filter((w) => !(w.kind === "preview" && w.file.id === pendingDelete.fileId)));
       // Clear selection if the deleted file was selected
-      setSelectedFileId((prev) =>
-        prev === pendingDelete.fileId ? null : prev,
-      );
+      setSelectedFileId((prev) => (prev === pendingDelete.fileId ? null : prev));
     } catch (e) {
       console.error("Failed to delete file:", e);
     } finally {
@@ -224,24 +207,20 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     setActiveWindowId((prev) => (prev === id ? null : prev));
   }, []);
 
-  const handleFileUpload = useCallback(
-    async (fileList: FileList) => {
-      const uploads = Array.from(fileList).map((f) => uploadFile(f));
-      try {
-        await Promise.all(uploads);
-        const refreshed = await listFiles();
-        setFiles(refreshed);
-      } catch (e) {
-        console.error("Upload failed:", e);
-      }
-    },
-    [],
-  );
+  const handleFileUpload = useCallback(async (fileList: FileList) => {
+    const uploads = Array.from(fileList).map((f) => uploadFile(f));
+    try {
+      await Promise.all(uploads);
+      const refreshed = await listFiles();
+      setFiles(refreshed);
+    } catch (e) {
+      console.error("Upload failed:", e);
+    }
+  }, []);
 
   const handleDeleteSelected = useCallback(() => {
     if (!selectedFileId) return;
-    const fileName =
-      files.find((f) => f.id === selectedFileId)?.name || "this file";
+    const fileName = files.find((f) => f.id === selectedFileId)?.name || "this file";
     setPendingDelete({ fileId: selectedFileId, fileName });
   }, [selectedFileId, files]);
 
@@ -267,18 +246,15 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     [files, windows],
   );
 
-  const handleMoveFile = useCallback(
-    async (fileId: string, newPath: string) => {
-      try {
-        await moveFile(fileId, newPath);
-        const refreshed = await listFiles();
-        setFiles(refreshed);
-      } catch (e) {
-        console.error("Failed to move file:", e);
-      }
-    },
-    [],
-  );
+  const handleMoveFile = useCallback(async (fileId: string, newPath: string) => {
+    try {
+      await moveFile(fileId, newPath);
+      const refreshed = await listFiles();
+      setFiles(refreshed);
+    } catch (e) {
+      console.error("Failed to move file:", e);
+    }
+  }, []);
 
   /** Handle files/folders dropped onto the desktop surface to create shortcuts. */
   const handleDesktopDrop = useCallback(
@@ -297,10 +273,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
       if (fileId) {
         // Prevent duplicate file shortcut
         if (shortcuts.some((s) => s.targetId === fileId)) return;
-        const name =
-          e.dataTransfer.getData("text/plain") ||
-          files.find((f) => f.id === fileId)?.name ||
-          "File";
+        const name = e.dataTransfer.getData("text/plain") || files.find((f) => f.id === fileId)?.name || "File";
         setShortcuts((prev) => [
           ...prev,
           { id: crypto.randomUUID(), kind: "file", targetId: fileId, name, position: { x, y } },
@@ -311,7 +284,13 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         const name = folderPath.split("/").pop() || folderPath;
         setShortcuts((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), kind: "folder", targetPath: folderPath, name, position: { x, y } },
+          {
+            id: crypto.randomUUID(),
+            kind: "folder",
+            targetPath: folderPath,
+            name,
+            position: { x, y },
+          },
         ]);
       }
     },
@@ -333,59 +312,52 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
   }, []);
 
   /** Drag-to-reposition for desktop shortcut icons. */
-  const handleShortcutMouseDown = useCallback(
-    (e: React.MouseEvent, shortcut: DesktopShortcut) => {
-      if (e.button !== 0) return; // primary button only
-      e.preventDefault();
+  const handleShortcutMouseDown = useCallback((e: React.MouseEvent, shortcut: DesktopShortcut) => {
+    if (e.button !== 0) return; // primary button only
+    e.preventDefault();
 
-      dragShortcutRef.current = {
-        shortcutId: shortcut.id,
-        startX: e.clientX,
-        startY: e.clientY,
-        origX: shortcut.position.x,
-        origY: shortcut.position.y,
-        hasMoved: false,
-      };
+    dragShortcutRef.current = {
+      shortcutId: shortcut.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: shortcut.position.x,
+      origY: shortcut.position.y,
+      hasMoved: false,
+    };
 
-      const handleMouseMove = (ev: MouseEvent) => {
-        if (!dragShortcutRef.current) return;
-        const dx = ev.clientX - dragShortcutRef.current.startX;
-        const dy = ev.clientY - dragShortcutRef.current.startY;
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!dragShortcutRef.current) return;
+      const dx = ev.clientX - dragShortcutRef.current.startX;
+      const dy = ev.clientY - dragShortcutRef.current.startY;
 
-        // Movement threshold — prevents accidental drags during click/double-click
-        if (!dragShortcutRef.current.hasMoved) {
-          if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-          dragShortcutRef.current.hasMoved = true;
-        }
+      // Movement threshold — prevents accidental drags during click/double-click
+      if (!dragShortcutRef.current.hasMoved) {
+        if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+        dragShortcutRef.current.hasMoved = true;
+      }
 
-        const rect = desktopRef.current?.getBoundingClientRect();
-        if (!rect) return;
+      const rect = desktopRef.current?.getBoundingClientRect();
+      if (!rect) return;
 
-        const ICON_W = 72;
-        const ICON_H = 72;
-        const newX = Math.max(0, Math.min(dragShortcutRef.current.origX + dx, rect.width - ICON_W));
-        const newY = Math.max(0, Math.min(dragShortcutRef.current.origY + dy, rect.height - ICON_H));
+      const ICON_W = 72;
+      const ICON_H = 72;
+      const newX = Math.max(0, Math.min(dragShortcutRef.current.origX + dx, rect.width - ICON_W));
+      const newY = Math.max(0, Math.min(dragShortcutRef.current.origY + dy, rect.height - ICON_H));
 
-        setShortcuts((prev) =>
-          prev.map((s) =>
-            s.id === dragShortcutRef.current!.shortcutId
-              ? { ...s, position: { x: newX, y: newY } }
-              : s,
-          ),
-        );
-      };
+      setShortcuts((prev) =>
+        prev.map((s) => (s.id === dragShortcutRef.current!.shortcutId ? { ...s, position: { x: newX, y: newY } } : s)),
+      );
+    };
 
-      const handleMouseUp = () => {
-        dragShortcutRef.current = null;
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
+    const handleMouseUp = () => {
+      dragShortcutRef.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [],
-  );
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }, []);
 
   // ⌘I / Ctrl+I keyboard shortcut for Get Info
   useEffect(() => {
@@ -411,11 +383,7 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         {/* Moon icon (replaces vintage Apple logo) */}
         <MenubarMenu>
           <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-normal">
-            <img
-              src="/moon.dust.svg"
-              alt="Holocron"
-              className="s7-moon-icon h-6 w-6"
-            />
+            <img src="/moon.dust.svg" alt="Holocron" className="s7-moon-icon h-6 w-6" />
           </MenubarTrigger>
         </MenubarMenu>
 
@@ -423,34 +391,34 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         <MenubarMenu>
           <MenubarTrigger className="s7-menubar-trigger px-2 py-0 font-bold">File</MenubarTrigger>
           <MenubarContent className="s7-menubar-content">
-            <MenubarItem onSelect={() => fileInputRef.current?.click()}>
-              New
-            </MenubarItem>
+            <MenubarItem onSelect={() => fileInputRef.current?.click()}>New</MenubarItem>
             <MenubarSeparator />
             <MenubarItem
               disabled={!hasSelectedFile}
-              onSelect={() => { if (hasSelectedFile) openFilePreview(selectedFileId); }}
+              onSelect={() => {
+                if (hasSelectedFile) openFilePreview(selectedFileId);
+              }}
             >
               Open
             </MenubarItem>
             <MenubarItem
               disabled={!hasSelectedFile}
-              onSelect={() => { if (hasSelectedFile) openGetInfo(selectedFileId); }}
+              onSelect={() => {
+                if (hasSelectedFile) openGetInfo(selectedFileId);
+              }}
             >
               Get Info
             </MenubarItem>
             <MenubarItem
               disabled={!hasOpenWindow}
-              onSelect={() => { if (activeWindowId !== null) closeWindow(activeWindowId); }}
+              onSelect={() => {
+                if (activeWindowId !== null) closeWindow(activeWindowId);
+              }}
             >
               Close
             </MenubarItem>
             <MenubarSeparator />
-            <MenubarItem
-              variant="destructive"
-              disabled={!hasSelectedFile}
-              onSelect={handleDeleteSelected}
-            >
+            <MenubarItem variant="destructive" disabled={!hasSelectedFile} onSelect={handleDeleteSelected}>
               Delete
             </MenubarItem>
           </MenubarContent>
@@ -493,178 +461,158 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <div className="absolute inset-0">
-            {/* Holocron folder icon */}
-            <ContextMenu>
-              <ContextMenuTrigger asChild>
-                <div
-                  className="absolute top-6 left-6 flex flex-col items-center cursor-default select-none gap-1"
-                  onDoubleClick={openFolder}
-                >
-                  <FolderIcon size={48} />
-                  <span className="s7-icon-label text-center">
-                    Holocron
-                  </span>
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent className="s7-context-menu-content">
-                <ContextMenuItem onSelect={openFolder}>Open</ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-
-        {/* Trash icon — bottom-right */}
-        <div
-          className={`absolute bottom-[24px] right-[24px] flex flex-col items-center cursor-default select-none gap-[4px] p-[4px] ${trashHighlight ? "s7-trash-zone--active" : ""}`}
-          style={trashHighlight ? undefined : { border: "2px solid transparent" }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setTrashHighlight(true);
-          }}
-          onDragLeave={() => setTrashHighlight(false)}
-          onDrop={handleTrashDrop}
-        >
-          <TrashIcon size={48} />
-          <span className="s7-icon-label">
-            Trash
-          </span>
-        </div>
-
-        {/* Desktop shortcuts */}
-        {shortcuts.map((shortcut) => (
-          <ContextMenu key={shortcut.id}>
-            <ContextMenuTrigger asChild>
-              <div
-                className="s7-desktop-shortcut absolute flex flex-col items-center cursor-default select-none gap-[4px]"
-                style={{ left: shortcut.position.x, top: shortcut.position.y }}
-                onMouseDown={(e) => handleShortcutMouseDown(e, shortcut)}
-                onDoubleClick={() => {
-                  if (shortcut.kind === "file" && shortcut.targetId) {
-                    openFilePreview(shortcut.targetId);
-                  } else if (shortcut.kind === "folder" && shortcut.targetPath) {
-                    openFolderAtPath(shortcut.targetPath);
-                  }
-                }}
-              >
-                <div className="relative">
-                  {shortcut.kind === "file" ? (
-                    <DocumentIcon size={48} />
-                  ) : (
-                    <FolderIcon size={48} />
-                  )}
-                  {/* Shortcut arrow overlay */}
-                  <svg
-                    className="s7-shortcut-arrow absolute bottom-0 left-0"
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
+              {/* Holocron folder icon */}
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <div
+                    className="absolute top-6 left-6 flex flex-col items-center cursor-default select-none gap-1"
+                    onDoubleClick={openFolder}
                   >
-                    <rect width="10" height="10" fill="var(--s7-bg, white)" />
-                    <path d="M2 8 L2 3 L7 3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                    <path d="M5 3 L7 3 L7 5" stroke="currentColor" strokeWidth="1.5" fill="currentColor" />
-                  </svg>
-                </div>
-                <span className="s7-icon-label text-center max-w-[72px] truncate text-xs">
-                  {shortcut.name}
-                </span>
-              </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent className="s7-context-menu-content">
-              <ContextMenuItem
-                onSelect={() => {
-                  if (shortcut.kind === "file" && shortcut.targetId) {
-                    openFilePreview(shortcut.targetId);
-                  } else if (shortcut.kind === "folder" && shortcut.targetPath) {
-                    openFolderAtPath(shortcut.targetPath);
-                  }
+                    <FolderIcon size={48} />
+                    <span className="s7-icon-label text-center">Holocron</span>
+                  </div>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="s7-context-menu-content">
+                  <ContextMenuItem onSelect={openFolder}>Open</ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+
+              {/* Trash icon — bottom-right */}
+              <div
+                className={`absolute bottom-[24px] right-[24px] flex flex-col items-center cursor-default select-none gap-[4px] p-[4px] ${trashHighlight ? "s7-trash-zone--active" : ""}`}
+                style={trashHighlight ? undefined : { border: "2px solid transparent" }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setTrashHighlight(true);
                 }}
+                onDragLeave={() => setTrashHighlight(false)}
+                onDrop={handleTrashDrop}
               >
-                Open
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => removeShortcut(shortcut.id)}>
-                Remove Shortcut
-              </ContextMenuItem>
-            </ContextMenuContent>
-          </ContextMenu>
-        ))}
+                <TrashIcon size={48} />
+                <span className="s7-icon-label">Trash</span>
+              </div>
 
-        {/* Snap preview overlay */}
-        {snapZone && (
-          <div
-            className={`s7-snap-preview absolute top-0 bottom-0 w-1/2 pointer-events-none z-[5] ${
-              snapZone === "left" ? "left-0" : "left-1/2"
-            }`}
-          />
-        )}
+              {/* Desktop shortcuts */}
+              {shortcuts.map((shortcut) => (
+                <ContextMenu key={shortcut.id}>
+                  <ContextMenuTrigger asChild>
+                    <div
+                      className="s7-desktop-shortcut absolute flex flex-col items-center cursor-default select-none gap-[4px]"
+                      style={{ left: shortcut.position.x, top: shortcut.position.y }}
+                      onMouseDown={(e) => handleShortcutMouseDown(e, shortcut)}
+                      onDoubleClick={() => {
+                        if (shortcut.kind === "file" && shortcut.targetId) {
+                          openFilePreview(shortcut.targetId);
+                        } else if (shortcut.kind === "folder" && shortcut.targetPath) {
+                          openFolderAtPath(shortcut.targetPath);
+                        }
+                      }}
+                    >
+                      <div className="relative">
+                        {shortcut.kind === "file" ? <DocumentIcon size={48} /> : <FolderIcon size={48} />}
+                        {/* Shortcut arrow overlay */}
+                        <svg
+                          className="s7-shortcut-arrow absolute bottom-0 left-0"
+                          width="10"
+                          height="10"
+                          viewBox="0 0 10 10"
+                          fill="none"
+                        >
+                          <rect width="10" height="10" fill="var(--s7-bg, white)" />
+                          <path d="M2 8 L2 3 L7 3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                          <path d="M5 3 L7 3 L7 5" stroke="currentColor" strokeWidth="1.5" fill="currentColor" />
+                        </svg>
+                      </div>
+                      <span className="s7-icon-label text-center max-w-[72px] truncate text-xs">{shortcut.name}</span>
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="s7-context-menu-content">
+                    <ContextMenuItem
+                      onSelect={() => {
+                        if (shortcut.kind === "file" && shortcut.targetId) {
+                          openFilePreview(shortcut.targetId);
+                        } else if (shortcut.kind === "folder" && shortcut.targetPath) {
+                          openFolderAtPath(shortcut.targetPath);
+                        }
+                      }}
+                    >
+                      Open
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onSelect={() => removeShortcut(shortcut.id)}>Remove Shortcut</ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              ))}
 
-        {/* Open windows */}
-        {windows.map((w) => {
-          const defaultSize =
-            w.kind === "preview" && w.size
-              ? w.size
-              : w.kind === "info"
-                ? { width: 340, height: 400 }
-                : undefined;
-
-          return (
-            <Window
-              key={w.id}
-              title={w.title}
-              defaultPosition={w.position}
-              defaultSize={defaultSize}
-              isActive={activeWindowId === w.id}
-              onFocus={() => setActiveWindowId(w.id)}
-              onClose={() => closeWindow(w.id)}
-              onSnapChange={setSnapZone}
-            >
-              {w.kind === "folder" ? (
-                <FileListWindow
-                  files={files}
-                  selectedFileId={selectedFileId}
-                  onSelectFile={setSelectedFileId}
-                  onFileClick={openFilePreview}
-                  onGetInfo={openGetInfo}
-                  onDeleteFile={(fileId) => {
-                    const fileName = files.find((f) => f.id === fileId)?.name || "this file";
-                    setPendingDelete({ fileId, fileName });
-                  }}
-                  onMoveFile={handleMoveFile}
-                  initialPath={w.initialPath}
-                />
-              ) : w.kind === "info" ? (
-                <GetInfoWindow file={w.file} />
-              ) : (
-                <FilePreviewWindow
-                  file={w.file}
-                  downloadUrl={w.downloadUrl}
-                  initialSized={!!w.size}
-                  onNaturalSize={(width, height) => {
-                    setWindows((prev) =>
-                      prev.map((win) =>
-                        win.id === w.id ? { ...win, size: { width, height } } : win,
-                      ),
-                    );
-                  }}
+              {/* Snap preview overlay */}
+              {snapZone && (
+                <div
+                  className={`s7-snap-preview absolute top-0 bottom-0 w-1/2 pointer-events-none z-[5] ${
+                    snapZone === "left" ? "left-0" : "left-1/2"
+                  }`}
                 />
               )}
-            </Window>
-          );
-        })}
 
-        {/* Delete confirmation dialog */}
-        {pendingDelete && (
-          <ConfirmDialog
-            message={`Are you sure you want to delete "${pendingDelete.fileName}"?`}
-            onConfirm={confirmDelete}
-            onCancel={() => setPendingDelete(null)}
-          />
-        )}
+              {/* Open windows */}
+              {windows.map((w) => {
+                const defaultSize =
+                  w.kind === "preview" && w.size ? w.size : w.kind === "info" ? { width: 340, height: 400 } : undefined;
+
+                return (
+                  <Window
+                    key={w.id}
+                    title={w.title}
+                    defaultPosition={w.position}
+                    defaultSize={defaultSize}
+                    isActive={activeWindowId === w.id}
+                    onFocus={() => setActiveWindowId(w.id)}
+                    onClose={() => closeWindow(w.id)}
+                    onSnapChange={setSnapZone}
+                  >
+                    {w.kind === "folder" ? (
+                      <FileListWindow
+                        files={files}
+                        selectedFileId={selectedFileId}
+                        onSelectFile={setSelectedFileId}
+                        onFileClick={openFilePreview}
+                        onGetInfo={openGetInfo}
+                        onDeleteFile={(fileId) => {
+                          const fileName = files.find((f) => f.id === fileId)?.name || "this file";
+                          setPendingDelete({ fileId, fileName });
+                        }}
+                        onMoveFile={handleMoveFile}
+                        initialPath={w.initialPath}
+                      />
+                    ) : w.kind === "info" ? (
+                      <GetInfoWindow file={w.file} />
+                    ) : (
+                      <FilePreviewWindow
+                        file={w.file}
+                        downloadUrl={w.downloadUrl}
+                        initialSized={!!w.size}
+                        onNaturalSize={(width, height) => {
+                          setWindows((prev) =>
+                            prev.map((win) => (win.id === w.id ? { ...win, size: { width, height } } : win)),
+                          );
+                        }}
+                      />
+                    )}
+                  </Window>
+                );
+              })}
+
+              {/* Delete confirmation dialog */}
+              {pendingDelete && (
+                <ConfirmDialog
+                  message={`Are you sure you want to delete "${pendingDelete.fileName}"?`}
+                  onConfirm={confirmDelete}
+                  onCancel={() => setPendingDelete(null)}
+                />
+              )}
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="s7-context-menu-content">
-            <ContextMenuItem onSelect={() => fileInputRef.current?.click()}>
-              Upload File…
-            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => fileInputRef.current?.click()}>Upload File…</ContextMenuItem>
             <ContextMenuItem
               onSelect={() => {
                 if (theme === "light") setTheme("dark");
@@ -694,4 +642,3 @@ export function Desktop({ files: initialFiles }: DesktopProps) {
     </div>
   );
 }
-

@@ -42,7 +42,10 @@ export function Window({
   onSnapChange,
 }: WindowProps) {
   const [position, setPosition] = useState(defaultPosition);
-  const [size, setSize] = useState({ ...defaultSize, width: Math.min(defaultSize.width, typeof window !== 'undefined' ? window.innerWidth : defaultSize.width) });
+  const [size, setSize] = useState({
+    ...defaultSize,
+    width: Math.min(defaultSize.width, typeof window !== "undefined" ? window.innerWidth : defaultSize.width),
+  });
   const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);
   const userResized = useRef(false);
@@ -58,7 +61,10 @@ export function Window({
     if (!userResized.current) {
       setSize((prev) => {
         if (prev.width === defaultSize.width && prev.height === defaultSize.height) return prev;
-        return { width: Math.min(defaultSize.width, window.innerWidth), height: defaultSize.height };
+        return {
+          width: Math.min(defaultSize.width, window.innerWidth),
+          height: defaultSize.height,
+        };
       });
     }
   }, [defaultSize.width, defaultSize.height]);
@@ -118,9 +124,7 @@ export function Window({
 
         // Detect snap zones
         const zone: SnapZone =
-          ev.clientX <= SNAP_THRESHOLD ? "left" :
-          ev.clientX >= window.innerWidth - SNAP_THRESHOLD ? "right" :
-          null;
+          ev.clientX <= SNAP_THRESHOLD ? "left" : ev.clientX >= window.innerWidth - SNAP_THRESHOLD ? "right" : null;
         onSnapChange?.(zone);
 
         setPosition({ x, y });
@@ -129,14 +133,17 @@ export function Window({
       const handleMouseUp = (ev: MouseEvent) => {
         // Check if we should snap
         const zone: SnapZone =
-          ev.clientX <= SNAP_THRESHOLD ? "left" :
-          ev.clientX >= window.innerWidth - SNAP_THRESHOLD ? "right" :
-          null;
+          ev.clientX <= SNAP_THRESHOLD ? "left" : ev.clientX >= window.innerWidth - SNAP_THRESHOLD ? "right" : null;
 
         if (zone) {
           const { w: surfW, h: surfH } = getParentBounds(windowRef.current);
           // Save pre-snap state using values captured at drag start
-          preSnapRef.current = { x: dragRef.current!.origX, y: dragRef.current!.origY, width: dragStartW, height: dragStartH };
+          preSnapRef.current = {
+            x: dragRef.current!.origX,
+            y: dragRef.current!.origY,
+            width: dragStartW,
+            height: dragStartH,
+          };
           const snapW = Math.floor(surfW / 2);
           setPosition({ x: zone === "left" ? 0 : snapW, y: 0 });
           setSize({ width: snapW, height: surfH });
@@ -207,26 +214,17 @@ export function Window({
       }}
       onMouseDown={onFocus}
     >
-      <div
-        className={`${isActive ? "title-bar" : "inactive-title-bar"} cursor-grab`}
-        onMouseDown={handleMouseDown}
-      >
+      <div className={`${isActive ? "title-bar" : "inactive-title-bar"} cursor-grab`} onMouseDown={handleMouseDown}>
         <button className="close grid place-items-center" aria-label="Close" onClick={onClose}>
           <XIcon />
         </button>
         <span className="title text-base! font-[GeistPixel]!">{title}</span>
-        <button
-          className="resize cursor-nwse-resize"
-          aria-label="Resize"
-          onMouseDown={handleResizeMouseDown}
-        >
+        <button className="resize cursor-nwse-resize" aria-label="Resize" onMouseDown={handleResizeMouseDown}>
           <span>Resize</span>
         </button>
       </div>
       <div className="separator" />
-      <div className="window-pane flex-1 overflow-auto">
-        {children}
-      </div>
+      <div className="window-pane flex-1 overflow-auto">{children}</div>
       {/* Grow box — System 7 resize handle at bottom-right */}
       <div
         className="s7-grow-box absolute right-0 bottom-0 w-[15px] h-[15px] cursor-nwse-resize"
@@ -235,4 +233,3 @@ export function Window({
     </div>
   );
 }
-

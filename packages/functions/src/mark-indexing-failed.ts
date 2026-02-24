@@ -37,4 +37,3 @@ export async function handler(event: MarkIndexingFailedEvent): Promise<{ fileId:
 
   return { fileId, status: "failed" };
 }
-

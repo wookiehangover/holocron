@@ -6,7 +6,23 @@ import { embed } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import type { HolocronFile, ShareLink } from "@holocron/core/types";
 import { apiKeyAuth } from "./middleware/auth.js";
-import { insertFile, getFileById, listFiles, getVaultVersion, deleteFile, deleteShareLinksByFileId, deleteChunksByFileId, insertShareLink, getShareLinkByUrl, updateFileChecksum, updateFileIndexingStatus, updateFilePath, searchChunks, searchChunksByEmbedding, getChunksByFileId } from "./db.js";
+import {
+  insertFile,
+  getFileById,
+  listFiles,
+  getVaultVersion,
+  deleteFile,
+  deleteShareLinksByFileId,
+  deleteChunksByFileId,
+  insertShareLink,
+  getShareLinkByUrl,
+  updateFileChecksum,
+  updateFileIndexingStatus,
+  updateFilePath,
+  searchChunks,
+  searchChunksByEmbedding,
+  getChunksByFileId,
+} from "./db.js";
 import { hybridSearch, rerankResults } from "./search.js";
 import type { HybridSearchResult } from "./search.js";
 import { getBucketName, getPresignedPutUrl, getPresignedGetUrl, deleteObject } from "./s3.js";
@@ -70,7 +86,13 @@ app.get("/files/search", async (c) => {
   const chunks = await searchChunks(query, limit);
 
   // Group chunks by fileId
-  const grouped = new Map<string, { file: { id: string; name: string; path: string; mimeType: string; metadata?: unknown }; chunks: Array<{ text: string; page?: number; chunkIndex: number }> }>();
+  const grouped = new Map<
+    string,
+    {
+      file: { id: string; name: string; path: string; mimeType: string; metadata?: unknown };
+      chunks: Array<{ text: string; page?: number; chunkIndex: number }>;
+    }
+  >();
 
   for (const chunk of chunks) {
     const existing = grouped.get(chunk.fileId);
@@ -375,9 +397,7 @@ app.post("/share", async (c) => {
 
   const token = crypto.randomUUID();
   const url = `/share/${token}`;
-  const expiresAt = body.expiresIn
-    ? new Date(Date.now() + body.expiresIn * 1000)
-    : null;
+  const expiresAt = body.expiresIn ? new Date(Date.now() + body.expiresIn * 1000) : null;
   const now = new Date();
 
   const link: ShareLink = {
@@ -425,4 +445,3 @@ app.get("/share/:token", async (c) => {
 
 export const handler = handle(app);
 export default app;
-

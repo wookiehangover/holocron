@@ -10,11 +10,7 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { embedMany } from "ai";
 import { gateway } from "@ai-sdk/gateway";
 import type { FileChunk } from "@holocron/core/types";
-import {
-  insertChunksWithEmbeddings,
-  deleteChunksByFileId,
-  updateFileIndexingStatus,
-} from "@holocron/api/db";
+import { insertChunksWithEmbeddings, deleteChunksByFileId, updateFileIndexingStatus } from "@holocron/api/db";
 
 const s3 = new S3Client({});
 
@@ -161,10 +157,7 @@ function chunkText(text: string): string[] {
  * Given the original text and the chunked strings, compute the startOffset and
  * endOffset for each chunk by finding each chunk's content in the source text.
  */
-function computeOffsets(
-  fullText: string,
-  chunks: string[],
-): Array<{ startOffset: number; endOffset: number }> {
+function computeOffsets(fullText: string, chunks: string[]): Array<{ startOffset: number; endOffset: number }> {
   const offsets: Array<{ startOffset: number; endOffset: number }> = [];
   let searchFrom = 0;
 
@@ -213,9 +206,7 @@ export async function handler(event: {
     await updateFileIndexingStatus(fileId, "chunking");
 
     // Read full text from S3
-    const response = await s3.send(
-      new GetObjectCommand({ Bucket: bucket, Key: fullTextS3Key }),
-    );
+    const response = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: fullTextS3Key }));
     const fullText = (await response.Body?.transformToString("utf-8")) ?? "";
 
     // Handle empty text
@@ -231,7 +222,9 @@ export async function handler(event: {
     const offsets = computeOffsets(fullText, chunkTexts);
 
     // Generate embeddings in batches (Gemini API limit: 100 per request)
-    console.log(`File ${fileId}: generating embeddings for ${chunkTexts.length} chunks in batches of ${EMBEDDING_BATCH_SIZE}`);
+    console.log(
+      `File ${fileId}: generating embeddings for ${chunkTexts.length} chunks in batches of ${EMBEDDING_BATCH_SIZE}`,
+    );
     const embeddings: number[][] = [];
     for (let i = 0; i < chunkTexts.length; i += EMBEDDING_BATCH_SIZE) {
       const batch = chunkTexts.slice(i, i + EMBEDDING_BATCH_SIZE);
@@ -300,4 +293,3 @@ function getPageNumber(fullText: string, offset: number): number {
   const formFeeds = (textBefore.match(/\f/g) ?? []).length;
   return formFeeds + 1;
 }
-

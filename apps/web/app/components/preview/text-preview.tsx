@@ -56,9 +56,7 @@ export function TextPreview({ downloadUrl }: TextPreviewProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center rounded-md border border-dashed bg-muted/50 p-12 text-center">
-        <p className="text-sm text-muted-foreground">
-          Failed to load file content
-        </p>
+        <p className="text-sm text-muted-foreground">Failed to load file content</p>
         <p className="mt-1 text-xs text-destructive">{error}</p>
       </div>
     );
@@ -75,9 +73,7 @@ export function TextPreview({ downloadUrl }: TextPreviewProps) {
               <span className="mr-4 inline-block w-8 shrink-0 select-none text-right text-xs text-muted-foreground">
                 {i + 1}
               </span>
-              <span className="whitespace-pre-wrap break-all font-mono">
-                {line}
-              </span>
+              <span className="whitespace-pre-wrap break-all font-mono">{line}</span>
             </div>
           ))}
         </code>
@@ -85,4 +81,3 @@ export function TextPreview({ downloadUrl }: TextPreviewProps) {
     </div>
   );
 }
-

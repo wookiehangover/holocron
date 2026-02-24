@@ -7,7 +7,6 @@ startTransition(() => {
     document,
     <StrictMode>
       <HydratedRouter />
-    </StrictMode>
+    </StrictMode>,
   );
 });
-

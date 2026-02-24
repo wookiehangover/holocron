@@ -5,4 +5,3 @@
 export const bucket = new sst.aws.Bucket("HolocronBucket", {
   access: "private",
 });
-

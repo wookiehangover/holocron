@@ -23,10 +23,7 @@ export async function loader() {
 // ---------------------------------------------------------------------------
 
 export function meta() {
-  return [
-    { title: "Holocron — Desktop" },
-    { name: "description", content: "System 7 desktop view" },
-  ];
+  return [{ title: "Holocron — Desktop" }, { name: "description", content: "System 7 desktop view" }];
 }
 
 // ---------------------------------------------------------------------------
@@ -49,7 +46,6 @@ export default function DesktopRoute() {
             background: "white",
             border: "2px solid black",
             padding: "8px 16px",
-
           }}
         >
           Failed to load files: {error}
@@ -59,4 +55,3 @@ export default function DesktopRoute() {
     </>
   );
 }
-

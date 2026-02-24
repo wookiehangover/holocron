@@ -7,9 +7,7 @@ const AUTH_COOKIE_NAME = "holocron_auth";
  * Token = SHA-256 hex digest of "holocron-auth:<password>".
  */
 function computeToken(password: string): string {
-  return createHash("sha256")
-    .update(`holocron-auth:${password}`)
-    .digest("hex");
+  return createHash("sha256").update(`holocron-auth:${password}`).digest("hex");
 }
 
 /**
@@ -55,4 +53,3 @@ export function getAuthCookieHeader(): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return `${AUTH_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=604800${secure}`;
 }
-

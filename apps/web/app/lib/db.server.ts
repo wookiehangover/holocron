@@ -6,11 +6,7 @@
  */
 
 import postgres from "postgres";
-import type {
-  HolocronFile,
-  IndexingStatus,
-  FileMetadata,
-} from "@holocron/core/types";
+import type { HolocronFile, IndexingStatus, FileMetadata } from "@holocron/core/types";
 
 // ---------------------------------------------------------------------------
 // Singleton SQL connection
@@ -74,9 +70,7 @@ export interface ListFilesOptions {
  * Allowed sort columns: name, size, mime_type, created_at.
  * Defaults to `created_at DESC`.
  */
-export async function listFiles(
-  options?: ListFilesOptions,
-): Promise<HolocronFile[]> {
+export async function listFiles(options?: ListFilesOptions): Promise<HolocronFile[]> {
   const column = ALLOWED_SORT_COLUMNS[options?.sortBy ?? ""] ?? DEFAULT_SORT_COLUMN;
   const dir = options?.sortDir === "asc" ? "asc" : DEFAULT_SORT_DIR;
 
@@ -109,9 +103,7 @@ export interface FolderContents {
  * If `folder` is empty/undefined we're at the root level.
  * Returns immediate child folders (with file counts) and direct files.
  */
-export async function listFilesInFolder(
-  options?: ListFilesOptions & { folder?: string },
-): Promise<FolderContents> {
+export async function listFilesInFolder(options?: ListFilesOptions & { folder?: string }): Promise<FolderContents> {
   const column = ALLOWED_SORT_COLUMNS[options?.sortBy ?? ""] ?? DEFAULT_SORT_COLUMN;
   const dir = options?.sortDir === "asc" ? "asc" : DEFAULT_SORT_DIR;
 
@@ -152,4 +144,3 @@ export async function listFilesInFolder(
 
   return { folders, files: directFiles };
 }
-

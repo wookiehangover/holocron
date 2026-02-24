@@ -70,12 +70,28 @@ const MIN_RELEVANCE_SCORE = 1;
  * Score = Σ 1/(k + rank) where rank is 1-based position.
  */
 function reciprocalRankFusion(
-  ...resultLists: Array<Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>>
+  ...resultLists: Array<
+    Array<{
+      id: string;
+      fileId: string;
+      fileName: string;
+      text: string;
+      page?: number;
+      chunkIndex: number;
+    }>
+  >
 ): FusedChunk[] {
   const scoreMap = new Map<string, FusedChunk>();
 
   const addScores = (
-    results: Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>,
+    results: Array<{
+      id: string;
+      fileId: string;
+      fileName: string;
+      text: string;
+      page?: number;
+      chunkIndex: number;
+    }>,
   ) => {
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -117,9 +133,7 @@ async function rerankChunks(
 
   try {
     // Build a single prompt with all chunks numbered
-    const chunksText = chunks
-      .map((c, i) => `Chunk ${i + 1}:\n${c.text}`)
-      .join("\n\n");
+    const chunksText = chunks.map((c, i) => `Chunk ${i + 1}:\n${c.text}`).join("\n\n");
 
     const { text } = await generateText({
       model: gateway("google/gemini-3-flash"),
@@ -140,7 +154,7 @@ Return ONLY a JSON array of integers, one per chunk, in the same order. Example 
 
     return chunks.map((chunk, i) => ({
       ...chunk,
-      relevanceScore: (scores[i] != null && scores[i] >= 1 && scores[i] <= 10) ? scores[i] : 5,
+      relevanceScore: scores[i] != null && scores[i] >= 1 && scores[i] <= 10 ? scores[i] : 5,
     }));
   } catch {
     // Fallback: map RRF scores to 1-10 range
@@ -151,9 +165,7 @@ Return ONLY a JSON array of integers, one per chunk, in the same order. Example 
 /**
  * Map RRF scores to 1-10 range when reranking is unavailable.
  */
-function rrfFallbackScores(
-  chunks: FusedChunk[],
-): Array<FusedChunk & { relevanceScore: number }> {
+function rrfFallbackScores(chunks: FusedChunk[]): Array<FusedChunk & { relevanceScore: number }> {
   if (chunks.length === 0) return [];
   const maxRrf = chunks[0].rrfScore;
   const minRrf = chunks[chunks.length - 1].rrfScore;
@@ -174,14 +186,18 @@ function rrfFallbackScores(
  * @param query  The user's search query.
  * @param limit  Maximum number of file results to return (default 20).
  */
-export async function hybridSearch(
-  query: string,
-  limit = 20,
-): Promise<HybridSearchResult[]> {
+export async function hybridSearch(query: string, limit = 20): Promise<HybridSearchResult[]> {
   const t0 = Date.now();
 
   // Type alias for chunk hit shape used across retrieval legs
-  type ChunkHit = { id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number };
+  type ChunkHit = {
+    id: string;
+    fileId: string;
+    fileName: string;
+    text: string;
+    page?: number;
+    chunkIndex: number;
+  };
 
   // 1. Start everything in parallel — only vector search needs the embedding
   const embeddingPromise = embed({
@@ -204,7 +220,14 @@ export async function hybridSearch(
 
   const ilikePromise = searchChunks(query, 30).catch((err) => {
     console.log(`[search] ILIKE error: ${err}`);
-    return [] as Array<{ id: string; fileId: string; fileName: string; text: string; page?: number; chunkIndex: number }>;
+    return [] as Array<{
+      id: string;
+      fileId: string;
+      fileName: string;
+      text: string;
+      page?: number;
+      chunkIndex: number;
+    }>;
   });
 
   // Vector search chains off the embedding — starts as soon as embedding completes
@@ -217,7 +240,10 @@ export async function hybridSearch(
 
   // Wait for all legs
   const [ftsResult, vectorResult, metadataResult, ilikeResult] = await Promise.all([
-    ftsPromise, vectorPromise, metadataPromise, ilikePromise,
+    ftsPromise,
+    vectorPromise,
+    metadataPromise,
+    ilikePromise,
   ]);
 
   const fullTextHits: ChunkHit[] = ftsResult;
@@ -287,10 +313,7 @@ export async function hybridSearch(
   console.log(`[search] Kept ${kept.length} chunks after filtering (min score: ${MIN_RELEVANCE_SCORE})`);
 
   // Group by fileId
-  const fileGroups = new Map<
-    string,
-    { fileName: string; chunks: Array<FusedChunk & { relevanceScore: number }> }
-  >();
+  const fileGroups = new Map<string, { fileName: string; chunks: Array<FusedChunk & { relevanceScore: number }> }>();
 
   for (const chunk of kept) {
     const existing = fileGroups.get(chunk.fileId);
@@ -343,7 +366,6 @@ export async function hybridSearch(
   return results;
 }
 
-
 // ---------------------------------------------------------------------------
 // Rerank results (separate from search for latency reasons)
 // ---------------------------------------------------------------------------
@@ -355,10 +377,7 @@ export async function hybridSearch(
  * via the `rerankChunks` helper. If the LLM call fails, returns the
  * original results unchanged (graceful degradation).
  */
-export async function rerankResults(
-  query: string,
-  results: HybridSearchResult[],
-): Promise<HybridSearchResult[]> {
+export async function rerankResults(query: string, results: HybridSearchResult[]): Promise<HybridSearchResult[]> {
   if (results.length === 0) return results;
 
   const t0 = Date.now();
@@ -380,10 +399,7 @@ export async function rerankResults(
   const reranked = await rerankChunks(query, allChunks);
 
   // Regroup by file
-  const fileGroups = new Map<
-    string,
-    { file: HybridSearchResult["file"]; chunks: Array<typeof reranked[number]> }
-  >();
+  const fileGroups = new Map<string, { file: HybridSearchResult["file"]; chunks: Array<(typeof reranked)[number]> }>();
 
   // Build a lookup for file metadata from original results
   const fileMeta = new Map(results.map((r) => [r.file.id, r.file]));
@@ -426,6 +442,8 @@ export async function rerankResults(
       topScore: Math.max(...group.chunks.map((c) => c.relevanceScore)),
     }));
 
-  console.log(`[rerank] Reranked ${allChunks.length} chunks across ${rerankedResults.length} files in ${Date.now() - t0}ms`);
+  console.log(
+    `[rerank] Reranked ${allChunks.length} chunks across ${rerankedResults.length} files in ${Date.now() - t0}ms`,
+  );
   return rerankedResults;
 }

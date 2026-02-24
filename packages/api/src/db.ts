@@ -5,13 +5,7 @@
  * configured in ./db/schema.ts via the DATABASE_URL environment variable.
  */
 
-import type {
-  HolocronFile,
-  ShareLink,
-  FileChunk,
-  FileMetadata,
-  IndexingStatus,
-} from "@holocron/core/types";
+import type { HolocronFile, ShareLink, FileChunk, FileMetadata, IndexingStatus } from "@holocron/core/types";
 import { sql } from "./db/schema.js";
 
 // ---------------------------------------------------------------------------
@@ -114,10 +108,7 @@ export async function insertFile(file: HolocronFile): Promise<void> {
 }
 
 /** Update the checksum (and updated_at) for an existing file. */
-export async function updateFileChecksum(
-  id: string,
-  checksum: string,
-): Promise<void> {
+export async function updateFileChecksum(id: string, checksum: string): Promise<void> {
   await sql`
     UPDATE files
     SET checksum = ${checksum}, updated_at = now()
@@ -127,13 +118,8 @@ export async function updateFileChecksum(
 }
 
 /** Update the path (and name, updated_at) for an existing file. */
-export async function updateFilePath(
-  id: string,
-  newPath: string,
-): Promise<void> {
-  const newName = newPath.includes("/")
-    ? newPath.slice(newPath.lastIndexOf("/") + 1)
-    : newPath;
+export async function updateFilePath(id: string, newPath: string): Promise<void> {
+  const newName = newPath.includes("/") ? newPath.slice(newPath.lastIndexOf("/") + 1) : newPath;
 
   await sql`
     UPDATE files
@@ -162,9 +148,7 @@ export async function getFilesByIds(ids: string[]): Promise<Map<string, Holocron
 }
 
 /** Fetch a single file by its unique path. */
-export async function getFileByPath(
-  path: string,
-): Promise<HolocronFile | null> {
+export async function getFileByPath(path: string): Promise<HolocronFile | null> {
   const rows = await sql`SELECT * FROM files WHERE path = ${path} LIMIT 1`;
   return rows.length > 0 ? rowToFile(rows[0]) : null;
 }
@@ -185,9 +169,7 @@ export async function getVaultVersion(): Promise<{
   if (rows.length > 0) {
     const row = rows[0];
     return {
-      latestChange: row.last_modified
-        ? new Date(row.last_modified as string).toISOString()
-        : null,
+      latestChange: row.last_modified ? new Date(row.last_modified as string).toISOString() : null,
       fileCount: Math.max(0, Number(row.file_count ?? 0)),
     };
   }
@@ -199,9 +181,7 @@ export async function getVaultVersion(): Promise<{
     FROM files
   `;
   const fileCount = Number(countResult[0].cnt) || 0;
-  const latest = countResult[0].latest
-    ? new Date(countResult[0].latest as string).toISOString()
-    : null;
+  const latest = countResult[0].latest ? new Date(countResult[0].latest as string).toISOString() : null;
 
   if (fileCount > 0) {
     await sql`
@@ -233,9 +213,7 @@ export async function insertShareLink(link: ShareLink): Promise<void> {
 }
 
 /** Fetch a share link by its unique URL. */
-export async function getShareLinkByUrl(
-  url: string,
-): Promise<ShareLink | null> {
+export async function getShareLinkByUrl(url: string): Promise<ShareLink | null> {
   const rows = await sql`
     SELECT * FROM share_links WHERE url = ${url} LIMIT 1
   `;
@@ -262,10 +240,7 @@ export async function deleteFile(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /** Insert chunks for a file using a single multi-row INSERT. */
-export async function insertChunks(
-  fileId: string,
-  chunks: FileChunk[],
-): Promise<void> {
+export async function insertChunks(fileId: string, chunks: FileChunk[]): Promise<void> {
   if (chunks.length === 0) return;
 
   // Postgres.js supports bulk inserts natively
@@ -303,10 +278,7 @@ export async function getChunksByFileId(fileId: string, limit?: number): Promise
 }
 
 /** Fetch the top N chunks per file for multiple file IDs in a single query. */
-export async function getTopChunksByFileIds(
-  fileIds: string[],
-  chunksPerFile = 3,
-): Promise<Map<string, FileChunk[]>> {
+export async function getTopChunksByFileIds(fileIds: string[], chunksPerFile = 3): Promise<Map<string, FileChunk[]>> {
   if (fileIds.length === 0) return new Map();
   const rows = await sql`
     SELECT * FROM (
@@ -362,10 +334,7 @@ export async function updateFileIndexingStatus(
  *
  * @deprecated Use {@link searchChunksByFullText} for better relevance via PostgreSQL full-text search.
  */
-export async function searchChunks(
-  query: string,
-  limit = 50,
-): Promise<Array<FileChunk & { fileName: string }>> {
+export async function searchChunks(query: string, limit = 50): Promise<Array<FileChunk & { fileName: string }>> {
   const pattern = `%${query}%`;
   const rows = await sql`
     SELECT c.*, f.name AS file_name
@@ -499,7 +468,6 @@ export async function insertChunksWithEmbeddings(
     }
   });
 }
-
 
 // ---------------------------------------------------------------------------
 // Metadata search helpers

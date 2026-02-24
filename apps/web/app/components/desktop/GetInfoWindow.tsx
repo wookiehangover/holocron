@@ -88,7 +88,9 @@ export function GetInfoWindow({ file }: GetInfoWindowProps) {
       </div>
       <div style={rowStyle}>
         <span style={labelStyle}>Size:</span>
-        <span style={valueStyle}>{formatBytes(file.size)} ({file.size.toLocaleString()} bytes)</span>
+        <span style={valueStyle}>
+          {formatBytes(file.size)} ({file.size.toLocaleString()} bytes)
+        </span>
       </div>
       <div style={rowStyle}>
         <span style={labelStyle}>Where:</span>
@@ -106,7 +108,9 @@ export function GetInfoWindow({ file }: GetInfoWindowProps) {
       {meta?.imageWidth && meta?.imageHeight && (
         <div style={rowStyle}>
           <span style={labelStyle}>Dimensions:</span>
-          <span style={valueStyle}>{meta.imageWidth} × {meta.imageHeight} pixels</span>
+          <span style={valueStyle}>
+            {meta.imageWidth} × {meta.imageHeight} pixels
+          </span>
         </div>
       )}
 
@@ -168,4 +172,3 @@ export function GetInfoWindow({ file }: GetInfoWindowProps) {
     </div>
   );
 }
-

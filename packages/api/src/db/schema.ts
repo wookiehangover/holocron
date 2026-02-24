@@ -15,4 +15,3 @@ export const sql = postgres(process.env.DATABASE_URL!, {
   idle_timeout: 20,
   connect_timeout: 10,
 });
-

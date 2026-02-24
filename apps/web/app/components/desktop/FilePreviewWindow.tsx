@@ -137,11 +137,7 @@ function TextPreview({ url, name }: { url: string; name: string }) {
   }
 
   if (text === null) {
-    return (
-      <div style={{ padding: 8 }}>
-        Loading…
-      </div>
-    );
+    return <div style={{ padding: 8 }}>Loading…</div>;
   }
 
   return (
@@ -161,13 +157,7 @@ function TextPreview({ url, name }: { url: string; name: string }) {
 }
 
 function PdfPreview({ url, name }: { url: string; name: string }) {
-  return (
-    <iframe
-      src={url}
-      title={name}
-      style={{ width: "100%", height: "100%", border: "none" }}
-    />
-  );
+  return <iframe src={url} title={name} style={{ width: "100%", height: "100%", border: "none" }} />;
 }
 
 function VideoPreview({ url, name }: { url: string; name: string }) {
@@ -183,9 +173,7 @@ function VideoPreview({ url, name }: { url: string; name: string }) {
 function AudioPreview({ url, name }: { url: string; name: string }) {
   return (
     <div className="s7-audio-preview">
-      <div style={{ fontFamily: "GeistPixel, Geneva, sans-serif", fontSize: 14, marginBottom: 12 }}>
-        {name}
-      </div>
+      <div style={{ fontFamily: "GeistPixel, Geneva, sans-serif", fontSize: 14, marginBottom: 12 }}>{name}</div>
       <audio controls src={url} title={name} style={{ width: "100%" }}>
         Your browser does not support the audio element.
       </audio>
@@ -193,13 +181,7 @@ function AudioPreview({ url, name }: { url: string; name: string }) {
   );
 }
 
-function GenericPreview({
-  file,
-  downloadUrl,
-}: {
-  file: HolocronFile;
-  downloadUrl: string;
-}) {
+function GenericPreview({ file, downloadUrl }: { file: HolocronFile; downloadUrl: string }) {
   return (
     <div
       style={{
@@ -209,20 +191,20 @@ function GenericPreview({
         gap: 8,
       }}
     >
-      <div><strong>Name:</strong> {file.name}</div>
-      <div><strong>Type:</strong> {file.mimeType ?? "Unknown"}</div>
-      <div><strong>Size:</strong> {formatBytes(file.size)}</div>
+      <div>
+        <strong>Name:</strong> {file.name}
+      </div>
+      <div>
+        <strong>Type:</strong> {file.mimeType ?? "Unknown"}
+      </div>
+      <div>
+        <strong>Size:</strong> {formatBytes(file.size)}
+      </div>
       <div style={{ marginTop: 8 }}>
-        <a
-          href={downloadUrl}
-          download={file.name}
-          className="btn"
-          style={{ textDecoration: "none" }}
-        >
+        <a href={downloadUrl} download={file.name} className="btn" style={{ textDecoration: "none" }}>
           Download
         </a>
       </div>
     </div>
   );
 }
-

@@ -4,20 +4,9 @@
  */
 export function FolderIcon({ size = 32 }: { size?: number }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 32 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Tab on top-left */}
-      <path
-        d="M2 8 L2 6 L12 6 L14 8"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        fill="var(--s7-icon-fill, white)"
-      />
+      <path d="M2 8 L2 6 L12 6 L14 8" stroke="currentColor" strokeWidth="1.5" fill="var(--s7-icon-fill, white)" />
       {/* Folder body */}
       <rect
         x="2"
@@ -34,4 +23,3 @@ export function FolderIcon({ size = 32 }: { size?: number }) {
     </svg>
   );
 }
-

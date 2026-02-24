@@ -65,9 +65,7 @@ function truncate(text: string, max = 200): string {
 export default function SearchPage() {
   const loaderData = useLoaderData<typeof loader>();
   const navigation = useNavigation();
-  const isSearching =
-    navigation.state === "loading" &&
-    new URLSearchParams(navigation.location?.search).has("q");
+  const isSearching = navigation.state === "loading" && new URLSearchParams(navigation.location?.search).has("q");
 
   // Two-phase render: start with fast RRF results, then refine with LLM reranking
   const [displayResults, setDisplayResults] = useState<HybridSearchResult[] | null>(loaderData.results);
@@ -146,9 +144,7 @@ export default function SearchPage() {
         {!isSearching && displayResults === null && <EmptyPrompt />}
 
         {/* Query with no results */}
-        {!isSearching && displayResults !== null && displayResults.length === 0 && (
-          <NoResults query={query} />
-        )}
+        {!isSearching && displayResults !== null && displayResults.length === 0 && <NoResults query={query} />}
 
         {/* Results */}
         {!isSearching && displayResults !== null && displayResults.length > 0 && (
@@ -239,9 +235,7 @@ function ResultItem({ result, query }: { result: HybridSearchResult; query: stri
         )}
       </div>
 
-      {result.file.path !== result.file.name && (
-        <p className="text-[10px] text-muted-foreground">{result.file.path}</p>
-      )}
+      {result.file.path !== result.file.name && <p className="text-[10px] text-muted-foreground">{result.file.path}</p>}
 
       {visibleChunks.length > 0 && (
         <div className="space-y-1.5">
@@ -251,9 +245,7 @@ function ResultItem({ result, query }: { result: HybridSearchResult; query: stri
               className="border-l-2 border-muted pl-3 text-xs text-muted-foreground leading-relaxed"
             >
               {chunk.page != null && (
-                <span className="mr-1.5 text-[10px] font-medium text-muted-foreground/60">
-                  p.{chunk.page}
-                </span>
+                <span className="mr-1.5 text-[10px] font-medium text-muted-foreground/60">p.{chunk.page}</span>
               )}
               <span className="mr-1.5 text-[10px] font-medium text-muted-foreground/60">
                 [{chunk.relevanceScore}/10]
@@ -266,4 +258,3 @@ function ResultItem({ result, query }: { result: HybridSearchResult; query: stri
     </div>
   );
 }
-

@@ -5,13 +5,7 @@
 export function DocumentIcon({ size = 32 }: { size?: number }) {
   const w = (24 / 32) * size;
   return (
-    <svg
-      width={w}
-      height={size}
-      viewBox="0 0 24 32"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width={w} height={size} viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Document body with dog-ear */}
       <path
         d="M2 1 L16 1 L22 7 L22 31 L2 31 Z"
@@ -29,4 +23,3 @@ export function DocumentIcon({ size = 32 }: { size?: number }) {
     </svg>
   );
 }
-

@@ -51,18 +51,14 @@ export async function listFiles(): Promise<HolocronFile[]> {
 }
 
 /** Fetch a single file's metadata and a presigned download URL. */
-export async function getFile(
-  id: string,
-): Promise<{ file: HolocronFile; downloadUrl: string }> {
+export async function getFile(id: string): Promise<{ file: HolocronFile; downloadUrl: string }> {
   const res = await fetch(`${baseUrl()}/files/${id}`, { headers: headers() });
   if (!res.ok) throw new Error(`getFile failed: ${res.status}`);
   return res.json();
 }
 
 /** Create a share link for a file. Returns the share link id and URL. */
-export async function createShareLink(
-  fileId: string,
-): Promise<{ id: string; url: string; expiresAt: string | null }> {
+export async function createShareLink(fileId: string): Promise<{ id: string; url: string; expiresAt: string | null }> {
   const res = await fetch(`${baseUrl()}/share`, {
     method: "POST",
     headers: headers(),
@@ -125,8 +121,7 @@ export async function uploadFile(file: File): Promise<{ fileId: string }> {
     headers: headers(),
     body: JSON.stringify({ fileId }),
   });
-  if (!confirmRes.ok)
-    throw new Error(`upload confirm failed: ${confirmRes.status}`);
+  if (!confirmRes.ok) throw new Error(`upload confirm failed: ${confirmRes.status}`);
 
   return { fileId };
 }
@@ -151,9 +146,7 @@ export async function deleteFile(id: string): Promise<void> {
 }
 
 /** Fetch chunks for a file (text segments extracted during indexing). */
-export async function getFileChunks(
-  id: string,
-): Promise<{
+export async function getFileChunks(id: string): Promise<{
   chunks: Array<{
     id: string;
     text: string;
@@ -197,10 +190,7 @@ export interface SearchResponse {
  * Full-text search across indexed file chunks.
  * @deprecated Use {@link hybridSearch} instead — it combines keyword, vector, and LLM reranking.
  */
-export async function searchFiles(
-  query: string,
-  limit = 20,
-): Promise<SearchResponse> {
+export async function searchFiles(query: string, limit = 20): Promise<SearchResponse> {
   const params = new URLSearchParams({ q: query, limit: String(limit) });
   const res = await fetch(`${baseUrl()}/files/search?${params}`, {
     headers: headers(),
@@ -221,7 +211,13 @@ export interface HybridSearchResult {
     mimeType: string;
     metadata?: unknown;
   };
-  chunks: Array<{ id: string; text: string; page?: number; chunkIndex: number; relevanceScore: number }>;
+  chunks: Array<{
+    id: string;
+    text: string;
+    page?: number;
+    chunkIndex: number;
+    relevanceScore: number;
+  }>;
   topScore: number;
 }
 
@@ -232,10 +228,7 @@ export interface HybridSearchResponse {
 }
 
 /** Hybrid search: keyword + vector + RRF scoring (fast path, no LLM reranking). */
-export async function hybridSearch(
-  query: string,
-  limit = 20,
-): Promise<HybridSearchResponse> {
+export async function hybridSearch(query: string, limit = 20): Promise<HybridSearchResponse> {
   const res = await fetch(`${baseUrl()}/search`, {
     method: "POST",
     headers: headers(),
@@ -246,10 +239,7 @@ export async function hybridSearch(
 }
 
 /** Rerank search results using LLM (Gemini 3 Flash). Enhancement path — call after hybridSearch. */
-export async function rerankSearch(
-  query: string,
-  results: HybridSearchResult[],
-): Promise<HybridSearchResponse> {
+export async function rerankSearch(query: string, results: HybridSearchResult[]): Promise<HybridSearchResponse> {
   const res = await fetch(`${baseUrl()}/search/rerank`, {
     method: "POST",
     headers: headers(),
@@ -258,4 +248,3 @@ export async function rerankSearch(
   if (!res.ok) throw new Error(`rerankSearch failed: ${res.status}`);
   return res.json();
 }
-

@@ -79,16 +79,9 @@ function PreviewSection({
             />
           </svg>
         </div>
-        <p className="text-sm text-muted-foreground">
-          No preview available for this file type
-        </p>
+        <p className="text-sm text-muted-foreground">No preview available for this file type</p>
         <p className="mt-1 text-xs text-muted-foreground">{mimeType}</p>
-        <a
-          href={downloadUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4"
-        >
+        <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="mt-4">
           <Button>Download File</Button>
         </a>
       </CardContent>
@@ -119,10 +112,7 @@ export async function loader({ params }: Route.LoaderArgs) {
 // ---------------------------------------------------------------------------
 
 export function meta() {
-  return [
-    { title: "Shared File — Holocron" },
-    { name: "description", content: "Download a shared file" },
-  ];
+  return [{ title: "Shared File — Holocron" }, { name: "description", content: "Download a shared file" }];
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +178,9 @@ export default function SharePage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Type</span>
-                    <Badge variant="secondary" className="text-xs">{file.mimeType}</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {file.mimeType}
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
@@ -199,4 +191,3 @@ export default function SharePage() {
     </main>
   );
 }
-

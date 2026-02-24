@@ -60,9 +60,7 @@ interface ExtractMetadataResult {
   status: "success" | "failed";
 }
 
-export async function handler(
-  event: ExtractMetadataEvent,
-): Promise<ExtractMetadataResult> {
+export async function handler(event: ExtractMetadataEvent): Promise<ExtractMetadataResult> {
   const { fileId, bucket, fullTextS3Key, extractionMeta } = event;
 
   console.log(`Extracting metadata for file ${fileId} from s3://${bucket}/${fullTextS3Key}`);
@@ -146,9 +144,7 @@ export async function handler(
 
 /** Read the full text content from S3. */
 async function readFullText(bucket: string, key: string): Promise<string> {
-  const response = await s3.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
-  );
+  const response = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
 
   if (!response.Body) {
     throw new Error(`Empty response body for s3://${bucket}/${key}`);
@@ -156,4 +152,3 @@ async function readFullText(bucket: string, key: string): Promise<string> {
 
   return response.Body.transformToString("utf-8");
 }
-

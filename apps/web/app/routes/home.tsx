@@ -45,10 +45,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 // ---------------------------------------------------------------------------
 
 export function meta() {
-  return [
-    { title: "Holocron" },
-    { name: "description", content: "Personal file vault" },
-  ];
+  return [{ title: "Holocron" }, { name: "description", content: "Personal file vault" }];
 }
 
 // ---------------------------------------------------------------------------
@@ -107,10 +104,7 @@ function FolderBreadcrumb({ folder }: { folder: string | null }) {
             {isLast ? (
               <span className="text-foreground font-medium">{seg}</span>
             ) : (
-              <Link
-                to={`/?folder=${encodeURIComponent(path)}`}
-                className="hover:underline hover:text-foreground"
-              >
+              <Link to={`/?folder=${encodeURIComponent(path)}`} className="hover:underline hover:text-foreground">
                 {seg}
               </Link>
             )}
@@ -206,11 +200,7 @@ export default function Home() {
 
       <Layout>
         <div className="space-y-6">
-          {error && (
-            <p className="text-xs text-destructive">
-              Failed to load files: {error}
-            </p>
-          )}
+          {error && <p className="text-xs text-destructive">Failed to load files: {error}</p>}
 
           <div className="flex items-center justify-between gap-3">
             <FolderBreadcrumb folder={folder} />

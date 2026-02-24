@@ -1,32 +1,10 @@
 import { Link, useSearchParams } from "react-router";
-import {
-  Download,
-  Share2,
-  Clock,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  ChevronUp,
-  ChevronDown,
-  Folder,
-} from "lucide-react";
+import { Download, Share2, Clock, Loader2, CheckCircle2, XCircle, ChevronUp, ChevronDown, Folder } from "lucide-react";
 import type { HolocronFile, IndexingStatus } from "@holocron/core/types";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "~/components/ui/table";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "~/components/ui/table";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-  TooltipProvider,
-} from "~/components/ui/tooltip";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "~/components/ui/tooltip";
 
 // ---------------------------------------------------------------------------
 // Indexing status → icon + tooltip mapping
@@ -129,9 +107,7 @@ function SortableHead({
       <span className="inline-flex items-center gap-0.5">
         {label}
         {isActive && currentDir === "asc" && <ChevronUp className="size-3" />}
-        {isActive && currentDir === "desc" && (
-          <ChevronDown className="size-3" />
-        )}
+        {isActive && currentDir === "desc" && <ChevronDown className="size-3" />}
       </span>
     </TableHead>
   );
@@ -169,18 +145,12 @@ export function FileTable({
   const [searchParams] = useSearchParams();
 
   if (files.length === 0 && folders.length === 0) {
-    return (
-      <p className="py-12 text-center text-xs text-muted-foreground">
-        No files yet. Drop files above to upload.
-      </p>
-    );
+    return <p className="py-12 text-center text-xs text-muted-foreground">No files yet. Drop files above to upload.</p>;
   }
 
   function buildFolderUrl(folderName: string) {
     const next = new URLSearchParams(searchParams);
-    const path = currentFolder
-      ? `${currentFolder}/${folderName}`
-      : folderName;
+    const path = currentFolder ? `${currentFolder}/${folderName}` : folderName;
     next.set("folder", path);
     return `/?${next.toString()}`;
   }
@@ -191,28 +161,16 @@ export function FileTable({
         <TableHeader>
           <TableRow>
             {COLUMN_SORT.map((col) => (
-              <SortableHead
-                key={col.param}
-                label={col.label}
-                param={col.param}
-                currentSort={sort}
-                currentDir={dir}
-              />
+              <SortableHead key={col.param} label={col.label} param={col.param} currentSort={sort} currentDir={dir} />
             ))}
             <TableHead className="w-[140px] text-xs" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {folders.map((f) => (
-            <TableRow
-              key={`folder-${f.name}`}
-              className="hover:bg-muted/50 transition-colors"
-            >
+            <TableRow key={`folder-${f.name}`} className="hover:bg-muted/50 transition-colors">
               <TableCell className="text-xs">
-                <Link
-                  to={buildFolderUrl(f.name)}
-                  className="hover:underline inline-flex items-center gap-1.5"
-                >
+                <Link to={buildFolderUrl(f.name)} className="hover:underline inline-flex items-center gap-1.5">
                   <Folder className="size-4 text-muted-foreground" />
                   {f.name}
                 </Link>
@@ -226,39 +184,22 @@ export function FileTable({
             </TableRow>
           ))}
           {files.map((file) => (
-            <TableRow
-              key={file.id}
-              className="hover:bg-muted/50 transition-colors"
-            >
+            <TableRow key={file.id} className="hover:bg-muted/50 transition-colors">
               <TableCell className="text-xs">
-                <Link
-                  to={`/files/${file.id}`}
-                  className="hover:underline inline-flex items-center gap-1"
-                >
+                <Link to={`/files/${file.id}`} className="hover:underline inline-flex items-center gap-1">
                   {file.name}
                 </Link>
               </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {formatBytes(file.size)}
-              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">{formatBytes(file.size)}</TableCell>
               <TableCell className="text-xs">
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] font-normal"
-                >
+                <Badge variant="secondary" className="text-[10px] font-normal">
                   {file.mimeType}
                 </Badge>
               </TableCell>
-              <TableCell className="text-xs text-muted-foreground">
-                {formatDate(file.createdAt)}
-              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">{formatDate(file.createdAt)}</TableCell>
               <TableCell className="text-xs">
                 <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => onDownload(file.id)}
-                  >
+                  <Button variant="ghost" size="xs" onClick={() => onDownload(file.id)}>
                     <Download className="size-3" />
                     <span className="sr-only">Download</span>
                   </Button>
@@ -266,16 +207,10 @@ export function FileTable({
                     variant="ghost"
                     size="xs"
                     onClick={() => onShare(file.id)}
-                    className={
-                      copiedFileId === file.id
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : ""
-                    }
+                    className={copiedFileId === file.id ? "text-emerald-600 dark:text-emerald-400" : ""}
                   >
                     <Share2 className="size-3" />
-                    <span className="text-[10px]">
-                      {copiedFileId === file.id ? "Copied!" : "Share"}
-                    </span>
+                    <span className="text-[10px]">{copiedFileId === file.id ? "Copied!" : "Share"}</span>
                   </Button>
                   <IndexingStatusIcon status={file.indexingStatus} />
                 </div>
@@ -287,4 +222,3 @@ export function FileTable({
     </TooltipProvider>
   );
 }
-

@@ -6,13 +6,7 @@ import { getFile, getFileChunks, createShareLink } from "~/lib/api";
 import { Layout } from "~/components/layout";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import { ImagePreview } from "~/components/preview/image-preview";
 import { TextPreview } from "~/components/preview/text-preview";
 import { PdfPreview } from "~/components/preview/pdf-preview";
@@ -112,12 +106,8 @@ export async function loader({ params }: Route.LoaderArgs): Promise<LoaderData> 
 
 export function meta({ data }: Route.MetaArgs) {
   const d = data as LoaderData | undefined;
-  const title =
-    d && d.ok ? `${d.file.name} — Holocron` : "File — Holocron";
-  return [
-    { title },
-    { name: "description", content: "File details and preview" },
-  ];
+  const title = d && d.ok ? `${d.file.name} — Holocron` : "File — Holocron";
+  return [{ title }, { name: "description", content: "File details and preview" }];
 }
 
 // ---------------------------------------------------------------------------
@@ -187,19 +177,13 @@ export default function FileDetail() {
               <div className="min-w-0">
                 <h1 className="truncate text-lg font-medium">{file.name}</h1>
                 {file.path !== file.name && (
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {file.path}
-                  </p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">{file.path}</p>
                 )}
               </div>
             </div>
 
             {/* Preview */}
-            <PreviewSection
-              mimeType={file.mimeType}
-              downloadUrl={downloadUrl}
-              fileName={file.name}
-            />
+            <PreviewSection mimeType={file.mimeType} downloadUrl={downloadUrl} fileName={file.name} />
           </div>
 
           {/* RIGHT COLUMN — metadata sidebar (narrower, sticky) */}
@@ -209,11 +193,7 @@ export default function FileDetail() {
               <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
                 <Button size="sm">Download</Button>
               </a>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleShare(file.id)}
-              >
+              <Button variant="outline" size="sm" onClick={() => handleShare(file.id)}>
                 {copied ? "Copied!" : "Share"}
               </Button>
             </div>
@@ -226,9 +206,7 @@ export default function FileDetail() {
                   <div className="text-xs text-muted-foreground space-y-2">
                     <div className="flex justify-between">
                       <span>Size</span>
-                      <span className="text-foreground">
-                        {formatBytes(file.size)}
-                      </span>
+                      <span className="text-foreground">{formatBytes(file.size)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Type</span>
@@ -239,29 +217,21 @@ export default function FileDetail() {
                     {file.indexingStatus && (
                       <div className="flex justify-between">
                         <span>Status</span>
-                        <Badge
-                          variant="outline"
-                          className={indexingStatusColor(file.indexingStatus)}
-                        >
+                        <Badge variant="outline" className={indexingStatusColor(file.indexingStatus)}>
                           {file.indexingStatus}
                         </Badge>
                       </div>
                     )}
                     <div className="flex justify-between">
                       <span>Uploaded</span>
-                      <span className="text-foreground">
-                        {formatDate(file.createdAt)}
-                      </span>
+                      <span className="text-foreground">{formatDate(file.createdAt)}</span>
                     </div>
-                    {file.updatedAt &&
-                      file.updatedAt !== file.createdAt && (
-                        <div className="flex justify-between">
-                          <span>Updated</span>
-                          <span className="text-foreground">
-                            {formatDate(file.updatedAt)}
-                          </span>
-                        </div>
-                      )}
+                    {file.updatedAt && file.updatedAt !== file.createdAt && (
+                      <div className="flex justify-between">
+                        <span>Updated</span>
+                        <span className="text-foreground">{formatDate(file.updatedAt)}</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -287,23 +257,15 @@ function MetadataSection({ file }: { file: HolocronFile }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">
-          {meta.title || "File Metadata"}
-        </CardTitle>
-        {meta.summary && (
-          <CardDescription className="text-xs leading-relaxed">
-            {meta.summary}
-          </CardDescription>
-        )}
+        <CardTitle className="text-sm">{meta.title || "File Metadata"}</CardTitle>
+        {meta.summary && <CardDescription className="text-xs leading-relaxed">{meta.summary}</CardDescription>}
       </CardHeader>
       <CardContent>
         <div className="flex flex-col gap-3">
           {/* Keywords */}
           {meta.keywords && meta.keywords.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Keywords
-              </p>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Keywords</p>
               <div className="flex flex-wrap gap-1.5">
                 {meta.keywords.map((kw) => (
                   <Badge key={kw} variant="secondary" className="text-xs">
@@ -317,9 +279,7 @@ function MetadataSection({ file }: { file: HolocronFile }) {
           {/* Topics */}
           {meta.topics && meta.topics.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Topics
-              </p>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Topics</p>
               <div className="flex flex-wrap gap-1.5">
                 {meta.topics.map((topic) => (
                   <Badge key={topic} variant="outline" className="text-xs">
@@ -332,9 +292,7 @@ function MetadataSection({ file }: { file: HolocronFile }) {
 
           {/* Stats row */}
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-            {meta.wordCount != null && (
-              <span>{meta.wordCount.toLocaleString()} words</span>
-            )}
+            {meta.wordCount != null && <span>{meta.wordCount.toLocaleString()} words</span>}
             {meta.pageCount != null && (
               <span>
                 {meta.pageCount} {meta.pageCount === 1 ? "page" : "pages"}
@@ -396,20 +354,12 @@ function PreviewSection({
             />
           </svg>
         </div>
-        <p className="text-sm text-muted-foreground">
-          No preview available for this file type
-        </p>
+        <p className="text-sm text-muted-foreground">No preview available for this file type</p>
         <p className="mt-1 text-xs text-muted-foreground">{mimeType}</p>
-        <a
-          href={downloadUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4"
-        >
+        <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="mt-4">
           <Button>Download File</Button>
         </a>
       </CardContent>
     </Card>
   );
 }
-

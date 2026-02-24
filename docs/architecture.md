@@ -214,12 +214,12 @@ holocron/
 
 ### Tooling decisions
 
-| Concern | Choice | Rationale |
-| --- | --- | --- |
-| Package manager | pnpm 10 | Fast, strict dependency isolation, workspace support |
-| Monorepo orchestration | Turborepo | Caching, task graph, minimal config |
-| IaC | SST v3 (Pulumi under the hood) | TypeScript-native, resource linking, first-class Lambda support |
-| TypeScript config | Shared tsconfig.base.json | strict: true, ESNext target, NodeNext module resolution |
+| Concern                | Choice                         | Rationale                                                       |
+| ---------------------- | ------------------------------ | --------------------------------------------------------------- |
+| Package manager        | pnpm 10                        | Fast, strict dependency isolation, workspace support            |
+| Monorepo orchestration | Turborepo                      | Caching, task graph, minimal config                             |
+| IaC                    | SST v3 (Pulumi under the hood) | TypeScript-native, resource linking, first-class Lambda support |
+| TypeScript config      | Shared tsconfig.base.json      | strict: true, ESNext target, NodeNext module resolution         |
 
 ### Package dependency graph
 
@@ -307,17 +307,17 @@ Defined in `packages/core/src/types/index.ts`. These types are shared across the
 
 ### `HolocronFile`
 
-| Field | Type | Purpose |
-| --- | --- | --- |
-| id | string | UUID primary key |
-| name | string | Filename (leaf of path) |
-| path | string | Vault-relative path (e.g. `document.pdf`) |
-| s3Key | string? | S3 object key (e.g. `files/{uuid}/document.pdf`) |
-| size | number | File size in bytes |
-| mimeType | string | Content type |
-| checksum | string | Integrity hash (for sync conflict detection) |
-| createdAt | Date | Upload timestamp |
-| updatedAt | Date | Last modification timestamp |
+| Field     | Type    | Purpose                                          |
+| --------- | ------- | ------------------------------------------------ |
+| id        | string  | UUID primary key                                 |
+| name      | string  | Filename (leaf of path)                          |
+| path      | string  | Vault-relative path (e.g. `document.pdf`)        |
+| s3Key     | string? | S3 object key (e.g. `files/{uuid}/document.pdf`) |
+| size      | number  | File size in bytes                               |
+| mimeType  | string  | Content type                                     |
+| checksum  | string  | Integrity hash (for sync conflict detection)     |
+| createdAt | Date    | Upload timestamp                                 |
+| updatedAt | Date    | Last modification timestamp                      |
 
 ### `SyncState`
 
@@ -432,13 +432,13 @@ A union type representing the synchronization lifecycle of a file:
 
 ### `ShareLink`
 
-| Field | Type | Purpose |
-| --- | --- | --- |
-| id | string | UUID primary key |
-| fileId | string | FK → HolocronFile.id |
-| url | string | Public-facing share URL |
-| expiresAt | Date | null |
-| createdAt | Date | Creation timestamp |
+| Field     | Type   | Purpose                 |
+| --------- | ------ | ----------------------- |
+| id        | string | UUID primary key        |
+| fileId    | string | FK → HolocronFile.id    |
+| url       | string | Public-facing share URL |
+| expiresAt | Date   | null                    |
+| createdAt | Date   | Creation timestamp      |
 
 ## 5. Infrastructure (AWS via SST)
 
@@ -446,18 +446,18 @@ All infrastructure is defined in `infra/` and wired together in `sst.config.ts`.
 
 ### Resources
 
-| Resource | SST / Pulumi type | Defined in | Purpose |
-| --- | --- | --- | --- |
-| HolocronBucket | sst.aws.Bucket | infra/storage.ts | Private S3 bucket for file blobs |
-| DatabaseUrl | sst.Secret | infra/database.ts | PlanetScale PostgreSQL connection string (files, share links, chunks, embeddings) |
-| HolocronApiKey | sst.Secret | infra/database.ts | Self-generated API key, provisioned via `scripts/setup.sh` |
-| HolocronApi | sst.aws.Function | infra/api.ts | Hono API Lambda (Node 24) |
-| HolocronGateway | sst.aws.ApiGatewayV2 | infra/api.ts | HTTP API fronting the Lambda |
-| ExtractText | sst.aws.Function | infra/processing.ts | Text extraction Lambda (Node 24) — PDF, text, image OCR via Gemini |
-| ChunkText | sst.aws.Function | infra/processing.ts | Text chunking Lambda (Node 24) |
-| ExtractMetadata | sst.aws.Function | infra/processing.ts | LLM metadata extraction Lambda (Node 24) — summary, keywords, topics |
-| VercelAIGatewayApiKey | sst.Secret | infra/database.ts | Vercel AI Gateway API key for LLM calls |
-| HolocronProcessing | aws.sfn.StateMachine | infra/processing.ts | Step Functions orchestrator |
+| Resource              | SST / Pulumi type    | Defined in          | Purpose                                                                           |
+| --------------------- | -------------------- | ------------------- | --------------------------------------------------------------------------------- |
+| HolocronBucket        | sst.aws.Bucket       | infra/storage.ts    | Private S3 bucket for file blobs                                                  |
+| DatabaseUrl           | sst.Secret           | infra/database.ts   | PlanetScale PostgreSQL connection string (files, share links, chunks, embeddings) |
+| HolocronApiKey        | sst.Secret           | infra/database.ts   | Self-generated API key, provisioned via `scripts/setup.sh`                        |
+| HolocronApi           | sst.aws.Function     | infra/api.ts        | Hono API Lambda (Node 24)                                                         |
+| HolocronGateway       | sst.aws.ApiGatewayV2 | infra/api.ts        | HTTP API fronting the Lambda                                                      |
+| ExtractText           | sst.aws.Function     | infra/processing.ts | Text extraction Lambda (Node 24) — PDF, text, image OCR via Gemini                |
+| ChunkText             | sst.aws.Function     | infra/processing.ts | Text chunking Lambda (Node 24)                                                    |
+| ExtractMetadata       | sst.aws.Function     | infra/processing.ts | LLM metadata extraction Lambda (Node 24) — summary, keywords, topics              |
+| VercelAIGatewayApiKey | sst.Secret           | infra/database.ts   | Vercel AI Gateway API key for LLM calls                                           |
+| HolocronProcessing    | aws.sfn.StateMachine | infra/processing.ts | Step Functions orchestrator                                                       |
 
 ### Resource linking
 
@@ -482,18 +482,18 @@ Non-production stages are fully torn down on removal. Production retains resourc
 
 ### Endpoints
 
-| Method | Path | Status | Purpose |
-| --- | --- | --- | --- |
-| GET | /health | ✅ Implemented | Health check (excluded from auth) |
-| GET | /files | ✅ Implemented | List all files in vault |
-| POST | /files/upload | ✅ Implemented | Request presigned upload URL |
-| POST | /files/upload/confirm | ✅ Implemented | Confirm upload; optionally stores client-supplied `checksum` |
-| GET | /files/:id | ✅ Implemented | Get file metadata + presigned download URL (includes indexing status and LLM-generated metadata) |
-| GET | /files/:id/chunks | ✅ Implemented | Returns all indexed chunks for a file |
-| GET | /files/search?q=:query | ✅ Implemented | Case-insensitive text search across chunks |
-| DELETE | /files/:id | ✅ Implemented | Delete file (S3 object + share links + DB record) |
-| POST | /share | ✅ Implemented | Create a share link |
-| GET | /share/:token | ✅ Implemented | Resolve a share link (excluded from auth) |
+| Method | Path                   | Status         | Purpose                                                                                          |
+| ------ | ---------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| GET    | /health                | ✅ Implemented | Health check (excluded from auth)                                                                |
+| GET    | /files                 | ✅ Implemented | List all files in vault                                                                          |
+| POST   | /files/upload          | ✅ Implemented | Request presigned upload URL                                                                     |
+| POST   | /files/upload/confirm  | ✅ Implemented | Confirm upload; optionally stores client-supplied `checksum`                                     |
+| GET    | /files/:id             | ✅ Implemented | Get file metadata + presigned download URL (includes indexing status and LLM-generated metadata) |
+| GET    | /files/:id/chunks      | ✅ Implemented | Returns all indexed chunks for a file                                                            |
+| GET    | /files/search?q=:query | ✅ Implemented | Case-insensitive text search across chunks                                                       |
+| DELETE | /files/:id             | ✅ Implemented | Delete file (S3 object + share links + DB record)                                                |
+| POST   | /share                 | ✅ Implemented | Create a share link                                                                              |
+| GET    | /share/:token          | ✅ Implemented | Resolve a share link (excluded from auth)                                                        |
 
 ### Authentication
 
@@ -698,7 +698,6 @@ The web app is in the pnpm workspace but does **not** deploy via SST yet — it'
 - Deploy as SSR via Lambda@Edge or a separate Lambda
 - Keep it as a local dev tool only
 
-
 ## 10. Rust CLI
 
 **Language**: Rust (edition 2021) · **Async runtime**: Tokio · **CLI framework**: Clap (derive)
@@ -719,17 +718,17 @@ apps/cli/src/
 
 ### Commands
 
-| Command | Description |
-| --- | --- |
-| `holocron config show` | Print current configuration as JSON |
-| `holocron config set <key> <value>` | Set a config value (`api-url`, `vault-path`, `api-key`) |
-| `holocron config get <key>` | Get a single config value |
-| `holocron health` | Check API connectivity |
-| `holocron ls` | List remote files (tabular output) |
-| `holocron share <id> [--expires-in N]` | Create a share URL |
-| `holocron url <id>` | Get a presigned download URL |
-| `holocron sync` | One-shot bidirectional sync |
-| `holocron daemon` | Watch vault directory and sync on changes |
+| Command                                | Description                                             |
+| -------------------------------------- | ------------------------------------------------------- |
+| `holocron config show`                 | Print current configuration as JSON                     |
+| `holocron config set <key> <value>`    | Set a config value (`api-url`, `vault-path`, `api-key`) |
+| `holocron config get <key>`            | Get a single config value                               |
+| `holocron health`                      | Check API connectivity                                  |
+| `holocron ls`                          | List remote files (tabular output)                      |
+| `holocron share <id> [--expires-in N]` | Create a share URL                                      |
+| `holocron url <id>`                    | Get a presigned download URL                            |
+| `holocron sync`                        | One-shot bidirectional sync                             |
+| `holocron daemon`                      | Watch vault directory and sync on changes               |
 
 ### Shared state
 
@@ -757,18 +756,18 @@ The sync engine (`sync.rs`) uses the same three-way comparison as the Swift `Syn
 
 ### Key dependencies
 
-| Crate | Purpose |
-| --- | --- |
-| clap | CLI argument parsing (derive macros) |
-| reqwest | HTTP client (rustls TLS backend) |
-| tokio | Async runtime |
-| serde / serde_json | JSON serialization |
-| sha2 + hex | SHA-256 checksums |
-| notify | Cross-platform filesystem watcher |
-| chrono | Timestamp formatting for conflict files |
-| dirs | Platform-appropriate home directory resolution |
-| mime_guess | MIME type detection from file extension |
-| thiserror | Error type derivation |
+| Crate              | Purpose                                        |
+| ------------------ | ---------------------------------------------- |
+| clap               | CLI argument parsing (derive macros)           |
+| reqwest            | HTTP client (rustls TLS backend)               |
+| tokio              | Async runtime                                  |
+| serde / serde_json | JSON serialization                             |
+| sha2 + hex         | SHA-256 checksums                              |
+| notify             | Cross-platform filesystem watcher              |
+| chrono             | Timestamp formatting for conflict files        |
+| dirs               | Platform-appropriate home directory resolution |
+| mime_guess         | MIME type detection from file extension        |
+| thiserror          | Error type derivation                          |
 
 ### Build
 

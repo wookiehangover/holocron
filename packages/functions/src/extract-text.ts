@@ -77,7 +77,13 @@ interface ExtractTextResult {
   fullTextS3Key: string;
   mimeType: string;
   fileName: string;
-  extractionMeta: { wordCount: number; charCount: number; pageCount?: number; imageWidth?: number; imageHeight?: number };
+  extractionMeta: {
+    wordCount: number;
+    charCount: number;
+    pageCount?: number;
+    imageWidth?: number;
+    imageHeight?: number;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +143,10 @@ async function extractImage(buffer: Buffer, mimeType: string): Promise<string> {
 
 /** Strip HTML/XML tags and collapse whitespace. */
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Extract text from an EPUB buffer by parsing the OPF spine and reading XHTML in order. */
@@ -246,11 +255,7 @@ export async function handler(event: ExtractTextEvent): Promise<ExtractTextResul
       const result = await extractPdf(fileBuffer);
       fullText = result.text;
       pageCount = result.pageCount;
-    } else if (
-      mimeType.startsWith("text/") ||
-      mimeType === "application/json" ||
-      mimeType === "application/xml"
-    ) {
+    } else if (mimeType.startsWith("text/") || mimeType === "application/json" || mimeType === "application/xml") {
       fullText = extractTextContent(fileBuffer);
     } else if (mimeType === "application/epub+zip") {
       const result = await extractEpub(fileBuffer);
@@ -303,4 +308,3 @@ export async function handler(event: ExtractTextEvent): Promise<ExtractTextResul
     throw error;
   }
 }
-

@@ -20,4 +20,3 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function AuthLayout() {
   return <Outlet />;
 }
-

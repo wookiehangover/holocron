@@ -22,4 +22,3 @@ export function loadShortcuts(): DesktopShortcut[] {
 export function saveShortcuts(shortcuts: DesktopShortcut[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(shortcuts));
 }
-

@@ -10,10 +10,7 @@ interface ConfirmDialogProps {
  */
 export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
-    <div
-      className="s7-dialog-overlay fixed inset-0 z-[9999] flex items-center justify-center"
-      onClick={onCancel}
-    >
+    <div className="s7-dialog-overlay fixed inset-0 z-[9999] flex items-center justify-center" onClick={onCancel}>
       <div className="outer-border" onClick={(e) => e.stopPropagation()}>
         <div className="inner-border">
           <div className="flex items-start gap-[16px] p-[16px] max-w-[400px]">
@@ -57,4 +54,3 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
     </div>
   );
 }
-
