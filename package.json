@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
-    "lint": "turbo lint",
     "typecheck": "turbo typecheck",
-    "deploy": "sst deploy --stage dev"
+    "deploy": "sst deploy --stage dev",
+    "lint": "oxlint"
   },
   "devDependencies": {
     "@types/node": "^25.2.2",
+    "oxlint": "^1.50.0",
     "sst": "^3.17.38",
     "turbo": "^2.8.3",
     "typescript": "^5.9.3"

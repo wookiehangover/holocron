@@ -100,9 +100,9 @@ function PreviewSection({
 // Loader — resolve share token server-side
 // ---------------------------------------------------------------------------
 
-type ShareData =
-  | { ok: true; file: { name: string; size: number; mimeType: string }; downloadUrl: string }
-  | { ok: false; status: number };
+// type ShareData =
+//   | { ok: true; file: { name: string; size: number; mimeType: string }; downloadUrl: string }
+//   | { ok: false; status: number };
 
 export async function loader({ params }: Route.LoaderArgs) {
   try {

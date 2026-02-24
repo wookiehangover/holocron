@@ -127,7 +127,7 @@ export default function Home() {
 
   const [dragOver, setDragOver] = useState(false);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [_, setUploadError] = useState<string | null>(null);
   const [copiedFileId, setCopiedFileId] = useState<string | null>(null);
 
   const handleUpload = useCallback(

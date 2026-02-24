@@ -188,7 +188,7 @@ export async function getVaultVersion(): Promise<{
       latestChange: row.last_modified
         ? new Date(row.last_modified as string).toISOString()
         : null,
-      fileCount: Math.max(0, Number(row.file_count) ?? 0),
+      fileCount: Math.max(0, Number(row.file_count ?? 0)),
     };
   }
 

@@ -412,7 +412,7 @@ export async function rerankResults(
       const bestB = Math.max(...b[1].chunks.map((c) => c.relevanceScore));
       return bestB - bestA;
     })
-    .map(([fileId, group]) => ({
+    .map(([_, group]) => ({
       file: group.file,
       chunks: group.chunks
         .sort((a, b) => b.relevanceScore - a.relevanceScore)

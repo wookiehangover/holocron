@@ -1,4 +1,4 @@
-import type { HolocronFile, FileChunk } from "@holocron/core/types";
+import type { HolocronFile } from "@holocron/core/types";
 
 // ---------------------------------------------------------------------------
 // Env helpers — server uses process.env, client uses window.ENV
