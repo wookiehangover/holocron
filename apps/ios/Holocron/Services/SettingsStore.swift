@@ -62,31 +62,21 @@ final class SettingsStore: ObservableObject {
     private func saveAPIKeyToKeychain(_ key: String) {
         let data = Data(key.utf8)
 
-        // Try to update existing item first
-        let query: [String: Any] = [
+        // Delete any existing item first to ensure clean state
+        let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
         ]
+        SecItemDelete(deleteQuery as CFDictionary)
 
-        let attributes: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-        ]
-
-        let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-
-        if updateStatus == errSecItemNotFound {
-            // Item doesn't exist yet — add it
-            var addQuery = query
-            addQuery[kSecValueData as String] = data
-            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-            if addStatus != errSecSuccess {
-                Self.logger.error("Keychain add failed: \(addStatus)")
-            }
-        } else if updateStatus != errSecSuccess {
-            Self.logger.error("Keychain update failed: \(updateStatus)")
+        // Add with the correct accessibility attribute
+        var addQuery = deleteQuery
+        addQuery[kSecValueData as String] = data
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+        if addStatus != errSecSuccess {
+            Self.logger.error("Keychain add failed: \(addStatus)")
         }
     }
 
@@ -95,7 +85,6 @@ final class SettingsStore: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
