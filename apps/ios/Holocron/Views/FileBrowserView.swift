@@ -50,6 +50,13 @@ struct FileBrowserView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink {
+                        SearchView()
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink {
                         SettingsView()
                     } label: {
                         Image(systemName: "moon.dust")
