@@ -169,21 +169,22 @@ struct SearchView: View {
 
     // MARK: - File Preview
 
-    private func viewFile(_ file: HolocronFile) async {
+    private func viewFile(_ file: SearchFile) async {
         isDownloading = true
         defer { isDownloading = false }
         do {
-            if let cachedURL = FileCache.shared.cachedURL(for: file) {
-                selectedFile = file
+            let client = makeClient()
+            let (serverFile, downloadURL) = try await client.getFile(id: file.id)
+            // Check cache using the full file (which has checksum)
+            if let cachedURL = FileCache.shared.cachedURL(for: serverFile) {
+                selectedFile = serverFile
                 previewURL = cachedURL
                 showPreview = true
                 return
             }
-            let client = makeClient()
-            let (serverFile, downloadURL) = try await client.getFile(id: file.id)
             let (data, _) = try await URLSession.shared.data(from: downloadURL)
             let localURL = try FileCache.shared.cache(data: data, for: serverFile)
-            selectedFile = file
+            selectedFile = serverFile
             previewURL = localURL
             showPreview = true
         } catch {

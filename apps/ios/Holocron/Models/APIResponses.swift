@@ -59,9 +59,17 @@ struct SearchChunk: Codable, Sendable {
     let relevanceScore: Double
 }
 
+/// Lightweight file info returned by the search API (no size, checksum, or timestamps).
+struct SearchFile: Codable, Sendable, Identifiable {
+    let id: String
+    let name: String
+    let path: String
+    let mimeType: String
+}
+
 /// A file-level search result containing matched chunks.
 struct SearchResult: Codable, Sendable {
-    let file: HolocronFile
+    let file: SearchFile
     let chunks: [SearchChunk]
     let topScore: Double
 }
