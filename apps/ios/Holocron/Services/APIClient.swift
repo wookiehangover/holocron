@@ -189,6 +189,17 @@ final class APIClient: Sendable {
         }
     }
 
+    // MARK: - Search
+
+    /// Perform a hybrid search across all files in the vault.
+    func search(query: String, limit: Int = 20) async throws -> SearchResponse {
+        logger.info("search called with query: \(query, privacy: .public)")
+        let body = try encoder.encode(SearchRequest(query: query, limit: limit))
+        let request = makeRequest(path: "search", method: "POST", body: body)
+        let (data, _) = try await perform(request)
+        return try Self.jsonDecoder.decode(SearchResponse.self, from: data)
+    }
+
     // MARK: - Sharing
 
     /// Create a shareable link for a file.

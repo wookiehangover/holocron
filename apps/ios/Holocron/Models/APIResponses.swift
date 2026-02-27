@@ -42,6 +42,37 @@ struct ConfirmUploadResponse: Codable, Sendable {
     let status: String
 }
 
+// MARK: - Search Types
+
+/// Request body for `POST /search`.
+struct SearchRequest: Encodable, Sendable {
+    let query: String
+    let limit: Int
+}
+
+/// A single chunk of text from a search result.
+struct SearchChunk: Codable, Sendable {
+    let id: String
+    let text: String
+    let page: Int?
+    let chunkIndex: Int
+    let relevanceScore: Double
+}
+
+/// A file-level search result containing matched chunks.
+struct SearchResult: Codable, Sendable {
+    let file: HolocronFile
+    let chunks: [SearchChunk]
+    let topScore: Double
+}
+
+/// Response from `POST /search` — hybrid search results.
+struct SearchResponse: Codable, Sendable {
+    let results: [SearchResult]
+    let query: String
+    let total: Int
+}
+
 // MARK: - Request Types
 
 /// Request body for `POST /files/upload`.
