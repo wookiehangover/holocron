@@ -71,6 +71,7 @@ final class SettingsStore: ObservableObject {
 
         let attributes: [String: Any] = [
             kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
         ]
 
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
@@ -79,6 +80,7 @@ final class SettingsStore: ObservableObject {
             // Item doesn't exist yet — add it
             var addQuery = query
             addQuery[kSecValueData as String] = data
+            addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
             let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
             if addStatus != errSecSuccess {
                 Self.logger.error("Keychain add failed: \(addStatus)")
@@ -93,6 +95,7 @@ final class SettingsStore: ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.keychainService,
             kSecAttrAccount as String: Self.keychainAccount,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
