@@ -206,9 +206,32 @@ export default function Home() {
     (e: React.DragEvent) => {
       e.preventDefault();
       setDragOver(false);
+      // Ignore internal drag-drop (file moves within the table)
+      if (e.dataTransfer.types.includes("application/x-holocron-file-id")) return;
       handleUpload(e.dataTransfer.files);
     },
     [handleUpload],
+  );
+
+  const handleMove = useCallback(
+    async (fileId: string, newPath: string) => {
+      const fileName = newPath.split("/").pop() ?? newPath;
+      try {
+        const res = await fetch("/api/move", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileId, newPath }),
+        });
+        if (!res.ok) throw new Error(`move failed: ${res.status}`);
+        toast.success(`Moved ${fileName}`);
+        revalidator.revalidate();
+      } catch (e) {
+        toast.error(`Failed to move ${fileName}`, {
+          description: (e as Error).message,
+        });
+      }
+    },
+    [revalidator],
   );
 
   const handleDownload = useCallback(async (id: string) => {
@@ -252,6 +275,8 @@ export default function Home() {
       className="relative min-h-screen"
       onDragOver={(e) => {
         e.preventDefault();
+        // Don't show upload overlay for internal file moves
+        if (e.dataTransfer.types.includes("application/x-holocron-file-id")) return;
         setDragOver(true);
       }}
       onDragLeave={(e) => {
@@ -297,9 +322,9 @@ export default function Home() {
             files={files}
             folders={folders}
             currentFolder={folder}
-            copiedFileId={copiedFileId}
             onDownload={handleDownload}
             onShare={handleShare}
+            onMove={handleMove}
             formatBytes={formatBytes}
             formatDate={formatDate}
             sort={sort}

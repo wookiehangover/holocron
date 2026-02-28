@@ -1,10 +1,18 @@
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Download, Share2, Clock, Loader2, CheckCircle2, XCircle, ChevronUp, ChevronDown, Folder } from "lucide-react";
+import { Download, Share2, Clock, Loader2, CheckCircle2, XCircle, ChevronUp, ChevronDown, Folder, MoreHorizontal, ExternalLink, RefreshCw, FolderInput, Trash2 } from "lucide-react";
 import type { HolocronFile, IndexingStatus } from "@holocron/core/types";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "~/components/ui/table";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "~/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "~/components/ui/dropdown-menu";
 
 // ---------------------------------------------------------------------------
 // Indexing status → icon + tooltip mapping
@@ -121,9 +129,11 @@ interface FileTableProps {
   files: HolocronFile[];
   folders?: { name: string; fileCount: number }[];
   currentFolder?: string | null;
-  copiedFileId: string | null;
   onDownload: (id: string) => void;
   onShare: (id: string) => void;
+  onMove?: (fileId: string, newPath: string) => void;
+  onDelete?: (id: string) => void;
+  onReindex?: (id: string) => void;
   formatBytes: (bytes: number) => string;
   formatDate: (d: string | Date) => string;
   sort?: string | null;
@@ -134,15 +144,18 @@ export function FileTable({
   files,
   folders = [],
   currentFolder = null,
-  copiedFileId,
   onDownload,
   onShare,
+  onMove,
+  onDelete,
+  onReindex,
   formatBytes,
   formatDate,
   sort = null,
   dir = null,
 }: FileTableProps) {
   const [searchParams] = useSearchParams();
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
 
   if (files.length === 0 && folders.length === 0) {
     return <p className="py-12 text-center text-xs text-muted-foreground">No files yet. Drop files above to upload.</p>;
@@ -163,12 +176,43 @@ export function FileTable({
             {COLUMN_SORT.map((col) => (
               <SortableHead key={col.param} label={col.label} param={col.param} currentSort={sort} currentDir={dir} />
             ))}
-            <TableHead className="w-[140px] text-xs" />
+            <TableHead className="w-[50px] text-xs" />
           </TableRow>
         </TableHeader>
         <TableBody>
           {folders.map((f) => (
-            <TableRow key={`folder-${f.name}`} className="hover:bg-muted/50 transition-colors">
+            <TableRow
+              key={`folder-${f.name}`}
+              className={`transition-colors ${dragOverFolder === f.name ? "bg-primary/10 ring-1 ring-primary/40" : "hover:bg-muted/50"}`}
+              onDragOver={(e) => {
+                // Only accept holocron file drags
+                if (e.dataTransfer.types.includes("application/x-holocron-file-id")) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDragEnter={(e) => {
+                if (e.dataTransfer.types.includes("application/x-holocron-file-id")) {
+                  e.preventDefault();
+                  setDragOverFolder(f.name);
+                }
+              }}
+              onDragLeave={(e) => {
+                // Only clear if leaving the row entirely (not entering a child)
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDragOverFolder(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverFolder(null);
+                const fileId = e.dataTransfer.getData("application/x-holocron-file-id");
+                const fileName = e.dataTransfer.getData("application/x-holocron-file-name");
+                if (!fileId || !fileName || !onMove) return;
+                const folderPath = currentFolder ? `${currentFolder}/${f.name}` : f.name;
+                onMove(fileId, `${folderPath}/${fileName}`);
+              }}
+            >
               <TableCell className="text-xs">
                 <Link to={buildFolderUrl(f.name)} className="hover:underline inline-flex items-center gap-1.5">
                   <Folder className="size-4 text-muted-foreground" />
@@ -180,14 +224,74 @@ export function FileTable({
               </TableCell>
               <TableCell />
               <TableCell />
-              <TableCell />
+              <TableCell className="text-xs">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="xs">
+                      <MoreHorizontal className="size-3.5" />
+                      <span className="sr-only">Actions</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link to={buildFolderUrl(f.name)}>
+                        <ExternalLink className="size-4" />
+                        Open
+                      </Link>
+                    </DropdownMenuItem>
+                    {onMove && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const folderPath = currentFolder ? `${currentFolder}/${f.name}` : f.name;
+                            const newPath = window.prompt("Move folder to:", folderPath);
+                            if (newPath && newPath !== folderPath) {
+                              onMove(f.name, newPath);
+                            }
+                          }}
+                        >
+                          <FolderInput className="size-4" />
+                          Move
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {onDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => {
+                            if (window.confirm(`Delete folder "${f.name}" and all its contents?`)) {
+                              onDelete(f.name);
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
             </TableRow>
           ))}
           {files.map((file) => (
-            <TableRow key={file.id} className="hover:bg-muted/50 transition-colors">
+            <TableRow
+              key={file.id}
+              className="hover:bg-muted/50 transition-colors cursor-grab active:cursor-grabbing"
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData("application/x-holocron-file-id", file.id);
+                e.dataTransfer.setData("application/x-holocron-file-name", file.name);
+                e.dataTransfer.effectAllowed = "move";
+              }}
+            >
               <TableCell className="text-xs">
                 <Link to={`/files/${file.id}`} className="hover:underline inline-flex items-center gap-1">
                   {file.name}
+                  <IndexingStatusIcon status={file.indexingStatus} />
                 </Link>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">{formatBytes(file.size)}</TableCell>
@@ -198,22 +302,69 @@ export function FileTable({
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">{formatDate(file.createdAt)}</TableCell>
               <TableCell className="text-xs">
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="xs" onClick={() => onDownload(file.id)}>
-                    <Download className="size-3" />
-                    <span className="sr-only">Download</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => onShare(file.id)}
-                    className={copiedFileId === file.id ? "text-emerald-600 dark:text-emerald-400" : ""}
-                  >
-                    <Share2 className="size-3" />
-                    <span className="text-[10px]">{copiedFileId === file.id ? "Copied!" : "Share"}</span>
-                  </Button>
-                  <IndexingStatusIcon status={file.indexingStatus} />
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="xs">
+                      <MoreHorizontal className="size-3.5" />
+                      <span className="sr-only">Actions</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link to={`/files/${file.id}`}>
+                        <ExternalLink className="size-4" />
+                        Open
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDownload(file.id)}>
+                      <Download className="size-4" />
+                      Download
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onShare(file.id)}>
+                      <Share2 className="size-4" />
+                      Share
+                    </DropdownMenuItem>
+                    {onReindex && (
+                      <DropdownMenuItem onClick={() => onReindex(file.id)}>
+                        <RefreshCw className="size-4" />
+                        Re-index
+                      </DropdownMenuItem>
+                    )}
+                    {onMove && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const currentPath = file.path || file.name;
+                            const newPath = window.prompt("Move file to:", currentPath);
+                            if (newPath && newPath !== currentPath) {
+                              onMove(file.id, newPath);
+                            }
+                          }}
+                        >
+                          <FolderInput className="size-4" />
+                          Move
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {onDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => {
+                            if (window.confirm(`Delete "${file.name}"? This cannot be undone.`)) {
+                              onDelete(file.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
           ))}
