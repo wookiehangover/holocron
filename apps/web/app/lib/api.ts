@@ -148,6 +148,15 @@ export async function deleteFile(id: string): Promise<void> {
   if (!res.ok) throw new Error(`deleteFile failed: ${res.status}`);
 }
 
+/** Trigger re-indexing of a file. */
+export async function reindexFile(id: string): Promise<void> {
+  const res = await fetch(`${baseUrl()}/files/${id}/reindex`, {
+    method: "POST",
+    headers: headers(),
+  });
+  if (!res.ok) throw new Error(`reindexFile failed: ${res.status}`);
+}
+
 /** Fetch chunks for a file (text segments extracted during indexing). */
 export async function getFileChunks(id: string): Promise<{
   chunks: Array<{

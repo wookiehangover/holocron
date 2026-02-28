@@ -120,7 +120,6 @@ export default function Home() {
   const revalidator = useRevalidator();
 
   const [dragOver, setDragOver] = useState(false);
-  const [copiedFileId, setCopiedFileId] = useState<string | null>(null);
 
   const handleUpload = useCallback(
     async (fileList: FileList | null) => {
@@ -245,7 +244,7 @@ export default function Home() {
       const { downloadUrl } = await res.json();
       window.open(downloadUrl, "_blank");
     } catch (e) {
-      alert(`Download failed: ${(e as Error).message}`);
+      toast.error("Download failed", { description: (e as Error).message });
     }
   }, []);
 
@@ -261,12 +260,44 @@ export default function Home() {
       const token = url.split("/").pop();
       const shareUrl = `${window.location.origin}/share/${token}`;
       await navigator.clipboard.writeText(shareUrl);
-      setCopiedFileId(fileId);
-      setTimeout(() => setCopiedFileId(null), 2000);
+      toast.success("Share link copied to clipboard");
     } catch (e) {
-      alert(`Share failed: ${(e as Error).message}`);
+      toast.error("Share failed", { description: (e as Error).message });
     }
   }, []);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch("/api/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileId: id }),
+        });
+        if (!res.ok) throw new Error(`delete failed: ${res.status}`);
+        toast.success("File deleted");
+        revalidator.revalidate();
+      } catch (e) {
+        toast.error("Delete failed", { description: (e as Error).message });
+      }
+    },
+    [revalidator],
+  );
+
+  const handleReindex = useCallback(async (id: string) => {
+    try {
+      const res = await fetch("/api/reindex", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId: id }),
+      });
+      if (!res.ok) throw new Error(`reindex failed: ${res.status}`);
+      toast.success("Re-indexing started");
+      revalidator.revalidate();
+    } catch (e) {
+      toast.error("Re-index failed", { description: (e as Error).message });
+    }
+  }, [revalidator]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -325,6 +356,8 @@ export default function Home() {
             onDownload={handleDownload}
             onShare={handleShare}
             onMove={handleMove}
+            onDelete={handleDelete}
+            onReindex={handleReindex}
             formatBytes={formatBytes}
             formatDate={formatDate}
             sort={sort}
