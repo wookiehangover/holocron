@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
-import { Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Upload } from "lucide-react";
 import { Link, useLoaderData, useRevalidator } from "react-router";
+import { toast } from "sonner";
 import type { Route } from "./+types/home";
 import type { HolocronFile } from "@holocron/core/types";
 import { listFilesInFolder } from "~/lib/db.server";
@@ -72,7 +73,7 @@ function formatDate(d: string | Date): string {
 // Component
 // ---------------------------------------------------------------------------
 
-type UploadState = "idle" | "uploading" | "done" | "error";
+
 
 // ---------------------------------------------------------------------------
 // Breadcrumb
@@ -138,7 +139,7 @@ export default function Home() {
             body: JSON.stringify({
               intent: "init",
               name: file.name,
-              path: file.name,
+              path: folder ? `${folder}/${file.name}` : file.name,
               size: file.size,
               mimeType: file.type || "application/octet-stream",
             }),
@@ -170,7 +171,7 @@ export default function Home() {
         setUploadError((e as Error).message);
       }
     },
-    [revalidator],
+    [folder, revalidator],
   );
 
   const handleDrop = useCallback(
