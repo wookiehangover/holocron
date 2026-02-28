@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { Link, useLoaderData } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import type { HolocronFile } from "@holocron/core/types";
-import { getFile, getFileChunks, createShareLink } from "~/lib/api";
+import { getFile, getFileChunks } from "~/lib/api";
 import { Layout } from "~/components/layout";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -120,7 +120,13 @@ export default function FileDetail() {
 
   const handleShare = useCallback(async (fileId: string) => {
     try {
-      const { url } = await createShareLink(fileId);
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId }),
+      });
+      if (!res.ok) throw new Error(`share failed: ${res.status}`);
+      const { url } = await res.json();
       const token = url.split("/").pop();
       const shareUrl = `${window.location.origin}/share/${token}`;
       await navigator.clipboard.writeText(shareUrl);

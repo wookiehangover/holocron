@@ -6,7 +6,7 @@ import type { HolocronFile } from "@holocron/core/types";
 
 declare global {
   interface Window {
-    ENV?: { API_URL?: string; API_KEY?: string };
+    ENV?: { API_URL?: string };
   }
 }
 
@@ -14,7 +14,7 @@ function getEnv(): { apiUrl: string; apiKey: string } {
   if (typeof window !== "undefined" && window.ENV) {
     return {
       apiUrl: window.ENV.API_URL ?? "/api",
-      apiKey: window.ENV.API_KEY ?? "",
+      apiKey: "",
     };
   }
   return {
@@ -24,12 +24,15 @@ function getEnv(): { apiUrl: string; apiKey: string } {
 }
 
 function headers(): HeadersInit {
-  const { apiKey } = getEnv();
   const h: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (apiKey) {
-    h["X-Api-Key"] = apiKey;
+  // Only include API key server-side — never send from the browser
+  if (typeof window === "undefined") {
+    const apiKey = process.env.API_KEY ?? "";
+    if (apiKey) {
+      h["X-Api-Key"] = apiKey;
+    }
   }
   return h;
 }

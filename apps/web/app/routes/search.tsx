@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Form, Link, useLoaderData, useNavigation } from "react-router";
 import type { Route } from "./+types/search";
-import { hybridSearch, rerankSearch, type HybridSearchResult } from "../lib/api";
+import { hybridSearch, type HybridSearchResult } from "../lib/api";
 import { Layout } from "~/components/layout";
 import { Input } from "~/components/ui/input";
 import { Badge } from "~/components/ui/badge";
@@ -91,8 +91,16 @@ export default function SearchPage() {
     rerankAbortRef.current = abortController;
     setIsReranking(true);
 
-    rerankSearch(loaderData.query, loaderData.results)
-      .then((data) => {
+    fetch("/api/rerank", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: loaderData.query, results: loaderData.results }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`rerank failed: ${res.status}`);
+        return res.json();
+      })
+      .then((data: { results: HybridSearchResult[] }) => {
         if (!abortController.signal.aborted) {
           setDisplayResults(data.results);
           setIsReranking(false);

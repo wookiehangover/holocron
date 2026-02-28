@@ -4,7 +4,6 @@ import { Link, useLoaderData, useRevalidator } from "react-router";
 import type { Route } from "./+types/home";
 import type { HolocronFile } from "@holocron/core/types";
 import { listFilesInFolder } from "~/lib/db.server";
-import { getFile, uploadFile, createShareLink } from "../lib/api";
 import { Layout } from "~/components/layout";
 import { Button } from "~/components/ui/button";
 import { FileTable } from "~/components/file-table";
@@ -131,7 +130,37 @@ export default function Home() {
       setUploadError(null);
       try {
         for (let i = 0; i < fileList.length; i++) {
-          await uploadFile(fileList[i]);
+          const file = fileList[i];
+          // Step 1 — request presigned URL via server-side proxy
+          const initRes = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              intent: "init",
+              name: file.name,
+              path: file.name,
+              size: file.size,
+              mimeType: file.type || "application/octet-stream",
+            }),
+          });
+          if (!initRes.ok) throw new Error(`upload init failed: ${initRes.status}`);
+          const { fileId, uploadUrl } = await initRes.json();
+
+          // Step 2 — PUT file directly to S3 (browser → S3)
+          const putRes = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type || "application/octet-stream" },
+            body: file,
+          });
+          if (!putRes.ok) throw new Error(`S3 upload failed: ${putRes.status}`);
+
+          // Step 3 — confirm upload via server-side proxy
+          const confirmRes = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intent: "confirm", fileId }),
+          });
+          if (!confirmRes.ok) throw new Error(`upload confirm failed: ${confirmRes.status}`);
         }
         setUploadState("done");
         revalidator.revalidate();
@@ -155,7 +184,13 @@ export default function Home() {
 
   const handleDownload = useCallback(async (id: string) => {
     try {
-      const { downloadUrl } = await getFile(id);
+      const res = await fetch("/api/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId: id }),
+      });
+      if (!res.ok) throw new Error(`download failed: ${res.status}`);
+      const { downloadUrl } = await res.json();
       window.open(downloadUrl, "_blank");
     } catch (e) {
       alert(`Download failed: ${(e as Error).message}`);
@@ -164,7 +199,13 @@ export default function Home() {
 
   const handleShare = useCallback(async (fileId: string) => {
     try {
-      const { url } = await createShareLink(fileId);
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId }),
+      });
+      if (!res.ok) throw new Error(`share failed: ${res.status}`);
+      const { url } = await res.json();
       const token = url.split("/").pop();
       const shareUrl = `${window.location.origin}/share/${token}`;
       await navigator.clipboard.writeText(shareUrl);
