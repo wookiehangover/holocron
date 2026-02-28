@@ -120,18 +120,18 @@ export default function Home() {
   const revalidator = useRevalidator();
 
   const [dragOver, setDragOver] = useState(false);
-  const [uploadState, setUploadState] = useState<UploadState>("idle");
-  const [_, setUploadError] = useState<string | null>(null);
   const [copiedFileId, setCopiedFileId] = useState<string | null>(null);
 
   const handleUpload = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
-      setUploadState("uploading");
-      setUploadError(null);
-      try {
-        for (let i = 0; i < fileList.length; i++) {
-          const file = fileList[i];
+
+      const uploadFile = async (file: File) => {
+        const toastId = toast.loading(`Uploading ${file.name}…`, {
+          description: "0%",
+        });
+
+        try {
           // Step 1 — request presigned URL via server-side proxy
           const initRes = await fetch("/api/upload", {
             method: "POST",
@@ -147,13 +147,35 @@ export default function Home() {
           if (!initRes.ok) throw new Error(`upload init failed: ${initRes.status}`);
           const { fileId, uploadUrl } = await initRes.json();
 
-          // Step 2 — PUT file directly to S3 (browser → S3)
-          const putRes = await fetch(uploadUrl, {
-            method: "PUT",
-            headers: { "Content-Type": file.type || "application/octet-stream" },
-            body: file,
+          // Step 2 — PUT file directly to S3 via XHR for progress tracking
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("PUT", uploadUrl);
+            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+            xhr.upload.addEventListener("progress", (e) => {
+              if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                toast.loading(`Uploading ${file.name}…`, {
+                  id: toastId,
+                  description: `${pct}%`,
+                });
+              }
+            });
+
+            xhr.addEventListener("load", () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+              } else {
+                reject(new Error(`S3 upload failed: ${xhr.status}`));
+              }
+            });
+
+            xhr.addEventListener("error", () => reject(new Error("S3 upload network error")));
+            xhr.addEventListener("abort", () => reject(new Error("S3 upload aborted")));
+
+            xhr.send(file);
           });
-          if (!putRes.ok) throw new Error(`S3 upload failed: ${putRes.status}`);
 
           // Step 3 — confirm upload via server-side proxy
           const confirmRes = await fetch("/api/upload", {
@@ -162,14 +184,20 @@ export default function Home() {
             body: JSON.stringify({ intent: "confirm", fileId }),
           });
           if (!confirmRes.ok) throw new Error(`upload confirm failed: ${confirmRes.status}`);
+
+          toast.success(`${file.name} uploaded`, { id: toastId });
+        } catch (e) {
+          toast.error(`Failed to upload ${file.name}`, {
+            id: toastId,
+            description: (e as Error).message,
+          });
         }
-        setUploadState("done");
-        revalidator.revalidate();
-        setTimeout(() => setUploadState("idle"), 2000);
-      } catch (e) {
-        setUploadState("error");
-        setUploadError((e as Error).message);
-      }
+      };
+
+      // Upload all files concurrently, each with its own toast
+      const uploads = Array.from(fileList).map(uploadFile);
+      await Promise.allSettled(uploads);
+      revalidator.revalidate();
     },
     [folder, revalidator],
   );
@@ -250,33 +278,10 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={uploadState === "uploading"}
                 onClick={() => fileInputRef.current?.click()}
               >
-                {uploadState === "uploading" && (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin" />
-                    Uploading…
-                  </>
-                )}
-                {uploadState === "done" && (
-                  <>
-                    <CheckCircle className="size-3.5 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400">Uploaded!</span>
-                  </>
-                )}
-                {uploadState === "error" && (
-                  <>
-                    <AlertCircle className="size-3.5 text-destructive" />
-                    <span className="text-destructive">Failed</span>
-                  </>
-                )}
-                {uploadState === "idle" && (
-                  <>
-                    <Upload className="size-3.5" />
-                    Upload
-                  </>
-                )}
+                <Upload className="size-3.5" />
+                Upload
               </Button>
               <input
                 ref={fileInputRef}

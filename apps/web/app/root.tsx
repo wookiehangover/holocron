@@ -1,5 +1,6 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse, useLoaderData } from "react-router";
 import type { Route } from "./+types/root";
+import { Toaster } from "sonner";
 import { ThemeProvider, STORAGE_KEY } from "./lib/theme-provider";
 import "./app.css";
 
@@ -59,6 +60,7 @@ export default function App() {
         }}
       />
       <Outlet />
+      <Toaster position="bottom-right" richColors />
     </ThemeProvider>
   );
 }
