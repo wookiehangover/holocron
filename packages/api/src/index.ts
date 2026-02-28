@@ -201,6 +201,8 @@ app.post("/search/semantic", async (c) => {
   return c.json({ results, query: body.query, total: results.length });
 });
 
+const MAX_UPLOAD_SIZE = 524_288_000; // 500 MB
+
 app.post("/files/upload", async (c) => {
   const body = await c.req.json<{
     name: string;
@@ -209,11 +211,19 @@ app.post("/files/upload", async (c) => {
     mimeType: string;
   }>();
 
+  // Validate size
+  if (typeof body.size !== "number" || !Number.isInteger(body.size) || body.size <= 0) {
+    return c.json({ error: "Invalid file size: must be a positive integer" }, 400);
+  }
+  if (body.size > MAX_UPLOAD_SIZE) {
+    return c.json({ error: `File too large: maximum size is ${MAX_UPLOAD_SIZE} bytes (500 MB)` }, 400);
+  }
+
   const fileId = crypto.randomUUID();
   const s3Key = `files/${fileId}/${body.name}`;
   const bucket = getBucketName();
 
-  const uploadUrl = await getPresignedPutUrl(bucket, s3Key, body.mimeType);
+  const uploadUrl = await getPresignedPutUrl(bucket, s3Key, body.mimeType, body.size);
 
   const now = new Date();
   const file: HolocronFile = {

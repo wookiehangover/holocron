@@ -44,15 +44,17 @@ export function getBucketName(): string {
 /**
  * Generate a presigned PUT URL for uploading an object to S3.
  *
- * @param bucket     - S3 bucket name
- * @param key        - Object key
- * @param contentType - MIME type for the upload
- * @param expiresIn  - URL validity in seconds (default: 300 = 5 min)
+ * @param bucket        - S3 bucket name
+ * @param key           - Object key
+ * @param contentType   - MIME type for the upload
+ * @param contentLength - Expected upload size in bytes
+ * @param expiresIn     - URL validity in seconds (default: 300 = 5 min)
  */
 export async function getPresignedPutUrl(
   bucket: string,
   key: string,
   contentType: string,
+  contentLength: number,
   expiresIn = 300,
 ): Promise<string> {
   const client = getClient();
@@ -60,6 +62,7 @@ export async function getPresignedPutUrl(
     Bucket: bucket,
     Key: key,
     ContentType: contentType,
+    ContentLength: contentLength,
   });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- AWS SDK v3 cross-package type mismatch
   return getSignedUrl(client as any, command, { expiresIn });
