@@ -57,3 +57,4 @@ npm-debug.log*
 sst-env.d.ts
 
 apps/cli/target
+.intent
