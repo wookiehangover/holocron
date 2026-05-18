@@ -4,6 +4,10 @@
  * Uses Postgres.js (`postgres` npm package) for fast, lightweight
  * PostgreSQL access optimised for serverless (Lambda) environments.
  * The connection string is injected via the DATABASE_URL environment variable.
+ *
+ * Connections go through PgBouncer (port 6432) for connection pooling.
+ * `prepare: false` is required because PgBouncer in transaction pooling
+ * mode does not support prepared statements.
  */
 
 import postgres from "postgres";
@@ -14,4 +18,5 @@ export const sql = postgres(process.env.DATABASE_URL!, {
   max: 1,
   idle_timeout: 20,
   connect_timeout: 10,
+  prepare: false,
 });
