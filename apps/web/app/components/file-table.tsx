@@ -214,9 +214,9 @@ export function FileTable({
               }}
             >
               <TableCell className="text-xs">
-                <Link to={buildFolderUrl(f.name)} className="hover:underline inline-flex items-center gap-1.5">
-                  <Folder className="size-4 text-muted-foreground" />
-                  {f.name}
+                <Link to={buildFolderUrl(f.name)} className="hover:underline inline-flex items-center gap-1.5 max-w-[200px] truncate" title={f.name}>
+                  <Folder className="size-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">{f.name}</span>
                 </Link>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
@@ -289,8 +289,8 @@ export function FileTable({
               }}
             >
               <TableCell className="text-xs">
-                <Link to={`/files/${file.id}`} className="hover:underline inline-flex items-center gap-1">
-                  {file.name}
+                <Link to={`/files/${file.id}`} className="hover:underline inline-flex items-center gap-1 max-w-[200px]" title={file.name}>
+                  <span className="truncate">{file.name}</span>
                   <IndexingStatusIcon status={file.indexingStatus} />
                 </Link>
               </TableCell>

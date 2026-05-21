@@ -210,7 +210,7 @@ export function FileListWindow({
                 onDoubleClick={() => setCurrentPath(currentPath ? `${currentPath}/${entry.name}` : entry.name)}
               >
                 <FolderIcon size={20} />
-                <span className="truncate font-bold">{entry.name}</span>
+                <span className="truncate font-bold" title={entry.name}>{entry.name}</span>
                 <span>
                   {entry.count} item{entry.count !== 1 ? "s" : ""}
                 </span>
@@ -240,7 +240,7 @@ export function FileListWindow({
                 onDoubleClick={() => onFileClick?.(entry.file.id)}
               >
                 <DocumentIcon size={20} />
-                <span className="truncate">{entry.file.name}</span>
+                <span className="truncate" title={entry.file.name}>{entry.file.name}</span>
                 <span>{formatBytes(entry.file.size)}</span>
                 <span>{formatDate(entry.file.updatedAt)}</span>
               </div>
